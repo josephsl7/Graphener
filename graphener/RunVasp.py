@@ -1,7 +1,10 @@
 import os, subprocess
-from numpy import array, zeros
 
 class RunVasp:
+    """ This class is responsible for preparing the directories, retrieving the needed files, and
+        submitting VASP jobs to the supercomputer.  It keeps track of the SLURM job ids of all the
+        jobs that are currently running from a particular instance of the class. """
+    
     def __init__(self, atomList):
         """ CONSTRUCTOR """
         
@@ -256,7 +259,7 @@ class RunVasp:
             jobFile = open(direc + '/job','w')
     
             jobFile.write("#!/bin/bash\n\n")
-            jobFile.write("#SBATCH --time=08:00:00\n")
+            jobFile.write("#SBATCH --time=06:00:00\n")
             jobFile.write("#SBATCH --ntasks=16\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=erandemswens@gmail.com\n")
@@ -270,7 +273,7 @@ class RunVasp:
         jobFile = open('DOS/job','w')
         
         jobFile.write("#!/bin/bash\n\n")
-        jobFile.write("#SBATCH --time=08:00:00\n")
+        jobFile.write("#SBATCH --time=06:00:00\n")
         jobFile.write("#SBATCH --ntasks=16\n")
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
         jobFile.write("#SBATCH --mail-user=erandemswens@gmail.com\n")

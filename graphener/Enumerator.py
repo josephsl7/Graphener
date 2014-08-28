@@ -7,27 +7,38 @@ import os, subprocess
 
 
 class Enumerator:
-    """ Enumerates symmetrically unique structures using UNCLE and then extracts the pseudo-POSCAR
-        files from the struct_enum.out file produced by UNCLE.  After this class finishes its 
-        work, the Structs2Poscar class will take over and convert the pseudo-POSCAR files into
-        standard POSCAR files. """
+    """ Enumerates symmetrically unique structures using UNCLE.  After this class finishes its 
+        work, the Extractor class will take over and extract pseudo-POSCAR files from the
+        struct_enum.out file. """
   
-    def __init__(self, atoms):
+    def __init__(self, atoms, volRange):
         """ CONSTRUCTOR """
         self.atoms = atoms
+        self.volRange = volRange
         
-        self.enumExec = '/fslhome/eswens13/compute/uncleStuff/theuncleApr2014/enumlib/trunk/enum.x'
-        self.extractExec = '/fslhome/eswens13/compute/uncleStuff/theuncleApr2014/enumlib/trunk/makestr.x'
+        self.enumExec = os.path.abspath('needed_files/enum.x')
     
     def enumerate(self):
-        subprocess.call(['cp','/fslhome/eswens13/compute/uncleStuff/theuncleApr2014/enumlib/trunk/training/struct_enum.in.gr8', os.getcwd()])
-        subprocess.call([self.enumExec,'struct_enum.in.gr8'])
-    
-    def extract(self, structList):
-        #TODO: Still need to figure out where this list is going to come from.
+        subprocess.call(['mkdir','enum'])
+        infile = open('needed_files/struct_enum.in','r')
+        inlines = []
+        for line in infile:
+            inlines.append(line)
+        infile.close()
         
-        for struct in structList:
-            subprocess.call([self.extractExec, 'struct_enum.out',struct])
+        structFile = open('enum/struct_enum.in','w')
+        for i in xrange(len(inlines)):
+            if i == 9:
+                structFile.write(str(self.volRange[0]) + " " + str(self.volRange[1]) + " ")
+                structFile.write("# Starting and ending cell sizes for search\n")
+            else:
+                structFile.write(inlines[i])
+        structFile.close()
+        
+        lastDir = os.getcwd()
+        os.chdir(lastDir + '/enum')
+        subprocess.call([self.enumExec,'struct_enum.in'])
+        os.chdir(lastDir)
         
             
             

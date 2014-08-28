@@ -4,77 +4,87 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 
-import Enumerator, Structs2Poscar, RunVasp, JobManager
-import time
-from sched import scheduler
+import os
+
+import Enumerator, Extractor, Structs2Poscar, JobManager, Analyzer, DistanceInfo
+
+
+def readSettingsFile():
+    currDir = os.getcwd()
+    infile = open(currDir + '/needed_files/settings.in', 'r')
+    inlines = []
+    for line in infile:
+        firstPart = line.strip().split()[0]
+        firstChar = list(firstPart)[0]
+        if firstChar != '#':
+            inlines.append(line.strip())
+    infile.close()
+    
+    atoms = []
+    volRange = []
+    clusterNums = []
+    trainStructs = 0
+    fitStructs = 0
+    fitSubsets = 0
+    
+    for line in inlines:
+        if line.split()[0] == 'ATOMS:':
+            i = 1
+            adatoms = line.split()[1:]
+            for adatom in adatoms:
+                if adatom == '#':
+                    break
+                else:
+                    atoms.append(adatom)
+            
+        elif line.split()[0] == 'VOL_RANGE:':
+            low = int(line.split()[1])
+            high = int(line.split()[2])
+            volRange = [low, high]
+            
+        elif line.split()[0] == 'CLUSTER_NUMS:':
+            parts = line.split()
+            for i in xrange(1, 11):
+                clusterNums.append(int(parts[i]))
+        
+        elif line.split()[0] == 'TRAINING_STRUCTS:':
+            trainStructs = int(line.split()[1])
+          
+        elif line.split()[0] == 'FITTING_STRUCTS:':
+            fitStructs = int(line.split()[1])
+            
+        elif line.split()[0] == 'STRUCT_SUBSETS:':
+            fitSubsets = int(line.split()[1])
+    
+    return [atoms, volRange, clusterNums, trainStructs, fitStructs, fitSubsets]
+            
 
 if __name__ == '__main__':
-    atomList = ['W','Re','Ni']
+    [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets] = readSettingsFile()
     
-    enumerator = Enumerator.Enumerator(atomList)
+    enumerator = Enumerator.Enumerator(atomList, volRange)
     print "\nEnumerating symmetrically unique structures. . .\n"
     enumerator.enumerate()
     
-    # It might be a good idea to have an 'Extractor' class once we figure out how to generate
-    # the list of structures.
-    enumerator.extract(['1','2','3'])
+    extractor = Extractor.Extractor(clusterNums, trainingStructs)
+    extractor.extract()
     
     print "\nConverting outputs to VASP inputs. . .\n"
     toPoscar = Structs2Poscar.Structs2Poscar(atomList)
     toPoscar.convertOutputsToPoscar()
     
-    runner = RunVasp.RunVasp(atomList)
-    print "\nPreparing directories for VASP. . .\n"
-    runner.prepareForVasp()
-    
     manager = JobManager.JobManager(atomList)
+    manager.runLowJobs()
+    manager.runNormalJobs()
+    manager.runDOSJobs()
     
-    s = scheduler(time.time, time.sleep)
+    """print "\nAnalyzing movement during relaxation. . .\n"
+    distanceInfo = DistanceInfo.DistanceInfo(atomList)
+    distanceInfo.getDistanceInfo()
     
-    print "\nStarting low-precision ionic relaxation. . .\n"
-    runner.run(1)
-    
-    finished = False
-    start_time = time.time()
-    event_time = start_time
-    max_time = start_time + (8 * 60 * 60)
-    while not finished and event_time <= max_time:
-        event_time += 120
-        s.enterabs(event_time, 1, manager.reportFinshed, ([runner.getCurrentJobIds()]))
-        s.run()
-        finished = manager.reportFinshed(runner.getCurrentJobIds())
-    
-    manager.reportLowStats()
-    
-    print "\nStarting normal-precision ionic relaxation. . .\n"
-    runner.run(2)
-    
-    finished = False
-    start_time = time.time()
-    event_time = start_time
-    max_time = start_time + (8 * 60 * 60)
-    while not finished and event_time <= max_time:
-        event_time += 120
-        s.enterabs(event_time, 1, manager.reportFinshed, ([runner.getCurrentJobIds()]))
-        s.run()
-        finished = manager.reportFinshed(runner.getCurrentJobIds())
-    
-    manager.reportNormalStats()
-
-    print "\nStarting DOS run. . .\n"
-    runner.run(3)
-    
-    finished = False
-    start_time = time.time()
-    event_time = start_time
-    max_time = start_time + (8 * 60 * 60)
-    while not finished and event_time <= max_time:
-        event_time += 120
-        s.enterabs(event_time, 1, manager.reportFinshed, ([runner.getCurrentJobIds()]))
-        s.run()
-        finished = manager.reportFinshed(runner.getCurrentJobIds())
-    
-    manager.reportDOSStats()
+    print "\nAnalyzing convergence, CPU time, and energies of the structures. . .\n"
+    analyzer = Analyzer.Analyzer(atomList)
+    analyzer.analyze()"""
     
         
     
