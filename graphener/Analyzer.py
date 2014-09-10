@@ -18,6 +18,9 @@ class Analyzer:
         
         self.setStructList()
     
+    def makeAnalysisDir(self):
+        subprocess.call(['mkdir','analysis'])
+    
     def setStructList(self):
         atomDir = os.getcwd() + '/' + self.atoms[0]
         contents = os.listdir(atomDir)
@@ -110,7 +113,7 @@ class Analyzer:
     
         outfile.close()
     
-        subprocess.call(['cp', 'results', folder + 'analysis'])
+        subprocess.call(['cp', 'results', folder + 'end_of_run_info'])
         subprocess.call(['rm', 'results'])
 
     def readfile(self, filepath):

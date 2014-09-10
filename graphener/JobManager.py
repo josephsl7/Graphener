@@ -25,9 +25,9 @@ class JobManager:
         for jobid in jobIds:
             proc = subprocess.Popen(['squeue', '--job', jobid], stdout=subprocess.PIPE)
             output = proc.communicate()[0].split()
-            if len(output) != 8:
-                return False
-        
+            if len(output) != 8 and len(output) != 0:   # It will list either all the headers or
+                return False                            # sometimes it outputs an error and outputs
+                                                        # nothing.
         return True
     
     def reportLowStats(self):

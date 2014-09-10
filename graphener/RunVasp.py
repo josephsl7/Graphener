@@ -9,6 +9,8 @@ class RunVasp:
         """ CONSTRUCTOR """
         
         self.atomList = atomList
+        self.neededFilesFolder = os.getcwd() + '/needed_files/'
+        
         self.currJobIds = []
         
     def makeNormalDirectories(self):

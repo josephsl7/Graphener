@@ -38,6 +38,7 @@ class Enumerator:
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
         subprocess.call([self.enumExec,'struct_enum.in'])
+        
         os.chdir(lastDir)
         
             

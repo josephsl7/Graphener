@@ -57,7 +57,19 @@ class Extractor:
         
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        subprocess.call([self.uncleExec, '10'])
+        
+        proc = subprocess.Popen([self.uncleExec, '10'])
+        print "\npid = " + str(proc.pid) + "\n"
+        [procid, exitstatus] = os.waitpid(proc.pid, 0)
+        print "Exit status from os.waitpid() = " + str(exitstatus)
+        
+        print "\nContinued? " + str(os.WIFCONTINUED(exitstatus))
+        print "\nExited? " + str(os.WIFEXITED(exitstatus))
+        print "\n\tExit Status was " + str(os.WEXITSTATUS(exitstatus))
+        print "\nSignaled? " + str(os.WIFSIGNALED(exitstatus))
+        print "\n\tSignal was " + str(os.WSTOPSIG(exitstatus))
+        print "\nStopped? " + str(os.WIFSTOPPED(exitstatus))
+        
         os.chdir(lastDir)
 
     def chooseTrainingStructures(self):
@@ -76,6 +88,10 @@ class Extractor:
         trainFile.close()
           
     def extract(self):
+        #******************************************************************************************
+        #  This is the issue.  The call to self.chooseTrainingStructures() is getting called before
+        #  UNCLE is done building the clusters.
+        #******************************************************************************************
         self.changeEnumFile()
         print "\nGenerating clusters. . .\n"
         self.buildClusters()

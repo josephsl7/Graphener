@@ -458,7 +458,7 @@ class DistanceInfo:
     def exportToCSV(self):
         topDir = os.getcwd()
         
-        outfile = open('distance_summary.csv','w')
+        outfile = open('analysis/distance_summary.csv','w')
         
         outfile.write("Structure, vol. factor, M / (M + H), d - rms, Max d - para, Max d - perp, Min M - C, Max M - C, Ave Buckle\n")
         

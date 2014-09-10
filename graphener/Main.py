@@ -5,8 +5,9 @@ Created on Aug 26, 2014
 '''
 
 import os
+from random import seed
 
-import Enumerator, Extractor, Structs2Poscar, JobManager, Analyzer, DistanceInfo
+import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo
 
 
 def readSettingsFile():
@@ -26,6 +27,9 @@ def readSettingsFile():
     trainStructs = 0
     fitStructs = 0
     fitSubsets = 0
+    plotTitle = "title"
+    xlabel = "xlabel"
+    ylabel = "ylabel"
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':
@@ -55,12 +59,23 @@ def readSettingsFile():
             
         elif line.split()[0] == 'STRUCT_SUBSETS:':
             fitSubsets = int(line.split()[1])
+        
+        elif line.split()[0] == 'PLOT_TITLE:':
+            plotTitle = line.split('\'')[1]
+        
+        elif line.split()[0] == 'XLAB:':
+            xlabel = line.split('\'')[1]
+        
+        elif line.split()[0] == 'YLAB:':
+            ylabel = line.split('\'')[1]
     
-    return [atoms, volRange, clusterNums, trainStructs, fitStructs, fitSubsets]
+    return [atoms, volRange, clusterNums, trainStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel]
             
 
 if __name__ == '__main__':
-    [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets] = readSettingsFile()
+    seed()
+    
+    [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel] = readSettingsFile()
     
     enumerator = Enumerator.Enumerator(atomList, volRange)
     print "\nEnumerating symmetrically unique structures. . .\n"
@@ -76,15 +91,29 @@ if __name__ == '__main__':
     manager = JobManager.JobManager(atomList)
     manager.runLowJobs()
     manager.runNormalJobs()
-    manager.runDOSJobs()
-    
-    """print "\nAnalyzing movement during relaxation. . .\n"
-    distanceInfo = DistanceInfo.DistanceInfo(atomList)
-    distanceInfo.getDistanceInfo()
+    manager.runDOSJobs() 
     
     print "\nAnalyzing convergence, CPU time, and energies of the structures. . .\n"
     analyzer = Analyzer.Analyzer(atomList)
-    analyzer.analyze()"""
+    analyzer.makeAnalysisDir()
+    analyzer.analyze()
+    
+    print "\nAnalyzing movement during relaxation. . .\n"
+    distanceInfo = DistanceInfo.DistanceInfo(atomList)
+    distanceInfo.getDistanceInfo()
+    
+    uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList)
+    uncleFileMaker.makeUncleFiles()
+    
+    fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets)
+    fitter.makeFitDirectories()
+    fitter.fitVASPData()
+    
+    gss = GSS.GSS(atomList, volRange, plotTitle, xlabel, ylabel)
+    gss.makeGSSDirectories()
+    gss.performGroundStateSearch()
+    gss.makePlots()
+    
     
         
     
