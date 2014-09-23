@@ -66,7 +66,7 @@ class GSS:
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
             if os.path.isdir(gssDir):
-                print "\nPerforming ground state search for " + atom + ". . .\n"
+                subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
                 subprocess.call([self.uncleExec, '21'])
                 os.chdir(lastDir)
@@ -76,10 +76,34 @@ class GSS:
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
             if os.path.isdir(gssDir):
-                print "\nMaking plot of ground states for " + atom + ". . .\n"
+                subprocess.call(['echo', '\nMaking plot of ground states for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
                 subprocess.call(['gnuplot', 'gss_plot.gp'])
                 os.chdir(lastDir)
+    
+    def getAllGSSStructures(self):
+        allStructs = []
+        for atom in self.atoms:
+            atomStructs = []
+            structsByEnergy = []
+            gssFile = os.getcwd() + '/' + atom + '/gss/gss.out'
+            infile = open(gssFile, 'r')
+            
+            i = 0
+            for line in infile:
+                if i >= 2:
+                    structsByEnergy.append([float(line.strip().split()[7]), int(line.strip().split()[0])])
+            infile.close()
+            
+            structsByEnergy.sort()
+            for struct in structsByEnergy:
+                atomStructs.append(struct[1])
+            
+            allStructs.append(atomStructs)
+        
+        return allStructs
+            
+                
 
 
 

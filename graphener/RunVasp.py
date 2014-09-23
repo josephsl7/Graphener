@@ -13,15 +13,15 @@ class RunVasp:
         
         self.currJobIds = []
         
-    def makeNormalDirectories(self):
+    def makeNormalDirectories(self, structList):
         topDir = os.getcwd()
-        for element in self.atomList:
-            elementDir = topDir + '/' + element
+        for i in xrange(len(self.atomList)):
+            elementDir = topDir + '/' + self.atomList[i]
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in os.listdir(os.getcwd()):
+                for structure in structList[i]:
                     structDir = elementDir + '/' + structure
-                    if os.path.isdir(structDir):
+                    if os.path.isdir(structDir) and self.finishCheck(structDir) and self.convergeCheck(structDir, 400):
                         os.chdir(structDir)
                         subprocess.call(['mkdir', 'normal'])
                         subprocess.call(['cp','CONTCAR','DOSCAR','EIGENVAL',
@@ -37,19 +37,20 @@ class RunVasp:
             
             os.chdir(topDir)       
     
-    def makeDOSDirectories(self):
+    def makeDOSDirectories(self, structList):
         """ Creates the directories with the needed files for a Density of States run in VASP.
             The directories are created as sub-directories of the original structure directories. """
             
         topDir = os.getcwd()
-        for element in self.atomList:
-            elementDir = topDir + '/' + element
+        for i in xrange(len(self.atomList)):
+            elementDir = topDir + '/' + self.atomList[i]
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in os.listdir(os.getcwd()):
+                for structure in structList[i]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
-                        if self.hasFinished(structDir + '/normal'):
+                        normalDir = structDir + '/normal'
+                        if os.path.isdir(normalDir) and self.finishCheck(normalDir) and self.convergeCheck(normalDir, 400):
                             os.chdir(structDir)
                             subprocess.call(['mkdir', 'DOS'])
                             subprocess.call(['cp','normal/CONTCAR','normal/DOSCAR','normal/EIGENVAL',
@@ -68,16 +69,47 @@ class RunVasp:
             
             os.chdir(topDir)
     
-    def hasFinished(self, direc):
+    def hasFinished(self, folder):
+        if self.finishCheck(folder) and self.convergeCheck(folder, 400):
+            return True
+        else:
+            return False
+        
+    def finishCheck(self, folder):
         """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
         parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
         lastfolder = os.getcwd()
-        os.chdir(os.path.abspath(direc))
+        os.chdir(os.path.abspath(folder))
         proc = subprocess.Popen(['grep', 'Voluntary', 'OUTCAR'],stdout=subprocess.PIPE)
         newstring = proc.communicate()
         os.chdir(lastfolder)    
         return newstring[0].find('Voluntary') > -1 #True/False
-             
+    
+    def convergeCheck(self, folder, NSW):
+        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
+        try:
+            value = self.getSteps(folder)
+            return value < NSW #True/False
+        except:
+            return False #True/False
+
+    def getSteps(self, folder):
+        '''number of steps in relaxation, as an integer'''
+        lastfolder = os.getcwd()
+        os.chdir(folder)
+        if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
+            os.chdir(lastfolder) 
+            return -9999
+        oszicar = open('OSZICAR','r')
+        laststep = oszicar.readlines()[-1].split()[0]
+        oszicar.close()
+        os.chdir(lastfolder)  
+        try:
+            value = int(laststep)
+            return value
+        except:
+            return 9999        
+
     def makeLowINCARs(self):
         """ Creates a standard INCAR file and puts it in each different structure's top directory. """
         
@@ -292,18 +324,17 @@ class RunVasp:
         for direc in dirList:
             subprocess.call(['cp','/fslhome/eswens13/bin/vasp',direc + '/vasp533'])
 
-    def fillDirectories(self):
+    def fillDirectories(self, structList):
         """ Fills all the directories with the needed files for VASP to run, namely POSCAR, POTCAR, KPOINTS, 
             INCAR, job, and the VASP executable file. """
             
-        for atom in self.atomList:
+        for i in xrange(len(self.atomList)):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + atom
+            atomDir = lastDir + '/' + self.atomList[i]
             
             os.chdir(atomDir)
-            contents = os.listdir(atomDir)
             structures = []
-            for item in contents:
+            for item in structList[i]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -318,27 +349,25 @@ class RunVasp:
                 if poscarLines[0].split()[1] == 'H':
                     subprocess.call(['cp','CH_POTCAR',structureDir + '/POTCAR'])
                 elif poscarLines[0].split()[1] == 'M':
-                    subprocess.call(['cp','C' + atom + '_POTCAR',structureDir + '/POTCAR'])
+                    subprocess.call(['cp','C' + self.atomList[i] + '_POTCAR',structureDir + '/POTCAR'])
                 else:
                     subprocess.call(['cp','POTCAR',structureDir])
             
             os.chdir(lastDir)
 
-    def startJobs(self):
+    def startJobs(self, structList):
         """ Submits all the VASP jobs to the supercomputer for initial ionic relaxation. """
         
-        dirList = self.atomList
         self.clearCurrentJobIds()
         
-        for direc in dirList:
+        for i in xrange(len(self.atomList)):
             lastDir = os.getcwd()
-            newDir = lastDir + '/' + direc
+            atomDir = lastDir + '/' + self.atomList[i]
             
-            contents = os.listdir(newDir)
-            os.chdir(newDir)
+            os.chdir(atomDir)
             
             structures = []
-            for item in contents:
+            for item in structList[i]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -346,25 +375,23 @@ class RunVasp:
                 os.chdir(structure)
                 proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
                 jobid = proc.communicate()[0].split()[3]
-                print "Submitted job " + jobid
+                subprocess.call(['echo', 'Submitted job ' + jobid])
                 self.currJobIds.append(jobid)
-                os.chdir(newDir)
+                os.chdir(atomDir)
             
             os.chdir(lastDir)
 
-    def startNormalJobs(self):
-        dirList = self.atomList
+    def startNormalJobs(self, structList):
         self.clearCurrentJobIds()
         
-        for direc in dirList:
+        for i in xrange(len(self.atomList)):
             lastDir = os.getcwd()
-            newDir = lastDir + '/' + direc
+            atomDir = lastDir + '/' + self.atomList[i]
             
-            contents = os.listdir(newDir)
-            os.chdir(newDir)
+            os.chdir(atomDir)
             
             structures = []
-            for item in contents:
+            for item in structList[i]:
                 if os.path.isdir(item + '/normal'):
                     structures.append(item)
             
@@ -372,24 +399,24 @@ class RunVasp:
                 os.chdir(structure + '/normal')
                 proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
                 jobid = proc.communicate()[0].split()[3]
-                print "Submitted job " + jobid
+                subprocess.call(['echo','Submitted job ' + jobid])
                 self.currJobIds.append(jobid)
-                os.chdir(newDir)
+                os.chdir(atomDir)
             
             os.chdir(lastDir)
  
-    def startDOSJobs(self):
+    def startDOSJobs(self, structList):
         """ Submits all the VASP jobs to the supercomputer for the Density of States run. """
         
         topDir = os.getcwd()
         self.clearCurrentJobIds()
         
-        for element in self.atomList:
-            elementDir = topDir + '/' + element
+        for i in xrange(len(self.atomList)):
+            elementDir = topDir + '/' + self.atomList[i]
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
                 
-                for structure in os.listdir(os.getcwd()):
+                for structure in structList[i]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         os.chdir(structDir)
@@ -416,7 +443,7 @@ class RunVasp:
     def getCurrentJobIds(self):
         return self.currJobIds
     
-    def prepareForVasp(self):
+    def prepareForVasp(self, structList):
         self.makeLowINCARs()
         self.makePurePOTCARs()
         self.makePOTCARs()
@@ -424,19 +451,19 @@ class RunVasp:
         self.makeJobFiles()
         self.copyVaspExec()
         
-        self.fillDirectories()
+        self.fillDirectories(structList)
     
-    def run(self, runNum):       
+    def run(self, runNum, structList):       
         if runNum == 1:
-            self.startJobs()
+            self.startJobs(structList)
     
         elif runNum == 2:
-            self.makeNormalDirectories()
-            self.startNormalJobs()
+            self.makeNormalDirectories(structList)
+            self.startNormalJobs(structList)
            
         elif runNum == 3:
-            self.makeDOSDirectories()
-            self.startDOSJobs()
+            self.makeDOSDirectories(structList)
+            self.startDOSJobs(structList)
 
 
 

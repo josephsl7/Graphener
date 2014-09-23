@@ -30,18 +30,17 @@ class JobManager:
                                                         # nothing.
         return True
     
-    def reportLowStats(self):
-        for atom in self.atoms:
-            print "\nFor atom " + atom + ":"
+    def reportLowStats(self, structList):
+        for i in xrange(len(self.atoms)):
+            subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
             total = 0
             converged = 0
-            atomDir = os.getcwd() + '/' + atom
+            atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                contents = os.listdir(atomDir)
-                for item in contents:
-                    itemDir = atomDir + '/' + item
-                    if os.path.isdir(itemDir):
-                        if self.FinishCheck(itemDir):
+                for structure in structList[i]:
+                    structureDir = atomDir + '/' + structure
+                    if os.path.isdir(structureDir):
+                        if self.FinishCheck(structureDir) and self.convergeCheck(structureDir, 400):
                             total += 1
                             converged += 1
                         else:
@@ -49,11 +48,12 @@ class JobManager:
             
             percent = float(float(converged) / float(total)) * 100.0
             notConverged = total - converged
-            print "\t%5.2f %% of the structures converged during low-precision relaxation." % percent
-            print "\t%d structures converged." % converged
-            print "\t%d structures did not converge." % notConverged
+            subprocess.call(['echo','\t%5.2f %% of the structures converged during low-precision relaxation.' % percent])
+            subprocess.call(['echo','\t%d structures converged.' % converged])
+            subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
                             
     def FinishCheck(self, folder):
+        # From Dr. Hess
         """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
             parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
             
@@ -66,20 +66,44 @@ class JobManager:
          
         return newstring[0].find('Voluntary') > -1 #True/False
 
-    def reportNormalStats(self):
-        for atom in self.atoms:
-            print "\nFor atom " + atom + ":"
+    def convergeCheck(self, folder, NSW):
+        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
+        try:
+            value = self.getSteps(folder)
+            return value < NSW #True/False
+        except:
+            return False #True/False
+
+    def getSteps(self, folder):
+        '''number of steps in relaxation, as an integer'''
+        lastfolder = os.getcwd()
+        os.chdir(folder)
+        if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
+            os.chdir(lastfolder) 
+            return -9999
+        oszicar = open('OSZICAR','r')
+        laststep = oszicar.readlines()[-1].split()[0]
+        oszicar.close()
+        os.chdir(lastfolder)  
+        try:
+            value = int(laststep)
+            return value
+        except:
+            return 9999
+
+    def reportNormalStats(self, structList):
+        for i in xrange(len(self.atoms)):
+            subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
             total = 0
             converged = 0
-            atomDir = os.getcwd() + '/' + atom
+            atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                contents = os.listdir(atomDir)
-                for item in contents:
-                    itemDir = atomDir + '/' + item
-                    if os.path.isdir(itemDir):
-                        normalDir = itemDir + '/normal'
+                for struct in structList[i]:
+                    structDir = atomDir + '/' + struct
+                    if os.path.isdir(structDir):
+                        normalDir = structDir + '/normal'
                         if os.path.isdir(normalDir):
-                            if self.FinishCheck(normalDir):
+                            if self.FinishCheck(normalDir) and self.convergeCheck(normalDir, 400):
                                 total += 1
                                 converged += 1
                             else:
@@ -87,24 +111,23 @@ class JobManager:
             
             percent = float(float(converged) / float(total)) * 100.0
             notConverged = total - converged
-            print "\t%5.2f %% of the structures converged during normal-precision relaxation." % percent
-            print "\t%d structures converged." % converged
-            print "\t%d structures did not converge." % notConverged
+            subprocess.call(['echo','\t%5.2f %% of the structures converged during normal-precision relaxation.' % percent])
+            subprocess.call(['echo','\t%d structures converged.' % converged])
+            subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
-    def reportDOSStats(self):
-        for atom in self.atoms:
-            print "\nFor atom " + atom + ":"
+    def reportDOSStats(self, structList):
+        for i in xrange(len(self.atoms)):
+            subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
             total = 0
             converged = 0
-            atomDir = os.getcwd() + '/' + atom
+            atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                contents = os.listdir(atomDir)
-                for item in contents:
-                    itemDir = atomDir + '/' + item
-                    if os.path.isdir(itemDir):
-                        dosDir = itemDir + '/DOS'
+                for struct in structList[i]:
+                    structDir = atomDir + '/' + struct
+                    if os.path.isdir(structDir):
+                        dosDir = structDir + '/DOS'
                         if os.path.isdir(dosDir):
-                            if self.FinishCheck(dosDir):
+                            if self.FinishCheck(dosDir) and self.convergeCheck(dosDir, 2):
                                 total += 1
                                 converged += 1
                             else:
@@ -112,18 +135,18 @@ class JobManager:
             
             percent = float(float(converged) / float(total)) * 100.0
             notConverged = total - converged
-            print "\t%5.2f %% of the structures converged during the DOS run." % percent
-            print "\t%d structures converged." % converged
-            print "\t%d structures did not converge." % notConverged
+            subprocess.call(['echo','\t%5.2f %% of the structures converged during the DOS run.' % percent])
+            subprocess.call(['echo','\t%d structures converged.' % converged])
+            subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
-    def runLowJobs(self):
+    def runLowJobs(self, structList):
         print "\nPreparing directories for VASP. . .\n"
-        self.vaspRunner.prepareForVasp()
+        self.vaspRunner.prepareForVasp(structList)
     
         s = scheduler(time.time, time.sleep)
     
         print "\nStarting low-precision ionic relaxation. . .\n"
-        self.vaspRunner.run(1)
+        self.vaspRunner.run(1, structList)
     
         finished = False
         start_time = time.time()
@@ -136,9 +159,9 @@ class JobManager:
     
         self.reportLowStats()
     
-    def runNormalJobs(self):
+    def runNormalJobs(self, structList):
         print "\nStarting normal-precision ionic relaxation. . .\n"
-        self.vaspRunner.run(2)
+        self.vaspRunner.run(2, structList)
         
         s = scheduler(time.time, time.sleep)
     
@@ -151,11 +174,11 @@ class JobManager:
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
     
-        self.reportNormalStats()
+        self.reportNormalStats(structList)
 
-    def runDOSJobs(self):
+    def runDOSJobs(self, structList):
         print "\nStarting DOS run. . .\n"
-        self.vaspRunner.run(3)
+        self.vaspRunner.run(3, structList)
     
         s = scheduler(time.time, time.sleep)
     
@@ -168,7 +191,7 @@ class JobManager:
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
     
-        self.reportDOSStats()
+        self.reportDOSStats(structList)
 
 
 

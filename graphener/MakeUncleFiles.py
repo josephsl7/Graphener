@@ -4,7 +4,7 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 import os, subprocess
-from random import random, seed
+from random import random
 
 class MakeUncleFiles:
 
@@ -50,8 +50,6 @@ class MakeUncleFiles:
         self.energy = 0.0
     
     def initialize(self):
-        self.structList = []
-        
         self.infile = None
         self.holdoutFile = None
         self.outfile = self.infile
@@ -95,16 +93,88 @@ class MakeUncleFiles:
         os.chdir(lastfolder)   
          
         return newstring[0].find('Voluntary') > -1 #True/False
-    
-    def setStructureList(self, atomDir):
+
+    def convergeCheck(self, folder, NSW):
+        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
+        try:
+            value = self.getSteps(folder)
+            return value < NSW #True/False
+        except:
+            return False #True/False
+
+    def getSteps(self, folder):
+        '''number of steps in relaxation, as an integer'''
+        lastfolder = os.getcwd()
+        os.chdir(folder)
+        if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
+            os.chdir(lastfolder) 
+            return -9999
+        oszicar = open('OSZICAR','r')
+        laststep = oszicar.readlines()[-1].split()[0]
+        oszicar.close()
+        os.chdir(lastfolder)  
+        try:
+            value = int(laststep)
+            return value
+        except:
+            return 9999        
+
+    def setStructureList(self):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
             files by adding only the structures that VASP finished relaxing to the member
-            structList. """
-        
-        print "In setStructureList()"
+            structList. Sorts the list by concentration. """
         
         self.structList = []
         
+        lastDir = os.getcwd()
+        
+        for atom in self.atoms:
+            atomDir = lastDir + '/' + atom
+            os.chdir(atomDir)
+            pureHdir = os.getcwd() + '/1'
+            pureMdir = os.getcwd() + '/3'
+        
+            self.setAtomCounts(pureHdir)
+            self.setEnergy(pureHdir)
+            self.pureHenergy = float(self.energy)
+        
+            self.setAtomCounts(pureMdir)
+            self.setEnergy(pureMdir)
+            self.pureMenergy = float(self.energy)
+        
+            conclist = []
+            atomStructs = []
+                        
+            dirList = os.listdir(atomDir)
+            for item in dirList:
+                fullPath = os.path.abspath(item)
+                if os.path.isdir(fullPath):
+                    if os.path.isdir(fullPath + '/DOS'):
+                        if self.FinishCheck(fullPath + '/DOS') and self.convergeCheck(fullPath + '/DOS', 2):
+                        
+                            # Check for concentration
+                            self.setAtomCounts(fullPath)
+                        
+                            concentration = 0.0
+                            if self.atomCounts[0] == 0:
+                                concentration = 1.0
+                            else:
+                                concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
+                        
+                            conclist.append([concentration, fullPath])
+        
+            conclist.sort()
+            
+            for i in xrange(len(conclist)):
+                atomStructs.append(conclist[i][1])
+            self.structList.append(atomStructs)
+            
+            os.chdir(lastDir)
+    
+    def sortStructsByFormEnergy(self, atomInd):
+
+        lastDir = os.getcwd()
+        os.chdir(lastDir + '/' + self.atoms[atomInd])
         pureHdir = os.getcwd() + '/1'
         pureMdir = os.getcwd() + '/3'
         
@@ -116,44 +186,41 @@ class MakeUncleFiles:
         self.setEnergy(pureMdir)
         self.pureMenergy = float(self.energy)
         
-        print "Got pure energies"
-        print "Pure H = " + str(self.pureHenergy)
-        print "Pure M = " + str(self.pureMenergy)
+        formEnergyList = []
+        sortedStructs = []
+        for structDir in self.structList[atomInd]:
+            self.setAtomCounts(structDir)
+            self.setEnergy(structDir)
+            structEnergy = float(self.energy)
         
-        conclist = []
-        energyList = []
-        dirList = os.listdir(os.getcwd())
-        for item in dirList:
-            fullPath = os.path.abspath(item)
-            if os.path.isdir(fullPath):
-                if os.path.isdir(fullPath + '/DOS'):
-                    if self.FinishCheck(fullPath + '/DOS'):
+            concentration = 0.0
+            if self.atomCounts[0] == 0:
+                concentration = 1.0
+            else:
+                concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
                         
-                        # Check for concentration
-                        self.setAtomCounts(fullPath)
-                        self.setEnergy(os.getcwd() + '/' + item)
-                        structEnergy = float(self.energy)
-                        
-                        concentration = 0.0
-                        if self.atomCounts[0] == 0:
-                            concentration = 1.0
-                        else:
-                            concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
-                        
-                        formationEnergy = structEnergy - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
-                        
-                        conclist.append([concentration, fullPath])
-                        energyList.append([formationEnergy, fullPath])
+            formationEnergy = structEnergy - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
+            formEnergyList.append([formationEnergy, structDir])
         
-        conclist.sort()
-        energyList.sort()
+        formEnergyList.sort()
         
-        for i in xrange(len(conclist)):
-            self.structList.append(energyList[i][1])    
+        for pair in formEnergyList:
+            sortedStructs.append(pair[1])
+        
+        self.structList[atomInd] = sortedStructs
+            
+        os.chdir(lastDir)
     
     def getStructureList(self):
         """ Returns the list of usable structures. """
-        return self.structList
+        returnList = []
+        for i in xrange(len(self.structList)):
+            subList = []
+            for j in xrange(len(self.structList[i])):
+                subList.append(self.structList[i][j].split('/')[-1])
+            returnList.append(subList)
+        
+        return returnList
     
     def setLatticeVectors(self, structFile):
         """ Gets the lattice vectors from the first structure in the structList and sets
@@ -250,8 +317,7 @@ class MakeUncleFiles:
 
     def setEnergy(self, directory):  
         """ Retrieves the energy of the structure from the OSZICAR file and sets the corresponding 
-            member. """  
-        print "Directory = " + directory       
+            member. """   
         try:
             oszicar = open(directory + '/DOS/OSZICAR','r')
             energy = oszicar.readlines()[-1].split()[2]
@@ -314,17 +380,18 @@ class MakeUncleFiles:
         self.outfile.write("#Energy:\n")
         self.outfile.write(str(self.energy) + "\n") 
     
-    def writePOSCAR(self, poscarDir):
+    def writePOSCAR(self, poscarDir, atomInd):
         """ Calls all the methods needed to write all the needed information about the current
             structure to the structures.in or structures.holdout files.  Puts a maximum of 10%
             of the structures in the structures.holdout file. """
-        if self.holdoutCount / float(len(self.structList)) < .10 and random() < .15:
+        if self.holdoutCount / float(len(self.structList[atomInd])) < .10 and random() < .15:
             self.outfile = self.holdoutFile
             self.holdoutCount += 1
         else:
             self.outfile = self.infile
             self.inCount += 1
         
+        #self.outfile = self.infile
         self.setIDString(poscarDir)
         self.setLatticeVectors(poscarDir)
         self.setAtomCounts(poscarDir)
@@ -339,23 +406,22 @@ class MakeUncleFiles:
         self.writeEnergy()
 
     def makeUncleFiles(self):
-        lastDir = os.getcwd()
-        for atom in self.atoms:
-            atomDir = os.getcwd() + '/' + atom
+        self.setStructureList()
+        
+        for i in xrange(len(self.atoms)):
+            atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                os.chdir(atomDir)
-                print "\nCreating structures.in and structures.holdout files for " + atom + "\n"
+                subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
                 self.initialize()
-                self.infile = open('structures.in','w')
-                self.holdoutFile = open('structures.holdout','w')
-                self.setStructureList(atomDir)
+                self.infile = open(atomDir + '/structures.in','w')
+                self.holdoutFile = open(atomDir + '/structures.holdout','w')
+                self.sortStructsByFormEnergy(i)
                 self.writeHeader()
                 
-                for structure in self.structList:
-                    self.writePOSCAR(structure)
+                for structure in self.structList[i]:
+                    self.writePOSCAR(structure, i)
                 
                 self.closeOutFiles()
-                os.chdir(lastDir)
 
 
 

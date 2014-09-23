@@ -43,15 +43,14 @@ class Fitter:
                 else:
                     outfile.write(inlines[i])
             outfile.close()
-            
-    
+               
     def fitVASPData(self):
         lastDir = os.getcwd()
         for atom in self.atoms:
             atomDir = lastDir + '/' + atom
             if os.path.isdir(atomDir):
+                subprocess.call(['echo','\nFitting VASP data for ' + atom + '. . .\n'])
                 fitsDir = atomDir + '/fits'
-                print "\nPerforming fit for " + atom + ". . .\n"
                 if os.path.isdir(fitsDir):
                     os.chdir(fitsDir)
                     subprocess.call([self.uncleExec, '15'])

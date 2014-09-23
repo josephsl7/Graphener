@@ -17,16 +17,15 @@ class Structs2Poscar:
         structures.  It populates these directories with the converted POSCAR file corresponding to
         that structure. """
         
-    def __init__(self, atoms):
+    def __init__(self, atoms, structList):
         """ CONSTRUCTOR """
         self.atoms = atoms
+        self.structList = structList
     
     def makeAtomDirectories(self):
         for atom in self.atoms:
             atomDir = os.getcwd() + '/' + atom
-            if os.path.isdir(atomDir):
-                subprocess.call('rm -r ' + atomDir + '/*', shell=True)
-            else:
+            if not os.path.isdir(atomDir):
                 subprocess.call(['mkdir',atomDir])
     
     def makePlots(self, plotDir):
@@ -41,14 +40,16 @@ class Structs2Poscar:
         for name in glob('enum/vasp.0*'):
             structNum = str(self.retrieveStructNum(name))
             self.changeToPoscar(name)
-            for atom in self.atoms:
-                structDir = os.getcwd() + '/' + atom + '/' + structNum
-                if os.path.isdir(structDir):
-                    subprocess.call('rm -r ' + structDir + '/*', shell=True)
-                else:
-                    subprocess.call(['mkdir', structDir])
-                
-                subprocess.call(['cp','POSCAR',structDir])
+            
+            for i in xrange(len(self.structList)):
+                if self.contains(structNum, self.structList[i]):
+                    structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
+                    if os.path.isdir(structDir):
+                        subprocess.call('rm -r ' + structDir + '/*', shell=True)
+                    else:
+                        subprocess.call(['mkdir', structDir])                    
+                    
+                    subprocess.call(['cp','POSCAR',structDir])
             
             subprocess.call(['rm',name])
             subprocess.call(['rm','POSCAR'])
@@ -60,6 +61,13 @@ class Structs2Poscar:
             i -= 1
 
         return int(''.join(fileChars[i + 1:]))
+
+    def contains(self, struct, alist):
+        for i in xrange(len(alist)):
+            if struct == alist[i]:
+                return True
+        
+        return False
 
     def changeToPoscar(self, structFile):
         infile = open(structFile, 'r')

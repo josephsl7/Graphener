@@ -4,8 +4,9 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 
-import os
+import os, subprocess
 from random import seed
+from numpy import zeros
 
 import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo
 
@@ -70,50 +71,80 @@ def readSettingsFile():
             ylabel = line.split('\'')[1]
     
     return [atoms, volRange, clusterNums, trainStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel]
-            
 
+def contains(struct, structList):
+    for i in xrange(len(structList)):
+        if str(struct) == str(structList[i]):
+            return True
+    
+    return False
+            
 if __name__ == '__main__':
     seed()
     
     [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel] = readSettingsFile()
     
-    enumerator = Enumerator.Enumerator(atomList, volRange)
-    print "\nEnumerating symmetrically unique structures. . .\n"
+    """enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs)
+    subprocess.call(['echo','\nEnumerating symmetrically unique structures. . .\n'])
     enumerator.enumerate()
     
-    extractor = Extractor.Extractor(clusterNums, trainingStructs)
-    extractor.extract()
+    extractor = Extractor.Extractor(atomList)
+    extractor.setTrainingStructs()"""
     
-    print "\nConverting outputs to VASP inputs. . .\n"
-    toPoscar = Structs2Poscar.Structs2Poscar(atomList)
-    toPoscar.convertOutputsToPoscar()
+    changed = True
+    iter = 1
+    prevStructs = []
+    newStructs = []
+    allStructs = []
+    while changed:
+        changed = False
+        """if iter > 1:
+            extractor.setStructList(newStructs)
+        prevStructs = extractor.getStructList()
+        extractor.extract()
     
-    manager = JobManager.JobManager(atomList)
-    manager.runLowJobs()
-    manager.runNormalJobs()
-    manager.runDOSJobs() 
+        subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
+        toPoscar = Structs2Poscar.Structs2Poscar(atomList, prevStructs)
+        toPoscar.convertOutputsToPoscar()
+     
+        manager = JobManager.JobManager(atomList)
+        manager.runLowJobs(prevStructs)
+        manager.runNormalJobs(prevStructs)
+        manager.runDOSJobs(prevStructs)""" 
     
-    print "\nAnalyzing convergence, CPU time, and energies of the structures. . .\n"
-    analyzer = Analyzer.Analyzer(atomList)
-    analyzer.makeAnalysisDir()
-    analyzer.analyze()
+        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList)
+        uncleFileMaker.makeUncleFiles()
+        structList = uncleFileMaker.getStructureList()
+        
+        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets)
+        fitter.makeFitDirectories()
+        fitter.fitVASPData()
     
-    print "\nAnalyzing movement during relaxation. . .\n"
-    distanceInfo = DistanceInfo.DistanceInfo(atomList)
-    distanceInfo.getDistanceInfo()
-    
-    uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList)
-    uncleFileMaker.makeUncleFiles()
-    
-    fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets)
-    fitter.makeFitDirectories()
-    fitter.fitVASPData()
-    
-    gss = GSS.GSS(atomList, volRange, plotTitle, xlabel, ylabel)
-    gss.makeGSSDirectories()
-    gss.performGroundStateSearch()
-    gss.makePlots()
-    
+        gss = GSS.GSS(atomList, volRange, plotTitle, xlabel, ylabel)
+        gss.makeGSSDirectories()
+        gss.performGroundStateSearch()
+        if iter == 1:
+            allStructs = gss.getAllGSSStructures()
+        
+        added = zeros(len(atomList))
+        for i in xrange(len(allStructs)):
+            atomStructs = []
+            for j in xrange(len(allStructs[i])):
+                if added[i] >= 100:
+                    break
+                elif not contains(allStructs[i][j], structList):
+                    atomStructs.append(allStructs[i][j])
+                    allStructs[i].remove(allStructs[i][j])
+                    added[i] += 1
+            newStructs.append(atomStructs)
+ 
+        #gss.makePlots()  Do this after the convergence loop has finished
+        
+        iter += 1
+        
+        # Need to call extractor.setStructList() before end of loop.
+        # Check if the structList changed from what it was before. If so, reset 'changed' to True
+        # and repeat the loop.
     
         
     
