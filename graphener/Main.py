@@ -119,9 +119,10 @@ if __name__ == '__main__':
         extractor = Extractor.Extractor(atomList)
         if iter == 1:
             extractor.setTrainingStructs()
+            prevStructs = extractor.getStructList()
         elif iter > 1:
             extractor.setStructList(newStructs)
-        #prevStructs = extractor.getStructList()
+
         extractor.extract()
     
         # Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
