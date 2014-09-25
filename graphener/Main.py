@@ -113,7 +113,6 @@ if __name__ == '__main__':
     newStructs = []
     allStructs = []
     while changed:
-        changed = False
         
         # Extract the structures from struct_enum.out
         extractor = Extractor.Extractor(atomList)
