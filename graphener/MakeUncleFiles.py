@@ -418,8 +418,12 @@ class MakeUncleFiles:
                 self.sortStructsByFormEnergy(i)
                 self.writeHeader()
                 
+                num = 0
                 for structure in self.structList[i]:
+                    if num >= 500:      # Write a maximum of 500 structures to the file
+                        break           # for any given atom.
                     self.writePOSCAR(structure, i)
+                    num += 1
                 
                 self.closeOutFiles()
 
