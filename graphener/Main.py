@@ -11,7 +11,6 @@ from copy import deepcopy
 
 import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo
 
-
 def readSettingsFile():
     currDir = os.getcwd()
     infile = open(currDir + '/needed_files/settings.in', 'r')
@@ -108,7 +107,7 @@ if __name__ == '__main__':
     enumerator.enumerate()
     
     changed = True
-    iter = 1
+    iteration = 1
     prevStructs = []
     newStructs = []
     allStructs = []
@@ -118,10 +117,10 @@ if __name__ == '__main__':
         
         # Extract the structures from struct_enum.out
         extractor = Extractor.Extractor(atomList)
-        if iter == 1:
+        if iteration == 1:
             extractor.setTrainingStructs()
             prevStructs = extractor.getStructList()
-        elif iter > 1:
+        elif iteration > 1:
             extractor.setStructList(newStructs)
 
         extractor.extract()
@@ -155,7 +154,8 @@ if __name__ == '__main__':
         gss = GSS.GSS(atomList, volRange, plotTitle, xlabel, ylabel)
         gss.makeGSSDirectories()
         gss.performGroundStateSearch()
-        if iter == 1:
+        if iteration == 1:
+            # TODO: The training structures should be taken out of this initially.
             allStructs = gss.getAllGSSStructures()
         
         # Add the 100 structures with the lowest formation energy that have not been through VASP
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         
         # Print the lowest energy structures that have been through VASP calculations to a file.
         lowestStructsFile.write('==============================================================\n')
-        lowestStructsFile.write('\tIteration: ' + str(iter) + '\n')
+        lowestStructsFile.write('\tIteration: ' + str(iteration) + '\n')
         lowestStructsFile.write('==============================================================\n')
         for i in xrange(len(structList)):
             lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
@@ -213,7 +213,7 @@ if __name__ == '__main__':
             prevStructs.append(structList[i][:100])
             
         # Keep track of which iteration we're on.
-        iter += 1
+        iteration += 1
         
     
     # After the loop has finished, make plots of the lowest formation energy structs

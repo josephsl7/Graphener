@@ -28,8 +28,9 @@ class JobManager:
             output = proc.communicate()[0].split()
             if len(output) != 8 and len(output) != 0:   # It will list either all the headers or
                 return False                            # sometimes an error and outputs nothing.
-            
-        return True
+                                                        # The error in this case is an "invalid
+                                                        # job id" error because the job is no
+            return True                                 # longer on the supercomputer.    
     
     def reportLowStats(self, structList):
         for i in xrange(len(self.atoms)):

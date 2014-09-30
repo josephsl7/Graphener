@@ -62,6 +62,8 @@ class GSS:
                 outfile.close()
     
     def performGroundStateSearch(self):
+        # TODO: Save gss.out, gss.pdf, J.1.summary.out, and fitting_errors.out for each 
+        # iteration. Take in the iteration number as a parameter and add it as a suffix on each file.
         lastDir = os.getcwd()
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
