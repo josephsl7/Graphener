@@ -112,6 +112,8 @@ if __name__ == '__main__':
     prevStructs = []
     newStructs = []
     allStructs = []
+    lowestStructsFile = open('lowest_100.txt','w')
+    
     while changed:
         
         # Extract the structures from struct_enum.out
@@ -140,7 +142,8 @@ if __name__ == '__main__':
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList)
         uncleFileMaker.makeUncleFiles()
         
-        # Get all the structs that have been through VASP calculations for each atom.
+        # Get all the structs that have been through VASP calculations for each atom. These
+        # should be sorted by formation energy during the work done by makeUncleFiles()
         structList = uncleFileMaker.getStructureList() 
         
         # Perform a fit to the VASP data in structures.in for each atom.
@@ -155,7 +158,7 @@ if __name__ == '__main__':
         if iter == 1:
             allStructs = gss.getAllGSSStructures()
         
-        # Add the 100 structures with the lowest formation energy that nave not been through VASP
+        # Add the 100 structures with the lowest formation energy that have not been through VASP
         # calculations to the newStructs list for each atom.
         newStructs = []
         added = zeros(len(atomList))
@@ -174,10 +177,23 @@ if __name__ == '__main__':
             for j in xrange(len(newStructs[i])):
                 allStructs[i].remove(newStructs[i][j])
         
+        # Print the lowest energy structures that have been through VASP calculations to a file.
+        lowestStructsFile.write('==============================================================\n')
+        lowestStructsFile.write('\tIteration: ' + str(iter) + '\n')
+        lowestStructsFile.write('==============================================================\n')
+        for i in xrange(len(structList)):
+            lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
+            for j in xrange(len(structList[i])):
+                if (j + 1) % 20 == 0 or j == len(structList[i]) - 1:
+                    lowestStructsFile.write(str(structList[i][j]) + '\n')
+                else:
+                    lowestStructsFile.write(str(structList[i][j]) + ', ')
+        
         # If one of the atoms has finished the loop, remove it from the atomList.
+        # TODO:  Should be comparing to structs that have been calculated, not ones that haven't.
         toRemove = []
         for i in xrange(len(newStructs)):
-            if equals(newStructs[i], prevStructs[i]):
+            if equals(structList[i][:100], prevStructs[i][:100]):
                 toRemove.append(i)
         
         if len(toRemove) == len(newStructs):
@@ -187,12 +203,14 @@ if __name__ == '__main__':
                 atomList.remove(atomList[ind])
                 newStructs.remove(newStructs[ind])
                 prevStructs.remove(prevStructs[ind])
+                structList.remove(structList[ind])
         
         # Change the new structs at the end of the loop to the previous structs for the 
-        # beginning of the next iteration.
+        # beginning of the next iteration. These should all be structs that have been
+        # through VASP calculations.
         prevStructs = []
-        for i in xrange(len(newStructs)):
-            prevStructs.append(newStructs[i])
+        for i in xrange(len(structList)):
+            prevStructs.append(structList[i][:100])
             
         # Keep track of which iteration we're on.
         iter += 1
@@ -202,6 +220,7 @@ if __name__ == '__main__':
     # for each atom.
     gss.makePlots()
     
+    lowestStructsFile.close()
     # Should do some analysis after the loop has finished as well.
         
 
