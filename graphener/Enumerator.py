@@ -24,6 +24,9 @@ class Enumerator:
         self.enumExec = os.path.abspath('needed_files/enum.x')
 
     def changeEnumFile(self):
+        """ In order to build the clusters that will be used in the cluster expansion correctly, 
+            we have to change the 'surf' setting in struct_enum.out (from UNCLE enumeration) to 
+            'bulk'.  This method takes care of that. """
         subprocess.call(['mv',self.enumFile, self.enumFile + '_OLD'])
         
         oldfile = open(self.enumFile + '_OLD','r')
@@ -40,6 +43,8 @@ class Enumerator:
         newfile.close()
     
     def buildClusters(self):
+        """ Uses UNCLE to build the number of each n-body clusters specified in the settings.in
+            file. """
         oldLatFile = 'needed_files/lat.in'
         oldFile = open(oldLatFile, 'r')
         oldLines = [line for line in oldFile]
@@ -63,6 +68,8 @@ class Enumerator:
         os.chdir(lastDir)
 
     def chooseTrainingStructures(self):
+        """ Chooses a list of i.i.d. structures from struct_enum.out. The length of the list 
+            is determined by the TRAINING_STRUCTS setting in settings.in. """
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
         
@@ -71,6 +78,8 @@ class Enumerator:
         os.chdir(lastDir)
     
     def enumerate(self):
+        """ Runs through the whole process of enumeration, cluster building, and choosing an
+            i.i.d. set of training structures. """
         subprocess.call(['mkdir','enum'])
         infile = open('needed_files/struct_enum.in','r')
         inlines = []
