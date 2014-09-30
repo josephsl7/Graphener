@@ -22,12 +22,13 @@ class JobManager:
         self.vaspRunner = RunVasp.RunVasp(self.atoms)
     
     def reportFinshed(self, jobIds):
+        devnull = open(os.devnull, 'w')
         for jobid in jobIds:
-            proc = subprocess.Popen(['squeue', '--job', jobid], stdout=subprocess.PIPE)
+            proc = subprocess.Popen(['squeue', '--job', jobid], stdout=subprocess.PIPE, stderr=devnull)
             output = proc.communicate()[0].split()
             if len(output) != 8 and len(output) != 0:   # It will list either all the headers or
-                return False                            # sometimes it outputs an error and outputs
-                                                        # nothing.
+                return False                            # sometimes an error and outputs nothing.
+            
         return True
     
     def reportLowStats(self, structList):
@@ -157,7 +158,7 @@ class JobManager:
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
     
-        self.reportLowStats()
+        self.reportLowStats(structList)
     
     def runNormalJobs(self, structList):
         print "\nStarting normal-precision ionic relaxation. . .\n"
