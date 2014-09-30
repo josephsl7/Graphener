@@ -26,8 +26,25 @@ class Extractor:
             trainStructs.append(line.strip().split()[1])
         trainFile.close()
         
+        # Make sure the pure structures are in the training structures list.
+        if not self.contains('1', trainStructs):
+            trainStructs[0] = '1'
+            
+        if not self.contains('3', trainStructs):
+            trainStructs[1] = '3'
+        
         for atom in self.atoms:
             self.structList.append(trainStructs)
+    
+    def contains(self, struct, alist):
+        if len(alist) == 0:
+            return False
+        
+        for i in xrange(len(alist)):
+            if struct == alist[i]:
+                return True
+        
+        return False
     
     def setStructList(self, alist):
         """ The list being passed to this method (alist) will actually be a list of lists.  It will
