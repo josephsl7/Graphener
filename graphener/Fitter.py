@@ -10,19 +10,21 @@ import subprocess
 class Fitter:
 
 
-    def __init__(self, atoms, M_fitStructures, N_subsets):
+    def __init__(self, atoms, M_fitStructures, N_subsets, vaspStructs):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
         self.M_fitStructures = M_fitStructures
         self.N_subsets = N_subsets
+        self.vaspStructs = vaspStructs
+        
         self.enumFolder = os.getcwd() + '/enum/'
         self.neededFilesDir = os.getcwd() + '/needed_files/'
         self.uncleExec = os.getcwd() + '/needed_files/uncle.x'
         
     def makeFitDirectories(self):
-        for atom in self.atoms:
-            atomDir = os.path.abspath(atom)
+        for n in xrange(len(self.atoms)):
+            atomDir = os.path.abspath(self.atoms[n])
             fitsDir = atomDir + '/fits/'
             subprocess.call(['mkdir',fitsDir])
             subprocess.call(['cp',self.enumFolder + 'lat.in', fitsDir])
@@ -37,7 +39,10 @@ class Fitter:
             outfile = open(fitsDir + 'CS.in','w')
             for i in xrange(len(inlines)):
                 if i == 60:
-                    outfile.write(str(self.M_fitStructures) + "\n")
+                    if (self.M_fitStructures > len(self.vaspStructs[n])):
+                        outfile.write(str(len(self.vaspStructs[n])) + "\n")
+                    else:
+                        outfile.write(str(self.M_fitStructures) + "\n")
                 elif i == 62:
                     outfile.write(str(self.N_subsets) + "\n")
                 else:

@@ -146,7 +146,7 @@ if __name__ == '__main__':
         vaspStructs = uncleFileMaker.getStructureList() 
         
         # Perform a fit to the VASP data in structures.in for each atom.
-        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets)
+        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets, vaspStructs)
         fitter.makeFitDirectories()
         fitter.fitVASPData(iteration)
     
@@ -164,10 +164,18 @@ if __name__ == '__main__':
         removeGss = []
         removeVasp = []
         for i in xrange(len(vaspStructs)):
-            if equals(vaspStructs[i][:100], gssStructs[i][:100]):
-                removeAtoms.append(atomList[i])
-                removeGss.append(gssStructs[i])
-                removeVasp.append(vaspStructs[i])
+            atomLength = len(vaspStructs[i])
+            if atomLength >= 100:
+                if equals(vaspStructs[i][:100], gssStructs[i][:100]):
+                    removeAtoms.append(atomList[i])
+                    removeGss.append(gssStructs[i])
+                    removeVasp.append(vaspStructs[i])
+            else:
+                # If there are not yet 100 structs that have converged in VASP.
+                if equals(vaspStructs[i][:atomLength], gssStructs[i][:atomLength]):
+                    removeAtoms.append(atomList[i])
+                    removeGss.append(gssStructs[i])
+                    removeVasp.append(vaspStructs[i])
         
         for i in xrange(len(removeAtoms)):
             atomList.remove(removeAtoms[i])
@@ -190,12 +198,20 @@ if __name__ == '__main__':
         lowestStructsFile.write('==============================================================\n')
         for i in xrange(len(vaspStructs)):
             lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
-            for j in xrange(len(vaspStructs[i][:100])):
-                if (j + 1) % 20 == 0 or j == len(vaspStructs[i]) - 1:
-                    lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
-                else:
-                    lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
-            
+            atomLength = len(vaspStructs[i])
+            if atomLength >= 100:
+                for j in xrange(len(vaspStructs[i][:100])):
+                    if (j + 1) % 20 == 0 or j == 99:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
+                    else:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
+            else:
+                for j in xrange(len(vaspStructs[i][:atomLength])):
+                    if (j + 1) % 20 == 0 or j == atomLength - 1:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
+                    else:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
+                
         # Add the 100 structures with the lowest formation energy that have not been through VASP
         # calculations to the newStructs list for each remaining atom.
         newStructs = []
