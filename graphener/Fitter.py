@@ -44,7 +44,7 @@ class Fitter:
                     outfile.write(inlines[i])
             outfile.close()
                
-    def fitVASPData(self):
+    def fitVASPData(self, iteration):
         lastDir = os.getcwd()
         for atom in self.atoms:
             atomDir = lastDir + '/' + atom
@@ -54,6 +54,8 @@ class Fitter:
                 if os.path.isdir(fitsDir):
                     os.chdir(fitsDir)
                     subprocess.call([self.uncleExec, '15'])
+                    subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
+                    subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
                     os.chdir(lastDir)
 
 

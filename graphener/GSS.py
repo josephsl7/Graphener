@@ -61,9 +61,7 @@ class GSS:
                         outfile.write(inlines[i])
                 outfile.close()
     
-    def performGroundStateSearch(self):
-        # TODO: Save gss.out, gss.pdf, J.1.summary.out, and fitting_errors.out for each 
-        # iteration. Take in the iteration number as a parameter and add it as a suffix on each file.
+    def performGroundStateSearch(self, iteration):
         lastDir = os.getcwd()
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
@@ -73,7 +71,7 @@ class GSS:
                 subprocess.call([self.uncleExec, '21'])
                 os.chdir(lastDir)
 
-    def makePlots(self):
+    def makePlots(self, iteration):
         lastDir = os.getcwd()
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
@@ -81,14 +79,16 @@ class GSS:
                 subprocess.call(['echo', '\nMaking plot of ground states for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
                 subprocess.call(['gnuplot', 'gss_plot.gp'])
+                subprocess.call(['mv','gss.out','gss_' + str(iteration) + '.out'])
+                subprocess.call(['mv','gss.pdf','gss_' + str(iteration) + '.pdf'])
                 os.chdir(lastDir)
     
-    def getAllGSSStructures(self):
+    def getAllGSSStructures(self, iteration):
         allStructs = []
         for atom in self.atoms:
             atomStructs = []
             structsByEnergy = []
-            gssFile = os.getcwd() + '/' + atom + '/gss/gss.out'
+            gssFile = os.getcwd() + '/' + atom + '/gss/gss_' + str(iteration) + '.out'
             infile = open(gssFile, 'r')
             
             i = 0

@@ -293,7 +293,7 @@ class RunVasp:
             jobFile = open(direc + '/job','w')
     
             jobFile.write("#!/bin/bash\n\n")
-            jobFile.write("#SBATCH --time=06:00:00\n")
+            jobFile.write("#SBATCH --time=01:00:00\n")
             jobFile.write("#SBATCH --ntasks=16\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=erandemswens@gmail.com\n")
@@ -307,7 +307,7 @@ class RunVasp:
         jobFile = open('DOS/job','w')
         
         jobFile.write("#!/bin/bash\n\n")
-        jobFile.write("#SBATCH --time=06:00:00\n")
+        jobFile.write("#SBATCH --time=01:00:00\n")
         jobFile.write("#SBATCH --ntasks=16\n")
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
         jobFile.write("#SBATCH --mail-user=erandemswens@gmail.com\n")
