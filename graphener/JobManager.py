@@ -142,12 +142,12 @@ class JobManager:
             subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
     def runLowJobs(self, structList):
-        print "\nPreparing directories for VASP. . .\n"
+        subprocess.call(['echo','\nPreparing directories for VASP. . .\n'])
         self.vaspRunner.prepareForVasp(structList)
     
         s = scheduler(time.time, time.sleep)
     
-        print "\nStarting low-precision ionic relaxation. . .\n"
+        subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
         self.vaspRunner.run(1, structList)
     
         finished = False
@@ -162,7 +162,7 @@ class JobManager:
         self.reportLowStats(structList)
     
     def runNormalJobs(self, structList):
-        print "\nStarting normal-precision ionic relaxation. . .\n"
+        subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
         self.vaspRunner.run(2, structList)
         
         s = scheduler(time.time, time.sleep)
@@ -179,7 +179,7 @@ class JobManager:
         self.reportNormalStats(structList)
 
     def runDOSJobs(self, structList):
-        print "\nStarting DOS run. . .\n"
+        subprocess.call(['echo','\nStarting DOS run. . .\n'])
         self.vaspRunner.run(3, structList)
     
         s = scheduler(time.time, time.sleep)

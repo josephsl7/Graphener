@@ -7,7 +7,8 @@ Created on Aug 20, 2014
 from math import sqrt
 from numpy import dot, transpose
 from numpy.linalg.linalg import inv
-import os
+import os, subprocess
+
 
 class DistanceInfo:
 
@@ -174,7 +175,7 @@ class DistanceInfo:
     
     def getDistances(self, origPositions):
         if len(origPositions) != len(self.relaxedPositions):
-            print "\nERROR:  There are " + str(len(origPositions)) + " original positions and " + str(len(self.relaxedPositions)) + " relaxed positions.\n"
+            subprocess.call(['echo','\nERROR:  There are ' + str(len(origPositions)) + ' original positions and ' + str(len(self.relaxedPositions)) + ' relaxed positions.\n'])
             return None 
         else:
             self.minOrigPositions = []
@@ -221,7 +222,7 @@ class DistanceInfo:
         [Cindexes, Mcount] = self.getMCIndexes(structureDir)
         
         if len(Cindexes) != Mcount:
-            print "ERROR:  Did not retrieve the same number of M atoms and corresponding C atoms."
+            subprocess.call(['echo','ERROR:  Did not retrieve the same number of M atoms and corresponding C atoms.'])
         else:
             contcar = open(structureDir + '/DOS/CONTCAR','r')
             contcarLines = [line.strip() for line in contcar]
@@ -495,11 +496,11 @@ class DistanceInfo:
                                           (structure, volFactor, concentration, rms, inplane, normal, minMC, maxMC, buckle))
                             
                         else:
-                            print "ERROR:  The file " + dfile + " does not exist."
+                            subprocess.call(['echo','ERROR:  The file ' + dfile + ' does not exist.'])
                     else:
-                        print "ERROR:  There is no directory " + structDir
+                        subprocess.call(['echo','ERROR:  There is no directory ' + structDir])
             else:
-                print "ERROR:  There is no directory " + atomDir
+                subprocess.call(['echo','ERROR:  There is no directory ' + atomDir])
                 
         outfile.close()
 
@@ -508,9 +509,9 @@ class DistanceInfo:
         for atom in self.getAtomList():
             atomDir = topDir + '/' + atom
             if os.path.isdir(atomDir):
-                print "********************"
-                print "    ATOM " + atom
-                print "********************"
+                subprocess.call(['echo','********************'])
+                subprocess.call(['echo','    ATOM ' + atom])
+                subprocess.call(['echo','********************'])
                 os.chdir(atomDir)
             
                 for structure in self.structList:
@@ -518,15 +519,15 @@ class DistanceInfo:
                     if os.path.isdir(structDir):
                         DOSdir = structDir + '/DOS/'
                         if os.path.isdir(DOSdir):
-                            print "Working on structure " + structure
+                            subprocess.call(['echo','Working on structure ' + structure])
                             self.writeInfoToFile(structDir)
                         else:
-                            print "Structure " + structure + " did not converge. Skipping. . ."
+                            subprocess.call(['echo','Structure ' + structure + ' did not converge. Skipping. . .'])
                     else:
-                        print "\nERROR: There is no directory " + structDir + "\n"
+                        subprocess.call(['echo','\nERROR: There is no directory ' + structDir + '\n'])
                 os.chdir(topDir)
             else:
-                print "\nERROR: There is no directory " + atomDir + "\n"
+                subprocess.call(['echo','\nERROR: There is no directory ' + atomDir + '\n'])
 
         self.exportToCSV()
 

@@ -33,7 +33,7 @@ class RunVasp:
                         subprocess.call(['cp','normal/CONTCAR','normal/POSCAR'])
                         os.chdir(elementDir)
             else:
-                print "The directory " + elementDir + " does not exist."
+                subprocess.call(['echo','The directory ' + elementDir + ' does not exist.'])
             
             os.chdir(topDir)       
     
@@ -63,9 +63,9 @@ class RunVasp:
                             subprocess.call(['cp','DOS/CONTCAR','DOS/POSCAR'])
                             os.chdir(elementDir)
                         else:
-                            print "Structure " + structure + " did not converge. Skipping. . ."
+                            subprocess.call(['echo','Structure ' + structure + ' did not converge. Skipping. . .'])
             else:
-                print "The directory " + elementDir + " does not exist."
+                subprocess.call(['echo','The directory ' + elementDir + ' does not exist.'])
             
             os.chdir(topDir)
     
@@ -233,8 +233,8 @@ class RunVasp:
                 potcar.close()
                     
             else:
-                print "ERROR: Could not find a POTCAR file for \'" + atom + "\'"
-                print "Removing POTCAR . . ."
+                subprocess.call(['echo','ERROR: Could not find a POTCAR file for \'' + atom + '\''])
+                subprocess.call(['echo','Removing POTCAR . . .'])
                 potcar.close()
                 subprocess.call(['rm','POTCAR'])
                 return
@@ -426,14 +426,14 @@ class RunVasp:
                             os.chdir(dosDir)
                             proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
                             jobid = proc.communicate()[0].split()[3]
-                            print "Submitted job " + jobid
+                            subprocess.call(['echo','Submitted job ' + jobid])
                             self.currJobIds.append(jobid)
                         
                         os.chdir(structDir)
                     
                     os.chdir(elementDir)
             else:
-                print "The directory " + elementDir + " does not exist."
+                subprocess.call(['echo','The directory ' + elementDir + ' does not exist.'])
             
             os.chdir(topDir)
     

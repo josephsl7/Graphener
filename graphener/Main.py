@@ -112,12 +112,11 @@ if __name__ == '__main__':
     newStructs = []
     gssStructs = []
     lowestStructsFile = open('lowest_100.txt','w')
-    # TODO:  Have all the UNCLE output go to a different file than master.out
     
     while changed:
         changed = False
         
-        # Extract the structures from struct_enum.out
+        # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atomList, uncleOutput)
         if iteration == 1:
             extractor.setTrainingStructs()
