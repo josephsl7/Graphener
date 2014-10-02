@@ -11,11 +11,12 @@ class Extractor:
         set. The Structs2Poscar class will take this set of pseudo-POSCARs and prepare them for 
         VASP calculations. """
 
-    def __init__(self, atoms):
+    def __init__(self, atoms, uncleOutput):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
         self.extractExec = os.path.abspath('needed_files/makestr.x')
+        self.uncleOut = uncleOutput
         self.structList = []
 
     def setTrainingStructs(self):
@@ -74,7 +75,7 @@ class Extractor:
             uniqueSet = uniqueSet.union(self.structList[i])
         
         for struct in uniqueSet:
-            subprocess.call([self.extractExec, 'struct_enum.out', struct])
+            subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut)
         
         os.chdir(lastDir)
         

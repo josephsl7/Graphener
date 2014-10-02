@@ -101,8 +101,9 @@ if __name__ == '__main__':
     seed()
     
     [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel] = readSettingsFile()
+    uncleOutput = open('uncle_output.txt','w')
     
-    enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs)
+    enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
     subprocess.call(['echo','\nEnumerating symmetrically unique structures. . .\n'])
     enumerator.enumerate()
     
@@ -111,12 +112,13 @@ if __name__ == '__main__':
     newStructs = []
     gssStructs = []
     lowestStructsFile = open('lowest_100.txt','w')
+    # TODO:  Have all the UNCLE output go to a different file than master.out
     
     while changed:
         changed = False
         
         # Extract the structures from struct_enum.out
-        extractor = Extractor.Extractor(atomList)
+        extractor = Extractor.Extractor(atomList, uncleOutput)
         if iteration == 1:
             extractor.setTrainingStructs()
         elif iteration > 1:
@@ -146,7 +148,7 @@ if __name__ == '__main__':
         vaspStructs = uncleFileMaker.getStructureList() 
         
         # Perform a fit to the VASP data in structures.in for each atom.
-        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets, vaspStructs)
+        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets, vaspStructs, uncleOutput)
         fitter.makeFitDirectories()
         fitter.fitVASPData(iteration)
     
@@ -229,6 +231,7 @@ if __name__ == '__main__':
         # Keep track of which iteration we're on.
         iteration += 1
     
+    uncleOutput.close()
     lowestStructsFile.close()
     # Should do some analysis after the loop has finished as well.
         

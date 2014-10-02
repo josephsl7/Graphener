@@ -10,7 +10,7 @@ import subprocess
 class Fitter:
 
 
-    def __init__(self, atoms, M_fitStructures, N_subsets, vaspStructs):
+    def __init__(self, atoms, M_fitStructures, N_subsets, vaspStructs, uncleOutput):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
@@ -21,6 +21,7 @@ class Fitter:
         self.enumFolder = os.getcwd() + '/enum/'
         self.neededFilesDir = os.getcwd() + '/needed_files/'
         self.uncleExec = os.getcwd() + '/needed_files/uncle.x'
+        self.uncleOut = uncleOutput
         
     def makeFitDirectories(self):
         for n in xrange(len(self.atoms)):
@@ -58,7 +59,7 @@ class Fitter:
                 fitsDir = atomDir + '/fits'
                 if os.path.isdir(fitsDir):
                     os.chdir(fitsDir)
-                    subprocess.call([self.uncleExec, '15'])
+                    subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)
                     subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                     subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
                     os.chdir(lastDir)

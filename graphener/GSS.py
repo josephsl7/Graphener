@@ -8,7 +8,7 @@ import os, subprocess
 class GSS:
     
 
-    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel):
+    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, uncleOutput):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
@@ -21,6 +21,7 @@ class GSS:
         self.fitsDir = None
         self.neededFilesDir = os.getcwd() + '/needed_files/'
         self.uncleExec = os.getcwd() + '/needed_files/uncle.x'
+        self.uncleOut = uncleOutput
     
     def makeGSSDirectories(self):
         for atom in self.atoms:
@@ -68,7 +69,7 @@ class GSS:
             if os.path.isdir(gssDir):
                 subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
-                subprocess.call([self.uncleExec, '21'])
+                subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
                 os.chdir(lastDir)
 
     def makePlots(self, iteration):

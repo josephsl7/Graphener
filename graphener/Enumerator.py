@@ -11,7 +11,7 @@ class Enumerator:
         work, the Extractor class will take over and extract pseudo-POSCAR files from the
         struct_enum.out file. """
   
-    def __init__(self, atoms, volRange, clusterNums, trainStructNum):
+    def __init__(self, atoms, volRange, clusterNums, trainStructNum, uncleOutput):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
@@ -22,6 +22,7 @@ class Enumerator:
         self.uncleExec = os.path.abspath('needed_files/uncle.x')
         self.enumFile = 'enum/struct_enum.out'
         self.enumExec = os.path.abspath('needed_files/enum.x')
+        self.uncleOut = uncleOutput
 
     def changeEnumFile(self):
         """ In order to build the clusters that will be used in the cluster expansion correctly, 
@@ -63,7 +64,7 @@ class Enumerator:
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
         
-        subprocess.call([self.uncleExec, '10'])
+        subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         
         os.chdir(lastDir)
 
@@ -73,7 +74,7 @@ class Enumerator:
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
         
-        subprocess.call([self.uncleExec, '42', str(self.trainStructNum)])
+        subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
         
         os.chdir(lastDir)
     
@@ -98,7 +99,7 @@ class Enumerator:
         
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        subprocess.call([self.enumExec,'struct_enum.in'])
+        subprocess.call([self.enumExec,'struct_enum.in'], stdout=self.uncleOut)
         
         os.chdir(lastDir)
         
