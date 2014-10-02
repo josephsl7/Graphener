@@ -7,9 +7,11 @@ import os, subprocess
 
 
 class Enumerator:
-    """ Enumerates symmetrically unique structures using UNCLE.  After this class finishes its 
-        work, the Extractor class will take over and extract pseudo-POSCAR files from the
-        struct_enum.out file. """
+    """ This class enumerates symmetrically unique structures in a given volume range using UNCLE.  
+        It then builds the clusters necessary to perform a cluster expansion and chooses a 
+        specified number of "training structures" to perform a first fit on.  After this class 
+        finishes its work, the Extractor class will take over and extract pseudo-POSCAR files from 
+        the struct_enum.out file that is produced. """
   
     def __init__(self, atoms, volRange, clusterNums, trainStructNum, uncleOutput):
         """ CONSTRUCTOR """
@@ -27,7 +29,7 @@ class Enumerator:
     def changeEnumFile(self):
         """ In order to build the clusters that will be used in the cluster expansion correctly, 
             we have to change the 'surf' setting in struct_enum.out (from UNCLE enumeration) to 
-            'bulk'.  This method takes care of that. """
+            'bulk'.  It changes the name of the old 'surf' version to 'struct_enum.out_OLD'. """
         subprocess.call(['mv',self.enumFile, self.enumFile + '_OLD'])
         
         oldfile = open(self.enumFile + '_OLD','r')
