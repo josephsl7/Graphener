@@ -3,8 +3,10 @@ Created on Aug 29, 2014
 
 @author: eswens13
 '''
+from numpy import zeros
 import os, subprocess
 from random import random
+
 
 class MakeUncleFiles:
 
@@ -13,6 +15,7 @@ class MakeUncleFiles:
         """ CONSTRUCTOR """
         
         self.atoms = atoms
+        self.structuresInLengths = zeros(len(self.atoms))
     
         self.structList = []
         self.pureHenergy = 0.0
@@ -222,6 +225,13 @@ class MakeUncleFiles:
         
         return returnList
     
+    def getStructuresInLengths(self):
+        lengths = zeros(len(self.structuresInLengths))
+        for i in xrange(len(self.structuresInLengths)):
+            lengths[i] = self.structuresInLengths[i]
+        
+        return lengths
+    
     def setLatticeVectors(self, structFile):
         """ Gets the lattice vectors from the first structure in the structList and sets
             the corresponding member components. """
@@ -398,12 +408,21 @@ class MakeUncleFiles:
         self.setAtomPositions(poscarDir)
         self.setEnergy(poscarDir)
         
+        # Make sure the pure structures go in structures.in
+        if self.idString.split()[0] == 'PURE':
+            self.outfile = self.infile
+        
         self.writeDashedLine()
         self.writeIDString()
         self.writeLatticeVecs()
         self.writeAtomCounts()
         self.writeAtomPositions()
         self.writeEnergy()
+        
+        if self.outfile.split('.')[-1] =='holdout':
+            return 'holdout'
+        else:
+            return 'in'
 
     def makeUncleFiles(self):
         self.setStructureList()
@@ -419,12 +438,16 @@ class MakeUncleFiles:
                 self.writeHeader()
                 
                 num = 0
+                structuresInCount = 0
                 for structure in self.structList[i]:
-                    if num >= 500:      # Write a maximum of 500 structures to the file
-                        break           # for any given atom.
-                    self.writePOSCAR(structure, i)
+                    if structuresInCount >= 500:    # Write a maximum of 500 structures to the file
+                        break                       # for any given atom.
+                    whichFile = self.writePOSCAR(structure, i)
+                    if whichFile == 'in':
+                        structuresInCount += 1
                     num += 1
                 
+                self.structuresInLengths[i] = structuresInCount
                 self.closeOutFiles()
 
 

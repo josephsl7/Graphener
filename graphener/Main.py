@@ -144,10 +144,11 @@ if __name__ == '__main__':
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
-        vaspStructs = uncleFileMaker.getStructureList() 
+        vaspStructs = uncleFileMaker.getStructureList()
+        structuresInLengths = uncleFileMaker.getStructuresInLengths() 
         
         # Perform a fit to the VASP data in structures.in for each atom.
-        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets, vaspStructs, uncleOutput)
+        fitter = Fitter.Fitter(atomList, fitStructs, fitSubsets, structuresInLengths, uncleOutput)
         fitter.makeFitDirectories()
         fitter.fitVASPData(iteration)
     

@@ -10,13 +10,13 @@ import subprocess
 class Fitter:
 
 
-    def __init__(self, atoms, M_fitStructures, N_subsets, vaspStructs, uncleOutput):
+    def __init__(self, atoms, M_fitStructures, N_subsets, structuresInLengths, uncleOutput):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
         self.M_fitStructures = M_fitStructures
         self.N_subsets = N_subsets
-        self.vaspStructs = vaspStructs
+        self.structuresInLengths = structuresInLengths
         
         self.enumFolder = os.getcwd() + '/enum/'
         self.neededFilesDir = os.getcwd() + '/needed_files/'
@@ -40,8 +40,8 @@ class Fitter:
             outfile = open(fitsDir + 'CS.in','w')
             for i in xrange(len(inlines)):
                 if i == 60:
-                    if (self.M_fitStructures > len(self.vaspStructs[n])):
-                        outfile.write(str(len(self.vaspStructs[n])) + "\n")
+                    if (self.M_fitStructures > self.structuresInLengths[n]):
+                        outfile.write(str(self.structuresInLengths[n]) + "\n")
                     else:
                         outfile.write(str(self.M_fitStructures) + "\n")
                 elif i == 62:
