@@ -95,13 +95,12 @@ def equals(alist, blist):
         return False
     else:
         return True
-    
-           
+          
 if __name__ == '__main__':
     seed()
     
     [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel] = readSettingsFile()
-    uncleOutput = open('uncle_output.txt','w')
+    uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     
     enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
     subprocess.call(['echo','\nEnumerating symmetrically unique structures. . .\n'])
@@ -111,9 +110,13 @@ if __name__ == '__main__':
     iteration = 1
     newStructs = []
     gssStructs = []
-    lowestStructsFile = open('lowest_100.txt','w')
+    lowestStructsFile = open('lowest_vasp.txt','w')
+    lowestGssFile = open('lowest_gss.txt','w')
     
     while changed:
+        subprocess.call(['echo','\n========================================================'])
+        subprocess.call(['echo','\t\tIteration ' + str(iteration)])
+        subprocess.call(['echo','========================================================\n'])
         changed = False
         
         # Extract the pseudo-POSCARs from struct_enum.out
@@ -153,7 +156,7 @@ if __name__ == '__main__':
         fitter.fitVASPData(iteration)
     
         # Perform a ground state search on the fit for each atom.    
-        gss = GSS.GSS(atomList, volRange, plotTitle, xlabel, ylabel)
+        gss = GSS.GSS(atomList, volRange, plotTitle, xlabel, ylabel, uncleOutput)
         gss.makeGSSDirectories()
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
@@ -216,6 +219,9 @@ if __name__ == '__main__':
                 
         # Add the 100 structures with the lowest formation energy that have not been through VASP
         # calculations to the newStructs list for each remaining atom.
+        lowestGssFile.write('============================================================\n')
+        lowestGssFile.write('\tIteration: ' + str(iteration) + '\n')
+        lowestGssFile.write('============================================================\n')
         newStructs = []
         added = zeros(len(atomList))
         for i in xrange(len(gssStructs)):
@@ -227,12 +233,23 @@ if __name__ == '__main__':
                     atomStructs.append(gssStructs[i][j])
                     added[i] += 1
             newStructs.append(atomStructs)
+        
+        # Print the new GSS structures to a file.
+        for i in xrange(len(gssStructs)):
+            lowestGssFile.write('\n***************** ' + atomList[i] + ' *******************\n')
+            atomLength = len(gssStructs[i])
+            for j in xrange(len(gssStructs[i])):
+                if (j + 1) % 20 == 0 or j == 99:
+                    lowestGssFile.write(str(gssStructs[i][j]) + '\n')
+                else:
+                    lowestGssFile.write(str(gssStructs[i][j]) + ', ')
             
         # Keep track of which iteration we're on.
         iteration += 1
     
     uncleOutput.close()
     lowestStructsFile.close()
+    lowestGssFile.close()
     # Should do some analysis after the loop has finished as well.
         
 
