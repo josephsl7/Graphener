@@ -96,6 +96,7 @@ class GSS:
             for line in infile:
                 if i >= 2:
                     structsByEnergy.append([float(line.strip().split()[7]), int(line.strip().split()[0])])
+                i += 1
             infile.close()
             
             structsByEnergy.sort()
