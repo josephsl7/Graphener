@@ -40,7 +40,7 @@ class Fitter:
             outfile = open(fitsDir + 'CS.in','w')
             for i in xrange(len(inlines)):
                 if i == 60:
-                    if (self.M_fitStructures > self.structuresInLengths[n]):
+                    if (self.M_fitStructures > self.structuresInLengths[n] and self.M_fitStructures > 0):
                         outfile.write(str(self.structuresInLengths[n]) + "\n")
                     else:
                         outfile.write(str(self.M_fitStructures) + "\n")

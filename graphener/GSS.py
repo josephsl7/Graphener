@@ -85,11 +85,13 @@ class GSS:
                 os.chdir(lastDir)
     
     def getAllGSSStructures(self, iteration):
+        subprocess.call(['echo','Starting getAllGSSStructures() from ' + os.getcwd()])
         allStructs = []
         for atom in self.atoms:
             atomStructs = []
             structsByEnergy = []
             gssFile = os.getcwd() + '/' + atom + '/gss/gss_' + str(iteration) + '.out'
+            subprocess.call(['echo','Opening ' + gssFile + ' to read'])
             infile = open(gssFile, 'r')
             
             i = 0
@@ -100,11 +102,12 @@ class GSS:
             infile.close()
             
             structsByEnergy.sort()
+            
             for struct in structsByEnergy:
-                atomStructs.append(struct[1])
+                atomStructs.append(str(struct[1]))
             
             allStructs.append(atomStructs)
-        
+            
         return allStructs
             
                 

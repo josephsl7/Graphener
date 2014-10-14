@@ -419,7 +419,7 @@ class MakeUncleFiles:
         self.writeAtomPositions()
         self.writeEnergy()
         
-        if self.outfile.split('.')[-1] =='holdout':
+        if self.outfile.name.split('.')[-1] =='holdout':
             return 'holdout'
         else:
             return 'in'
