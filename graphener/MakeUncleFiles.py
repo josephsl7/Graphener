@@ -18,6 +18,7 @@ class MakeUncleFiles:
         self.structuresInLengths = zeros(len(self.atoms))
     
         self.structList = []
+        self.failedStructs = []
         self.pureHenergy = 0.0
         self.pureMenergy = 0.0
         
@@ -147,6 +148,7 @@ class MakeUncleFiles:
         
             conclist = []
             atomStructs = []
+            failed = []
                         
             dirList = os.listdir(atomDir)
             for item in dirList:
@@ -165,7 +167,14 @@ class MakeUncleFiles:
                                 concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
                         
                             conclist.append([concentration, fullPath])
+                        else:
+                            failed.append(fullPath)
+                    else:
+                        # Don't add the 'gss' or 'fits' directories.
+                        if not fullPath.split('/')[-1] == 'gss' and not fullPath.split('/')[-1] == 'fits':
+                            failed.append(fullPath)
         
+            self.failedStructs.append(failed)
             conclist.sort()
             
             for i in xrange(len(conclist)):
@@ -223,7 +232,14 @@ class MakeUncleFiles:
                 subList.append(self.structList[i][j].split('/')[-1])
             returnList.append(subList)
         
-        return returnList
+        failedList = []
+        for i in xrange(len(self.failedStructs)):
+            subList = []
+            for j in xrange(len(self.failedStructs[i])):
+                subList.append(self.failedStructs[i][j].split('/')[-1])
+            failedList.append(subList)
+        
+        return returnList, failedList
     
     def getStructuresInLengths(self):
         lengths = zeros(len(self.structuresInLengths))

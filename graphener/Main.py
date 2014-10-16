@@ -72,9 +72,9 @@ def readSettingsFile():
     
     return [atoms, volRange, clusterNums, trainStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel]
 
-def contains(struct, vaspStructs):
-    for i in xrange(len(vaspStructs)):
-        if str(struct) == str(vaspStructs[i]):
+def contains(struct, alist):
+    for i in xrange(len(alist)):
+        if str(struct) == str(alist[i]):
             return True
     
     return False
@@ -113,6 +113,7 @@ if __name__ == '__main__':
     gssStructs = []
     lowestStructsFile = open('lowest_vasp.txt','w')
     lowestGssFile = open('lowest_gss.txt','w')
+    failedFile = open('failed_vasp.txt','w')
     
     while changed:
         changed = False
@@ -149,7 +150,7 @@ if __name__ == '__main__':
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
-        vaspStructs = uncleFileMaker.getStructureList()
+        [vaspStructs, failedStructs] = uncleFileMaker.getStructureList()
         structuresInLengths = uncleFileMaker.getStructuresInLengths() 
         
         # Perform a fit to the VASP data in structures.in for each atom.
@@ -162,7 +163,7 @@ if __name__ == '__main__':
         gss.makeGSSDirectories()
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
-        gssStructs = gss.getAllGSSStructures(iteration)
+        gssStructs = gss.getAllGSSStructures(iteration, failedStructs)
         
         # Check the lowest 100 hundred structs from VASP against the lowest 100 structs from UNCLE
         # for each atom.  If they match, then that atom has converged and we remove it from the 
@@ -197,7 +198,6 @@ if __name__ == '__main__':
                     
         if not changed:
             subprocess.call(['echo','\n----------------- The loop has converged! ---------------'])
-            break
 
         # Print the lowest energy structures that have been through VASP calculations to a file.
         try:
@@ -222,10 +222,28 @@ if __name__ == '__main__':
             lowestStructsFile.flush()
             os.fsync(lowestStructsFile.fileno())
         except IOError:
-            subprocess.call(['\n~~~~~~~~~~ Didn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
+            subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
+        
+        # Write the all the structures that have failed VASP calculations to a file.
+        # TODO: Only write the failed structures that are unique to this iteration to the file.
+        try:
+            failedFile.write('==============================================================\n')
+            failedFile.write('\tIteration: ' + str(iteration) + '\n')
+            failedFile.write('==============================================================\n')
+            for i in xrange(len(failedStructs)):
+                failedFile.write('\n******************** ' + atomList[i] + ' ********************\n')
+                for j in xrange(len(failedStructs[i])):
+                    if (j + 1) % 20 == 0 or j == len(failedStructs[i]) - 1:
+                        failedFile.write(str(failedStructs[i][j]) + '\n')
+                    else:
+                        failedFile.write(str(failedStructs[i][j]) + ', ')
+            failedFile.flush()
+            os.fsync(failedFile.fileno())
+        except IOError:
+            subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])
                 
         # Add the 100 structures with the lowest formation energy that have not been through VASP
-        # calculations to the newStructs list for each remaining atom.
+        # calculations (converged or failed) to the newStructs list for each remaining atom.
         newStructs = []
         added = zeros(len(atomList))
         for i in xrange(len(gssStructs)):
@@ -255,7 +273,7 @@ if __name__ == '__main__':
             lowestGssFile.flush()
             os.fsync(lowestGssFile.fileno())
         except IOError:
-            subprocess.call(['echo','\n~~~~~~~~~~ Didn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
+            subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
          
         # Keep track of which iteration we're on.
         iteration += 1

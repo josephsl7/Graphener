@@ -75,7 +75,7 @@ class Extractor:
             generally called something like vasp.000241 indicating the structure number in 
             struct_enum.out.  We only want to extract the union of all the lists in 
             self.structList. """
-        subprocess.call(['echo','\nExtracting structures from struct_enum.out'])
+        subprocess.call(['echo','\nExtracting structures from struct_enum.out\n'])
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
         uniqueSet = set(self.structList[0])

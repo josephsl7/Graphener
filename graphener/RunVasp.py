@@ -62,8 +62,6 @@ class RunVasp:
                             self.makeDOSJobFile()
                             subprocess.call(['cp','DOS/CONTCAR','DOS/POSCAR'])
                             os.chdir(elementDir)
-                        else:
-                            subprocess.call(['echo','Structure ' + structure + ' did not converge. Skipping. . .'])
             else:
                 subprocess.call(['echo','The directory ' + elementDir + ' does not exist.'])
             

@@ -84,20 +84,30 @@ class GSS:
                 subprocess.call(['mv','gss.pdf','gss_' + str(iteration) + '.pdf'])
                 os.chdir(lastDir)
     
-    def getAllGSSStructures(self, iteration):
-        subprocess.call(['echo','Starting getAllGSSStructures() from ' + os.getcwd()])
+    def contains(self, struct, alist):
+        for i in xrange(len(alist)):
+            if str(struct) == str(alist[i]):
+                return True
+    
+        return False
+    
+    def getAllGSSStructures(self, iteration, failedStructs):
         allStructs = []
-        for atom in self.atoms:
+        for n in xrange(len(self.atoms)):
             atomStructs = []
             structsByEnergy = []
-            gssFile = os.getcwd() + '/' + atom + '/gss/gss_' + str(iteration) + '.out'
-            subprocess.call(['echo','Opening ' + gssFile + ' to read'])
+            gssFile = os.getcwd() + '/' + self.atoms[n] + '/gss/gss_' + str(iteration) + '.out'
             infile = open(gssFile, 'r')
             
             i = 0
             for line in infile:
                 if i >= 2:
-                    structsByEnergy.append([float(line.strip().split()[7]), int(line.strip().split()[0])])
+                    formEnergy = float(line.strip().split()[7])
+                    struct = int(line.strip().split()[0])
+                    
+                    # Do not include structures that failed VASP calculations.
+                    if not self.contains(struct, failedStructs[n]):
+                        structsByEnergy.append([formEnergy, struct])
                 i += 1
             infile.close()
             
