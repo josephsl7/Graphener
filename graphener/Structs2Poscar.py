@@ -23,17 +23,24 @@ class Structs2Poscar:
         self.structList = structList
     
     def makeAtomDirectories(self):
+        """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
+            VASP and UNCLE files for the atom will be placed in this directory. """
         for atom in self.atoms:
             atomDir = os.getcwd() + '/' + atom
             if not os.path.isdir(atomDir):
                 subprocess.call(['mkdir',atomDir])
     
     def makePlots(self, plotDir):
+        """ NOT WORKING CURRENTLY.  This method puts a visual representation of each structure in 
+            its directory. """
         toPlot = os.listdir(self.getExportDir())
         for struct in toPlot:
             subprocess.call(['python', 'PlotGraphene.py', self.getPlotDir(), struct, '-u'])
     
     def convertOutputsToPoscar(self):
+        """ Converts all the pseudo-POSCARs created by the Extractor class into POSCAR files that
+            VASP can use to run calculations and puts them in a directory that will contain all
+            the information for that structure. """
         self.makeAtomDirectories()
         
         for name in glob('enum/vasp.0*'):
@@ -54,6 +61,8 @@ class Structs2Poscar:
             subprocess.call(['rm','POSCAR'])
             
     def retrieveStructNum(self, structFile):
+        """ Returns the structure number from the name of the pseudo-POSCAR file.  For example,
+            the file "vasp.000478" would return 478 as the structure number. """
         fileChars = list(structFile)
         i = len(fileChars) - 1
         while fileChars[i] != '.':
@@ -62,6 +71,7 @@ class Structs2Poscar:
         return int(''.join(fileChars[i + 1:]))
 
     def contains(self, struct, alist):
+        """ Retuns true if the list 'alist' contains the structure 'struct', false otherwise. """
         for i in xrange(len(alist)):
             if struct == alist[i]:
                 return True
@@ -69,6 +79,8 @@ class Structs2Poscar:
         return False
 
     def changeToPoscar(self, structFile):
+        """ The hook for the Converter class.  Uses the Converter class to convert a pseudo-POSCAR
+            file into a standard VASP POSCAR file. """
         infile = open(structFile, 'r')
         inLines = infile.readlines()
         infile.close()
@@ -126,6 +138,7 @@ class Converter:
         that is ready to be used by VASP. """
         
     def __init__(self, uncleFile):
+        """ CONSTRUCTOR """
         self.uncleFile = uncleFile
         self.atomCounts = []
         
@@ -155,7 +168,7 @@ class Converter:
         self.pure = False
     
     def convert(self):
-        
+        """ Runs through the whole conversion process for a single POSCAR file. """
         uncleFile = open(self.uncleFile, 'r')
         uncleLines = uncleFile.readlines()
         uncleFile.close()
@@ -185,56 +198,18 @@ class Converter:
         self.set3dCpositionsFromDirectCoordinates(positionLines)
         self.set3dHpositionsFromDirectCoordinates(positionLines)
         self.set3dMpositionsFromDirectCoordinates(positionLines)
-              
-    def set2dCPositionsFromDirectCoordinates(self, positionLines):
-        self._2dCpos = []
-        for line in positionLines:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            
-            x = comp1[0] + comp2[0]
-            y = comp1[1] + comp2[1]
-            
-            self._2dCpos.append([x,y])
-    
-    def set2dHPositionsFromDirectCoordinates(self, positionLines):
-        self._2dHpos = []
-        for line in positionLines[:self.atomCounts[1]]:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            
-            x = comp1[0] + comp2[0]
-            y = comp1[1] + comp2[1]
-            
-            self._2dHpos.append([x,y])
-        
-    def set2dMPositionsFromDirectCoordinates(self, positionLines):
-        self._2dMpos = []
-        for line in positionLines[self.atomCounts[1]:]:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            
-            x = comp1[0] + comp2[0]
-            y = comp1[1] + comp2[1]
-            
-            self._2dMpos.append([x,y])
-        
+                      
     def get2DDistance(self, atom1, atom2):
+        """ Returns the two-dimensional distance between two atoms. """
         xcomp = atom2[0] - atom1[0]
         ycomp = atom2[1] - atom1[1]
         
         return sqrt(pow(xcomp, 2) + pow(ycomp, 2))
 
     def set3dCpositionsFromDirectCoordinates(self, positionLines):
+        """ Sets the 3D positions of the C atoms given the 2D 'surface' positions from UNCLE.
+            Another way to think of this is that it introduces the "buckling" into the sheet of
+            C atoms. """
         self._3dCpos = []
         for line in positionLines:
             position = line.strip().split()
@@ -257,6 +232,7 @@ class Converter:
             self._3dCpos.append([x, y, z])
             
     def set3dHpositionsFromDirectCoordinates(self, positionLines):
+        """ Sets the 3D positions of the H atoms in the system. """
         self._3dHpos = []
         for line in positionLines[0:self.atomCounts[1]]:
             position = line.strip().split()
@@ -279,6 +255,7 @@ class Converter:
             self._3dHpos.append([x, y, z])
 
     def set3dMpositionsFromDirectCoordinates(self, positionLines):
+        """ Sets the 3D positions of the metal atoms of the system. """
         self._3dMpos = []
         for line in positionLines[self.atomCounts[1]:]:
             position = line.strip().split()
@@ -299,94 +276,29 @@ class Converter:
                 z = -self.dC - self.dM
             
             self._3dMpos.append([x, y, z])
-
-    def set3dCpositionsOld(self):
-        print "In set3dCPositions"
-    
-        eps = .02
-        done = []
         
-        allList = []
-        for pos in self._2dCpos:
-            allList.append(pos)
-        
-        # Pick a point, make it above the plane, and add it to the list of points that are done.
-        firstPos = [allList[0][0], allList[0][1], self.dC]
-        done.append(firstPos)
-        allList.remove(allList[0])
-        
-        doneInd = 0
-        print "Beginning while loop"
-        while len(allList) > 0:
-            neighbors = []
-            i = 0
-            while i < len(allList):
-                toCompare = [done[doneInd][0], done[doneInd][1]]
-                compDistance = self.get2DDistance(toCompare, allList[i])
-                if compDistance > self.distance - eps and compDistance < self.distance + eps:
-                    neighbors.append(allList[i])
-                    allList.remove(allList[i])
-                else:
-                    i += 1
-            
-            sizeChanged = False
-            for pos in neighbors:
-                if done[doneInd][2] > 0:
-                    newPos = [pos[0], pos[1], -self.dC]
-                    done.append(newPos)
-                    sizeChanged = True
-                else:
-                    newPos = [pos[0], pos[1], self.dC]
-                    done.append(newPos)
-                    sizeChanged = True
-            
-            if sizeChanged:
-                doneInd += 1
-        
-        print "Exiting while loop"
-        
-        self._3dCpos = []
-        for pos in done:
-            self._3dCpos.append(pos)
-        
-        print "Exiting set3dCPositions"
-        
-    def set3dHPositionsOld(self):
-        self._3dHpos = []
-        for hpos in self._2dHpos:
-            for cpos in self._3dCpos:
-                if cpos[0] == hpos[0] and cpos[1] == hpos[1]:
-                    if cpos[2] > 0:
-                        self._3dHpos.append([cpos[0], cpos[1], cpos[2] + self.dH])
-                    else:
-                        self._3dHpos.append([cpos[0], cpos[1], cpos[2] - self.dH])
-    
-    def set3dMPositionsOld(self):
-        self._3dMpos = []
-        for mpos in self._2dMpos:
-            for cpos in self._3dCpos:
-                if cpos[0] == mpos[0] and cpos[1] == mpos[1]:
-                    if cpos[2] > 0:
-                        self._3dMpos.append([cpos[0], cpos[1], cpos[2] + self.dM])
-                    else:
-                        self._3dMpos.append([cpos[0], cpos[1], cpos[2] - self.dM])
-
     def getLatticeVectors(self):
+        """ Returns the lattice vectors of the structure. """
         return [self.lattVec1, self.lattVec2, self.lattVec3]
 
     def getAtomCounts(self):
+        """ Returns the number of each atom in the structure. """
         return self.atomCounts
 
     def getCPositions(self):
+        """ Returns the list of C positions in the structure. """
         return self._3dCpos
     
     def getHPositions(self):
+        """ Returns the list of H positions in the structure. """
         return self._3dHpos
     
     def getMPositions(self):
+        """ Returns the list of M positions in the structure. """
         return self._3dMpos
 
     def isPure(self):
+        """ Returns true if the structure is a pure structure, false otherwise. """
         return self.pure
     
     
