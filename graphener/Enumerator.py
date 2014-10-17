@@ -11,7 +11,8 @@ class Enumerator:
         It then builds the clusters necessary to perform a cluster expansion and chooses a 
         specified number of "training structures" to perform a first fit on.  After this class 
         finishes its work, the Extractor class will take over and extract pseudo-POSCAR files from 
-        the struct_enum.out file that is produced. """
+        the struct_enum.out file that is produced. The methods in this class are only needed for 
+        the first iteration of the main convergence loop. """
   
     def __init__(self, atoms, volRange, clusterNums, trainStructNum, uncleOutput):
         """ CONSTRUCTOR """
