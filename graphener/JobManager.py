@@ -22,6 +22,8 @@ class JobManager:
         self.vaspRunner = RunVasp.RunVasp(self.atoms)
     
     def reportFinshed(self, jobIds):
+        """ Returns true if all the jobs with IDs given in 'jobIds' have finished VASP
+            calculations, false otherwise. """
         devnull = open(os.devnull, 'w')
         for jobid in jobIds:
             proc = subprocess.Popen(['squeue', '--job', jobid], stdout=subprocess.PIPE, stderr=devnull)
@@ -33,6 +35,9 @@ class JobManager:
         return True                                     # longer on the supercomputer.    
     
     def reportLowStats(self, structList):
+        """ Displays the percentage of structures that converged during the low-precision VASP
+            calculations.  Also displays the number of structures that converged and the number
+            of structures that didn't. """
         for i in xrange(len(self.atoms)):
             subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
             total = 0
@@ -55,7 +60,6 @@ class JobManager:
             subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
                             
     def FinishCheck(self, folder):
-        # From Dr. Hess
         """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
             parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
             
@@ -69,7 +73,8 @@ class JobManager:
         return newstring[0].find('Voluntary') > -1 #True/False
 
     def convergeCheck(self, folder, NSW):
-        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
+        """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
+            ionic relaxation step) is less than NSW."""
         try:
             value = self.getSteps(folder)
             return value < NSW #True/False
@@ -77,7 +82,7 @@ class JobManager:
             return False #True/False
 
     def getSteps(self, folder):
-        '''number of steps in relaxation, as an integer'''
+        """Returns the number of steps of ionic relaxation, as an integer. """
         lastfolder = os.getcwd()
         os.chdir(folder)
         if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
@@ -94,6 +99,9 @@ class JobManager:
             return 9999
 
     def reportNormalStats(self, structList):
+        """ Reports the percentage of structures that converged during normal-precision VASP
+            calculations.  Also reports the number of structures that converged and the number
+            that didn't. """
         for i in xrange(len(self.atoms)):
             subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
             total = 0
@@ -118,6 +126,9 @@ class JobManager:
             subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
     def reportDOSStats(self, structList):
+        """ Reports the percentage of structures that converged during the Density of States VASP
+            calculations.  Also reports the number of structures that converged and the number
+            that didn't. """
         for i in xrange(len(self.atoms)):
             subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
             total = 0
@@ -142,6 +153,8 @@ class JobManager:
             subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
     def runLowJobs(self, structList):
+        """ Starts the low-precision VASP calculations for all of the structures in 'structList'
+            and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nPreparing directories for VASP. . .\n'])
         self.vaspRunner.prepareForVasp(structList)
     
@@ -162,6 +175,8 @@ class JobManager:
         self.reportLowStats(structList)
     
     def runNormalJobs(self, structList):
+        """ Starts the normal-precision VASP calculations for all of the structures in 'structList'
+            and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
         self.vaspRunner.run(2, structList)
         
@@ -179,6 +194,9 @@ class JobManager:
         self.reportNormalStats(structList)
 
     def runDOSJobs(self, structList):
+        """ Starts the Density of States VASP calculations for all of the structures in 
+            'structList' and waits for all of the jobs to finish. It checks on the jobs every ten 
+            minutes. """
         subprocess.call(['echo','\nStarting DOS run. . .\n'])
         self.vaspRunner.run(3, structList)
     
