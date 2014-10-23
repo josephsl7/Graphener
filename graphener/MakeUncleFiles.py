@@ -53,7 +53,8 @@ class MakeUncleFiles:
         
         self.energy = 0.0
     
-    def initialize(self):
+    def reinitialize(self):
+        """ Re-initializes the class for a new metal atom. """
         self.infile = None
         self.holdoutFile = None
         self.outfile = self.infile
@@ -86,9 +87,8 @@ class MakeUncleFiles:
         self.energy = 0.0      
     
     def FinishCheck(self, folder):
-        """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
-            parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
-            
+        """ Tests whether VASP is done by finding "Voluntary" in last line of OUTCAR.  The input
+            parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """   
         lastfolder = os.getcwd()
         os.chdir(folder)
         
@@ -99,7 +99,8 @@ class MakeUncleFiles:
         return newstring[0].find('Voluntary') > -1 #True/False
 
     def convergeCheck(self, folder, NSW):
-        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
+        """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
+            ionic relaxation step) is less than NSW."""
         try:
             value = self.getSteps(folder)
             return value < NSW #True/False
@@ -107,7 +108,7 @@ class MakeUncleFiles:
             return False #True/False
 
     def getSteps(self, folder):
-        '''number of steps in relaxation, as an integer'''
+        """ Returns the number of ionic relaxation steps that VASP performed as an integer. """
         lastfolder = os.getcwd()
         os.chdir(folder)
         if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
@@ -126,8 +127,8 @@ class MakeUncleFiles:
     def setStructureList(self):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
             files by adding only the structures that VASP finished relaxing to the member
-            structList. Sorts the list by concentration. """
-        
+            structList. Sorts the list by concentration (N_M / N_total). Adds the structures that
+            failed VASP calculations to the member 'failedList'. """   
         self.structList = []
         
         lastDir = os.getcwd()
@@ -184,7 +185,7 @@ class MakeUncleFiles:
             os.chdir(lastDir)
     
     def sortStructsByFormEnergy(self, atomInd):
-
+        """ Sorts the list of structures by formation energy. """
         lastDir = os.getcwd()
         os.chdir(lastDir + '/' + self.atoms[atomInd])
         pureHdir = os.getcwd() + '/1'
@@ -224,7 +225,8 @@ class MakeUncleFiles:
         os.chdir(lastDir)
     
     def getStructureList(self):
-        """ Returns the list of usable structures. """
+        """ Returns the list of usable structures along with the list of structures that failed
+            VASP calculations. """
         returnList = []
         for i in xrange(len(self.structList)):
             subList = []
@@ -242,6 +244,7 @@ class MakeUncleFiles:
         return returnList, failedList
     
     def getStructuresInLengths(self):
+        """ Returns a list of the lengths of the structures.in file for each atom. """
         lengths = zeros(len(self.structuresInLengths))
         for i in xrange(len(self.structuresInLengths)):
             lengths[i] = self.structuresInLengths[i]
@@ -249,8 +252,8 @@ class MakeUncleFiles:
         return lengths
     
     def setLatticeVectors(self, structFile):
-        """ Gets the lattice vectors from the first structure in the structList and sets
-            the corresponding member components. """
+        """ Gets the lattice vectors from the first structure in the structList and sets the 
+            corresponding member components. """
         vecFile = open(structFile + '/POSCAR','r')
         vecFileLines = vecFile.readlines()
         vecFile.close()
@@ -299,9 +302,9 @@ class MakeUncleFiles:
         self.idString = ID
 
     def setAtomPositions(self, poscarDir):
-        """ Retrieves the positions of each of the atoms.  Appends the x-coordinate to the xPositions
-            list, the y-coordinate to the yPositions list.  For a surface in UNCLE the z-coordinate
-            is always zero. """
+        """ Retrieves the positions of each of the atoms.  Appends the x-coordinate to the 
+            xPositions list, the y-coordinate to the yPositions list.  For a surface in UNCLE the 
+            z-coordinate is always zero. """
         poscar = open(poscarDir + '/POSCAR', 'r')
         poscarLines = poscar.readlines()
         poscar.close()
@@ -320,8 +323,8 @@ class MakeUncleFiles:
             self.zPositions.append(0.0)
 
     def setAtomCounts(self, poscarDir):
-        """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file
-            and sets the corresponding members. """
+        """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
+            the corresponding members. """
         self.atomCounts = []
 
         poscar = open(poscarDir + '/POSCAR', 'r')
@@ -408,8 +411,8 @@ class MakeUncleFiles:
     
     def writePOSCAR(self, poscarDir, atomInd):
         """ Calls all the methods needed to write all the needed information about the current
-            structure to the structures.in or structures.holdout files.  Puts a maximum of 10%
-            of the structures in the structures.holdout file. """
+            structure to the structures.in or structures.holdout files.  Puts a maximum of 
+            approximately 10% of the structures in the structures.holdout file. """
         if self.holdoutCount / float(len(self.structList[atomInd])) < .10 and random() < .15:
             self.outfile = self.holdoutFile
             self.holdoutCount += 1
@@ -441,13 +444,15 @@ class MakeUncleFiles:
             return 'in'
 
     def makeUncleFiles(self):
+        """ Runs through the whole process of creating structures.in and structures.holdout files
+            for each metal atom. """
         self.setStructureList()
         
         for i in xrange(len(self.atoms)):
             atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
-                self.initialize()
+                self.reinitialize()
                 self.infile = open(atomDir + '/structures.in','w')
                 self.holdoutFile = open(atomDir + '/structures.holdout','w')
                 self.sortStructsByFormEnergy(i)
