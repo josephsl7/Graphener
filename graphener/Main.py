@@ -25,9 +25,11 @@ def readSettingsFile():
     atoms = []
     volRange = []
     clusterNums = []
+    startFromExisting = False
     trainStructs = 0
     fitStructs = 0
     fitSubsets = 0
+    growNum = 0
     plotTitle = "title"
     xlabel = "xlabel"
     ylabel = "ylabel"
@@ -51,6 +53,9 @@ def readSettingsFile():
             parts = line.split()
             for i in xrange(1, 11):
                 clusterNums.append(int(parts[i]))
+        elif line.split()[0] == 'STRUCTURES_IN:':
+            if str(line.split()[1]).lower() == 'true':
+                startFromExisting = True
         
         elif line.split()[0] == 'TRAINING_STRUCTS:':
             trainStructs = int(line.split()[1])
@@ -61,6 +66,9 @@ def readSettingsFile():
         elif line.split()[0] == 'STRUCT_SUBSETS:':
             fitSubsets = int(line.split()[1])
         
+        elif line.split()[0] == 'GROW_NUM:':
+            growNum = int(line.split()[1])
+        
         elif line.split()[0] == 'PLOT_TITLE:':
             plotTitle = line.split('\'')[1]
         
@@ -70,7 +78,31 @@ def readSettingsFile():
         elif line.split()[0] == 'YLAB:':
             ylabel = line.split('\'')[1]
     
-    return [atoms, volRange, clusterNums, trainStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel]
+    return [atoms, volRange, clusterNums, startFromExisting, trainStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel]
+
+def parseStructuresIn():
+    """ Right now this method assumes the structures.in file will have the following format for
+        the structure identification line:
+            graphene str #: (structure number) FE = 0.545, Concentration = .473
+        or, for a pure structure:
+            PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
+    currDir = os.getcwd()
+    infile = open(currDir + '/needed_files/structures.in')
+    lines = infile.readlines()
+    infile.close()
+    
+    structList = []
+    
+    for i in xrange(len(lines)):
+        if list(lines[i].strip().split()[0])[0] == '#':
+            if i != len(lines) - 1:
+                structLine = lines[i + 1].strip().split()
+                if structLine[0].lower() == 'pure':
+                    structList.append(structLine[5])
+                else:
+                    structList.append(structLine[3])
+    
+    return structList                
 
 def contains(struct, alist):
     for i in xrange(len(alist)):
@@ -99,7 +131,7 @@ def equals(alist, blist):
 if __name__ == '__main__':
     seed()
     
-    [atomList, volRange, clusterNums, trainingStructs, fitStructs, fitSubsets, plotTitle, xlabel, ylabel] = readSettingsFile()
+    [atomList, volRange, clusterNums, startFromExisting, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     
     enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
@@ -150,6 +182,9 @@ if __name__ == '__main__':
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
+        # TODO:  Check the precision of the energy per atom that I take from VASP and put
+        # into structures.in.  See if it's coming from low-precision or normal-precision
+        # rather than DOS.
         [vaspStructs, failedStructs] = uncleFileMaker.getStructureList()
         structuresInLengths = uncleFileMaker.getStructuresInLengths() 
         
@@ -249,7 +284,7 @@ if __name__ == '__main__':
         for i in xrange(len(gssStructs)):
             atomStructs = []
             for j in xrange(len(gssStructs[i])):
-                if added[i] >= 100:
+                if added[i] >= growNum:
                     break
                 elif not contains(gssStructs[i][j], vaspStructs[i]):
                     atomStructs.append(str(gssStructs[i][j]))
