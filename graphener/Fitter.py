@@ -8,7 +8,9 @@ import subprocess
 
 
 class Fitter:
-
+    """ This class performs the UNCLE fits to the VASP data that has been gathered so far.  It also
+        keeps track of the fitting errors, prediction errors, and summaries of cluster expansion 
+        terms from iteration to iteration. """
 
     def __init__(self, atoms, M_fitStructures, N_subsets, structuresInLengths, uncleOutput):
         """ CONSTRUCTOR """
@@ -24,6 +26,9 @@ class Fitter:
         self.uncleOut = uncleOutput
         
     def makeFitDirectories(self):
+        """ Creates the 'fits' directories for each atom and populates the directories with the 
+            files that UNCLE needs to perform a fit.  These files are lat.in, CS.in, clusters.out, 
+            and the current structures.in and structures.holdout files. """
         for n in xrange(len(self.atoms)):
             atomDir = os.path.abspath(self.atoms[n])
             fitsDir = atomDir + '/fits/'
@@ -51,6 +56,8 @@ class Fitter:
             outfile.close()
                
     def fitVASPData(self, iteration):
+        """ Performs the UNCLE fit to the VASP data. After the fit is done, it adds the iteration
+            onto the end of the files we want to keep track of from iteration to iteration. """
         lastDir = os.getcwd()
         for atom in self.atoms:
             atomDir = lastDir + '/' + atom
@@ -61,6 +68,7 @@ class Fitter:
                     os.chdir(fitsDir)
                     subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)
                     subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
+                    subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                     subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
                     os.chdir(lastDir)
 

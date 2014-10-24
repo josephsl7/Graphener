@@ -6,7 +6,11 @@ Created on Aug 29, 2014
 import os, subprocess
 
 class GSS:
-    
+    """ This class performs the UNCLE ground state search for the lowest formation energy
+        structures. From this, we get a list of every structure that was enumerated and its
+        corresponding formation energy as predicted by UNCLE. We use this list to decide which new
+        structures to add into the model. We also keep track of the list and the plots of the list
+        from iteration to iteration. """
 
     def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, uncleOutput):
         """ CONSTRUCTOR """
@@ -24,6 +28,9 @@ class GSS:
         self.uncleOut = uncleOutput
     
     def makeGSSDirectories(self):
+        """ Creates the 'gss' directories for each different metal atom and populates them with 
+            the files that UNCLE needs to perform a ground state search.  These files are 
+            struct_enum.out, lat.in, J.1.out, groundstatesearch.in, and gss_plot.gp. """
         for atom in self.atoms:
             atomDir = os.getcwd() + '/' + atom
             if os.path.isdir(atomDir):
@@ -63,6 +70,7 @@ class GSS:
                 outfile.close()
     
     def performGroundStateSearch(self, iteration):
+        """ Performs the ground state search with the current fit from UNCLE. """
         lastDir = os.getcwd()
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
@@ -73,6 +81,9 @@ class GSS:
                 os.chdir(lastDir)
 
     def makePlots(self, iteration):
+        """ Creates the plots of the predicted energies of all the structures that have been 
+            enumerated. Adds the iteration number onto the end of the filenames for the plots and
+            the lists. """
         lastDir = os.getcwd()
         for atom in self.atoms:
             gssDir = os.getcwd() + '/' + atom + '/gss/'
@@ -85,6 +96,7 @@ class GSS:
                 os.chdir(lastDir)
     
     def contains(self, struct, alist):
+        """ Returns true if 'struct' is found in 'alist', false otherwise. """
         for i in xrange(len(alist)):
             if str(struct) == str(alist[i]):
                 return True
@@ -92,6 +104,9 @@ class GSS:
         return False
     
     def getAllGSSStructures(self, iteration, failedStructs):
+        """ Returns a list of all the structures sorted by their predicted formation energies.
+            It does this for each metal atom that has been specified by the user so this will 
+            actually return a list of lists--a list for each atom. """
         allStructs = []
         for n in xrange(len(self.atoms)):
             atomStructs = []
