@@ -372,7 +372,7 @@ class RunVasp:
         incar.write("ISMEAR=0\n")
         incar.write("ISPIN=2\n")
         incar.write("LREAL=Auto\n")
-        incar.write("LORBIT=10\n")
+        incar.write("LORBIT=11\n")
         incar.write("SIGMA=0.1\n")
         incar.write("LWAVE=.TRUE.\n")
         incar.write("LCHARG=.TRUE.\n")
