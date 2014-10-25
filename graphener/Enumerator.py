@@ -23,7 +23,7 @@ class Enumerator:
         self.trainStructNum = trainStructNum
         
         self.uncleExec = os.path.abspath('needed_files/uncle.x')
-        self.enumFile = 'enum/struct_enum.out'
+        self.enumFile = os.path.abspath('enum/struct_enum.out')
         self.enumExec = os.path.abspath('needed_files/enum.x')
         self.uncleOut = uncleOutput
 
@@ -75,11 +75,24 @@ class Enumerator:
         """ Chooses a list of i.i.d. structures from struct_enum.out. The length of the list 
             is determined by the TRAINING_STRUCTS setting in settings.in. """
         lastDir = os.getcwd()
-        os.chdir(lastDir + '/enum')
         
-        subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
-        
-        os.chdir(lastDir)
+        for atom in self.atoms:
+            atomDir = lastDir + '/' + atom
+            try:
+                os.chdir(atomDir + '/enum')
+                subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
+                subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
+                os.chdir(lastDir)
+            except:
+                pass
+
+    def makeAtomDirectories(self):
+        """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
+            VASP and UNCLE files for the atom will be placed in this directory. """
+        for atom in self.atoms:
+            atomDir = os.getcwd() + '/' + atom
+            if not os.path.isdir(atomDir):
+                subprocess.call(['mkdir',atomDir])
     
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an
@@ -102,14 +115,20 @@ class Enumerator:
         
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
+        subprocess.call(['echo','\nEnumerating symmetrically unique structures. . .\n'])
         subprocess.call([self.enumExec,'struct_enum.in'], stdout=self.uncleOut)
         
         os.chdir(lastDir)
         
         self.changeEnumFile()
+        
         subprocess.call(['echo','\nGenerating clusters. . .\n'])
         self.buildClusters()
-        subprocess.call(['echo','\nChoosing i.i.d. structures. . .\n'])
+        
+        self.makeAtomDirectories()
+        for atom in self.atoms:
+            subprocess.call(['cp','-r','enum', atom + '/'])
+        
         self.chooseTrainingStructures()
         
             

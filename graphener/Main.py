@@ -80,29 +80,33 @@ def readSettingsFile():
     
     return [atoms, volRange, clusterNums, startFromExisting, trainStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel]
 
-def parseStructuresIn():
+def parseStartStructures(atomList):
     """ Right now this method assumes the structures.in file will have the following format for
         the structure identification line:
             graphene str #: (structure number) FE = 0.545, Concentration = .473
         or, for a pure structure:
             PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
-    currDir = os.getcwd()
-    infile = open(currDir + '/needed_files/structures.in')
-    lines = infile.readlines()
-    infile.close()
+    lastDir = os.getcwd()
+    os.chdir(lastDir + '/needed_files')
     
-    structList = []
+    for i in xrange(len(atomList)):
+        if (os.path.exists('structures.start.' + atomList[i])):
+            infile = open('structures.start.' + atomList[i],'r')
+            lines = infile.readlines()
+            infile.close()
     
-    for i in xrange(len(lines)):
-        if list(lines[i].strip().split()[0])[0] == '#':
-            if i != len(lines) - 1:
-                structLine = lines[i + 1].strip().split()
-                if structLine[0].lower() == 'pure':
-                    structList.append(structLine[5])
-                else:
-                    structList.append(structLine[3])
+            outfile =  open('past_structs.' + atomList[i] + '.dat', 'w')
+            for j in xrange(len(lines)):
+                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                    if j != len(lines) - 1:
+                        structLine = lines[j + 1].strip().split()
+                        if structLine[0].lower() == 'pure':
+                            outfile.write(str(structLine[5]) + '\n')
+                        else:
+                            outfile.write(str(structLine[3]) + '\n')
+            outfile.close()
     
-    return structList                
+    os.chdir(lastDir)          
 
 def contains(struct, alist):
     for i in xrange(len(alist)):
@@ -134,8 +138,9 @@ if __name__ == '__main__':
     [atomList, volRange, clusterNums, startFromExisting, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     
+    parseStartStructures(atomList)
+    
     enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
-    subprocess.call(['echo','\nEnumerating symmetrically unique structures. . .\n'])
     enumerator.enumerate()
     
     changed = True
@@ -155,6 +160,8 @@ if __name__ == '__main__':
         subprocess.call(['echo','========================================================\n'])
         
         # Extract the pseudo-POSCARs from struct_enum.out
+        # TODO:  Modify this to choose from iteration to iteration whether to use gss.out or
+        #        another set of training structures.
         extractor = Extractor.Extractor(atomList, uncleOutput)
         if iteration == 1:
             extractor.setTrainingStructs()
@@ -277,8 +284,9 @@ if __name__ == '__main__':
         except IOError:
             subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])
                 
-        # Add the 100 structures with the lowest formation energy that have not been through VASP
-        # calculations (converged or failed) to the newStructs list for each remaining atom.
+        # Add the the number of structures specified by growNum with the lowest formation energy 
+        # that have not been through VASP calculations (converged or failed) to the newStructs 
+        # list for each remaining atom.
         newStructs = []
         added = zeros(len(atomList))
         for i in xrange(len(gssStructs)):
