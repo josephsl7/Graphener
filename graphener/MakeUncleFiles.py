@@ -11,11 +11,13 @@ from random import random
 class MakeUncleFiles:
 
 
-    def __init__(self, atoms):
+    def __init__(self, atoms, startFromExisting, iteration):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
         self.structuresInLengths = zeros(len(self.atoms))
+        self.startFromExisting = startFromExisting
+        self.iteration = iteration
     
         self.structList = []
         self.failedStructs = []
@@ -124,6 +126,52 @@ class MakeUncleFiles:
         except:
             return 9999        
 
+    def copyFromExisting(self, atom):
+        """ Creates a structures.in file from a file that already exists and has the same format.
+            The file should be called 'structures.in.base'. """
+        atomDir = os.getcwd() + '/' + atom
+        if os.path.exists(atomDir + '/structures.in.base'):
+            startFile = open(atomDir + '/structures.in.base','r')
+            inFile = open(atomDir + '/structures.in','w')
+            for line in startFile:
+                inFile.write(line)
+            
+            startFile.close()
+            inFile.close()
+        else:
+            subprocess.call(['echo','\n~~~~~~~~~~ The structures.in.base file does not exist for ' + atom + '. ~~~~~~~~~~\n'])
+
+    def getEnergyFromExisting(self, label):
+        """ This method is used to extract the energy of the pure structures when they are in the
+            structures.in.base file and hence will not be calculated. If the pure structure is not
+            in the structures.in.base file, return 999999. """
+        infile = open('structures.in.base','r')
+        lines = infile.readlines()
+        infile.close()
+        
+        startLooking = False
+        if label == 'H':
+            for i in xrange(len(lines)):
+                lineParts = lines[i].strip().split()
+                if lineParts[0].lower() == 'pure' and lineParts[1].lower() == 'h':
+                    startLooking = True
+                
+                if startLooking:
+                    if lineParts[0] == '#Energy:':
+                        return float(lines[i+1].strip())
+                        
+        elif label == 'M':
+            for i in xrange(len(lines)):
+                lineParts = lines[i].strip().split()
+                if lineParts[0].lower() == 'pure' and lineParts[1].lower() == 'm':
+                    startLooking = True
+                
+                if startLooking:
+                    if lineParts[0] == '#Energy:':
+                        return float(lines[i+1].strip())
+        
+        return 999999
+
     def setStructureList(self):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
             files by adding only the structures that VASP finished relaxing to the member
@@ -133,59 +181,85 @@ class MakeUncleFiles:
         
         lastDir = os.getcwd()
         
-        for atom in self.atoms:
-            atomDir = lastDir + '/' + atom
-            os.chdir(atomDir)
-            pureHdir = os.getcwd() + '/1'
-            pureMdir = os.getcwd() + '/3'
-        
-            self.setAtomCounts(pureHdir)
-            self.setEnergy(pureHdir)
-            self.pureHenergy = float(self.energy)
-        
-            self.setAtomCounts(pureMdir)
-            self.setEnergy(pureMdir)
-            self.pureMenergy = float(self.energy)
-        
-            conclist = []
-            atomStructs = []
-            failed = []
-                        
-            dirList = os.listdir(atomDir)
-            for item in dirList:
-                fullPath = os.path.abspath(item)
-                if os.path.isdir(fullPath):
-                    if os.path.isdir(fullPath + '/DOS'):
-                        if self.FinishCheck(fullPath + '/DOS') and self.convergeCheck(fullPath + '/DOS', 2):
-                        
-                            # Check for concentration
-                            self.setAtomCounts(fullPath)
-                        
-                            concentration = 0.0
-                            if self.atomCounts[0] == 0:
-                                concentration = 1.0
-                            else:
-                                concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
-                        
-                            conclist.append([concentration, fullPath])
-                        else:
-                            failed.append(fullPath)
+        for i in xrange(len(self.atoms)):
+            # If it is the first iteration and we are starting from an existing structures.in.base
+            # file, we just append an empty list to the structList.  Else, proceed as normal.
+            if self.iteration == 1 and self.startFromExisting[i]:
+                self.structList.append([])
+            else:
+                atomDir = lastDir + '/' + self.atoms[i]
+                os.chdir(atomDir)
+                pureHdir = os.getcwd() + '/1'
+                pureMdir = os.getcwd() + '/3'
+            
+                if os.path.exists(pureHdir):
+                    self.setAtomCounts(pureHdir)
+                    self.setEnergy(pureHdir)
+                    self.pureHenergy = float(self.energy)
+                else:
+                    etest = self.getEnergyFromExisting('H')
+                    if etest != 999999:
+                        self.pureHenergy = etest
                     else:
-                        # Don't add the 'gss' or 'fits' directories.
-                        if not fullPath.split('/')[-1] == 'gss' and not fullPath.split('/')[-1] == 'fits':
-                            failed.append(fullPath)
-        
-            self.failedStructs.append(failed)
-            conclist.sort()
+                        # TODO: What if the pure H structure is not in structures.in.base, but we are
+                        #       on the first iteration starting from structures.in.base?
+                        pass
             
-            for i in xrange(len(conclist)):
-                atomStructs.append(conclist[i][1])
-            self.structList.append(atomStructs)
+                if os.path.exists(pureMdir):
+                    self.setAtomCounts(pureMdir)
+                    self.setEnergy(pureMdir)
+                    self.pureMenergy = float(self.energy)
+                else:
+                    etest = self.getEnergyFromExisting('M')
+                    if etest != 999999:
+                        self.pureMenergy = etest
+                    else:
+                        # TODO:  What if the pure M structure is not in structures.in.base, but we are 
+                        #        on the first iteration starting from structures.in.base
+                        pass
             
-            os.chdir(lastDir)
+                conclist = []
+                atomStructs = []
+                failed = []
+                            
+                dirList = os.listdir(atomDir)
+                for item in dirList:
+                    fullPath = os.path.abspath(item)
+                    if os.path.isdir(fullPath):
+                        if os.path.isdir(fullPath + '/DOS'):
+                            if self.FinishCheck(fullPath + '/DOS') and self.convergeCheck(fullPath + '/DOS', 2):
+                            
+                                # Check for concentration
+                                self.setAtomCounts(fullPath)
+                            
+                                concentration = 0.0
+                                if self.atomCounts[0] == 0:
+                                    concentration = 1.0
+                                else:
+                                    concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
+                            
+                                conclist.append([concentration, fullPath])
+                            else:
+                                failed.append(fullPath)
+                        else:
+                            # Don't add the 'gss' or 'fits' directories.
+                            if not fullPath.split('/')[-1] == 'gss' and not fullPath.split('/')[-1] == 'fits':
+                                failed.append(fullPath)
+            
+                self.failedStructs.append(failed)
+                conclist.sort()
+                
+                for i in xrange(len(conclist)):
+                    atomStructs.append(conclist[i][1])
+                self.structList.append(atomStructs)
+                
+                os.chdir(lastDir)
     
     def sortStructsByFormEnergy(self, atomInd):
         """ Sorts the list of structures by formation energy. """
+        # TODO:  We should probably figure out how to sort the structures in existing 
+        #        structures.in.base files together with the structures we have calculated in VASP 
+        #        during the loop.
         lastDir = os.getcwd()
         os.chdir(lastDir + '/' + self.atoms[atomInd])
         pureHdir = os.getcwd() + '/1'
@@ -359,9 +433,10 @@ class MakeUncleFiles:
         
         self.energy = str(peratom)
 
-    def writeHeader(self):
+    def writeHeader(self, index):
         """ Writes the headers of the structures.in and structures.holdout files. """
-        self.infile.write(self.header)
+        if not self.startFromExisting[index]:
+            self.infile.write(self.header)
         self.holdoutFile.write(self.header)
     
     def writeDashedLine(self):
@@ -453,10 +528,18 @@ class MakeUncleFiles:
             if os.path.isdir(atomDir):
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
                 self.reinitialize()
-                self.infile = open(atomDir + '/structures.in','w')
+
+                if self.startFromExisting:
+                    # If we start from an existing structures.in.base file, we will copy everything
+                    # from that file and then append the structures we have calculated at the end
+                    self.copyFromExisting(self.atoms[i])
+                    self.infile = open(atomDir + '/structures.in','a')
+                else:
+                    self.infile = open(atomDir + '/structures.in','w')
+                
                 self.holdoutFile = open(atomDir + '/structures.holdout','w')
+                self.writeHeader(i)   
                 self.sortStructsByFormEnergy(i)
-                self.writeHeader()
                 
                 num = 0
                 structuresInCount = 0

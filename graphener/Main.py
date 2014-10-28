@@ -89,6 +89,7 @@ def parseStartStructures(atomList):
     lastDir = os.getcwd()
     os.chdir(lastDir + '/needed_files')
     
+    startFromExisting = []
     for i in xrange(len(atomList)):
         if (os.path.exists('structures.start.' + atomList[i])):
             infile = open('structures.start.' + atomList[i],'r')
@@ -105,8 +106,12 @@ def parseStartStructures(atomList):
                         else:
                             outfile.write(str(structLine[3]) + '\n')
             outfile.close()
+            startFromExisting.append(True)
+        else:
+            startFromExisting.append(False)
     
-    os.chdir(lastDir)          
+    os.chdir(lastDir)
+    return startFromExisting          
 
 def contains(struct, alist):
     for i in xrange(len(alist)):
@@ -202,10 +207,10 @@ def writeLowestGSS(lowestGssFile, newStructs, iteration, atomList):
 if __name__ == '__main__':
     seed()
     
-    [atomList, volRange, clusterNums, startFromExisting, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
+    [atomList, volRange, clusterNums, existing, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     
-    parseStartStructures(atomList)
+    startFromExisting = parseStartStructures(atomList)
     
     enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
     enumerator.enumerate()
@@ -233,9 +238,9 @@ if __name__ == '__main__':
         extractor = Extractor.Extractor(atomList, uncleOutput)
         pastStructs = extractor.getPastStructs()
         if iteration == 1:
-            extractor.setTrainingStructs(iteration, pastStructs)
+            extractor.setStructsFromTraining(iteration, pastStructs)
         elif iteration > 1:
-            extractor.setStructList(newStructs)
+            extractor.setStructsFromGSS(newStructs)
 
         toCalculate = extractor.getStructList()
         extractor.extract()
@@ -253,7 +258,7 @@ if __name__ == '__main__':
         manager.runDOSJobs(toCalculate)
     
         # Create structures.in and structures.holdout files for each atom.
-        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList)
+        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration)
         uncleFileMaker.makeUncleFiles()
         
         # Get all the structs that have been through VASP calculations for each atom. These

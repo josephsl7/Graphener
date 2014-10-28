@@ -56,6 +56,7 @@ class Structs2Poscar:
                         subprocess.call(['mkdir', structDir])                    
                     
                     subprocess.call(['cp','POSCAR',structDir])
+                    self.structList[i].remove(str(structNum))
             
             subprocess.call(['rm',name])
             subprocess.call(['rm','POSCAR'])

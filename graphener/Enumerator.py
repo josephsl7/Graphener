@@ -72,19 +72,33 @@ class Enumerator:
         os.chdir(lastDir)
 
     def chooseTrainingStructures(self):
-        """ Chooses a list of i.i.d. structures from struct_enum.out. The length of the list 
-            is determined by the TRAINING_STRUCTS setting in settings.in. """
+        """ Chooses a list of i.i.d. structures from struct_enum.out for each different metal atom. 
+            The UNCLE option that we run to choose the training structures should look for a file 
+            called 'past_structs.dat' so as not to choose structures from that list. (Dr. Hess 
+            added that option in the UNCLE executable we're using.) The length of the list of
+            training structures for each atom is determined by the TRAINING_STRUCTS setting in 
+            settings.in. """
         lastDir = os.getcwd()
         
         for atom in self.atoms:
+            neededFilesDir = lastDir + '/needed_files'
             atomDir = lastDir + '/' + atom
             try:
+                # Look for the past_structs.dat file in needed_files folder.  If it is there, copy
+                # it to the atom's enum/ directory. If there's not, make an empty one for that atom.
+                pastStructFile = neededFilesDir + '/past_structs.' + atom + '.dat'
+                if os.path.exists(pastStructFile):
+                    subprocess.call(['cp', pastStructFile, atomDir + '/enum/past_structs.dat'])
+                else:
+                    emptyFile = open(atomDir + '/enum/past_structs.dat','w')
+                    emptyFile.close()
+                    
                 os.chdir(atomDir + '/enum')
                 subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
                 subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
                 os.chdir(lastDir)
             except:
-                pass
+                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
 
     def makeAtomDirectories(self):
         """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
@@ -128,6 +142,8 @@ class Enumerator:
         self.makeAtomDirectories()
         for atom in self.atoms:
             subprocess.call(['cp','-r','enum', atom + '/'])
+            if os.path.exists('needed_files/structures.start.' + atom):
+                subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.base'])
         
         self.chooseTrainingStructures()
         
