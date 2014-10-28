@@ -131,6 +131,73 @@ def equals(alist, blist):
         return False
     else:
         return True
+  
+def writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList):
+    try:
+        lowestStructsFile.write('==============================================================\n')
+        lowestStructsFile.write('\tIteration: ' + str(iteration) + '\n')
+        lowestStructsFile.write('==============================================================\n')
+        for i in xrange(len(vaspStructs)):
+            lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
+            atomLength = len(vaspStructs[i])
+            if atomLength >= 100:
+                for j in xrange(len(vaspStructs[i][:100])):
+                    if (j + 1) % 20 == 0 or j == 99:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
+                    else:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
+            else:
+                for j in xrange(len(vaspStructs[i][:atomLength])):
+                    if (j + 1) % 20 == 0 or j == atomLength - 1:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
+                    else:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
+                        
+        lowestStructsFile.flush()
+        os.fsync(lowestStructsFile.fileno())
+        
+    except IOError:
+        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
+
+def writeFailedVasp(failedFile, failedStructs, iteration, atomList):
+    try:
+        failedFile.write('==============================================================\n')
+        failedFile.write('\tIteration: ' + str(iteration) + '\n')
+        failedFile.write('==============================================================\n')
+        for i in xrange(len(failedStructs)):
+            failedFile.write('\n******************** ' + atomList[i] + ' ********************\n')
+            for j in xrange(len(failedStructs[i])):
+                if (j + 1) % 20 == 0 or j == len(failedStructs[i]) - 1:
+                    failedFile.write(str(failedStructs[i][j]) + '\n')
+                else:
+                    failedFile.write(str(failedStructs[i][j]) + ', ')
+        
+        failedFile.flush()
+        os.fsync(failedFile.fileno())
+    except IOError:
+        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])   
+
+def writeLowestGSS(lowestGssFile, newStructs, iteration, atomList):
+    try:
+        lowestGssFile.write('\n==================================================================\n')
+        lowestGssFile.write('\tIteration: ' + str(iteration) + '\n')
+        lowestGssFile.write('==================================================================\n')
+        for i in xrange(len(newStructs)):
+            lowestGssFile.write('\n***************** ' + atomList[i] + ' *******************\n')
+            atomLength = len(newStructs[i])
+            if atomLength >= 100:
+                for j in xrange(len(newStructs[i])):
+                    if (j + 1) % 20 == 0 or j == 99:
+                        lowestGssFile.write(str(newStructs[i][j]) + '\n')
+                    else:
+                        lowestGssFile.write(str(newStructs[i][j]) + ', ')
+        
+        lowestGssFile.flush()
+        os.fsync(lowestGssFile.fileno())
+    except IOError:
+        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
+   
+# -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
     seed()
@@ -148,6 +215,7 @@ if __name__ == '__main__':
     
     newStructs = []
     gssStructs = []
+    pastStructs = []
     lowestStructsFile = open('lowest_vasp.txt','w')
     lowestGssFile = open('lowest_gss.txt','w')
     failedFile = open('failed_vasp.txt','w')
@@ -163,8 +231,9 @@ if __name__ == '__main__':
         # TODO:  Modify this to choose from iteration to iteration whether to use gss.out or
         #        another set of training structures.
         extractor = Extractor.Extractor(atomList, uncleOutput)
+        pastStructs = extractor.getPastStructs()
         if iteration == 1:
-            extractor.setTrainingStructs()
+            extractor.setTrainingStructs(iteration, pastStructs)
         elif iteration > 1:
             extractor.setStructList(newStructs)
 
@@ -242,47 +311,11 @@ if __name__ == '__main__':
             subprocess.call(['echo','\n----------------- The loop has converged! ---------------'])
 
         # Print the lowest energy structures that have been through VASP calculations to a file.
-        try:
-            lowestStructsFile.write('==============================================================\n')
-            lowestStructsFile.write('\tIteration: ' + str(iteration) + '\n')
-            lowestStructsFile.write('==============================================================\n')
-            for i in xrange(len(vaspStructs)):
-                lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
-                atomLength = len(vaspStructs[i])
-                if atomLength >= 100:
-                    for j in xrange(len(vaspStructs[i][:100])):
-                        if (j + 1) % 20 == 0 or j == 99:
-                            lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
-                        else:
-                            lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
-                else:
-                    for j in xrange(len(vaspStructs[i][:atomLength])):
-                        if (j + 1) % 20 == 0 or j == atomLength - 1:
-                            lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
-                        else:
-                            lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
-            lowestStructsFile.flush()
-            os.fsync(lowestStructsFile.fileno())
-        except IOError:
-            subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
+        writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList)
         
         # Write the all the structures that have failed VASP calculations to a file.
         # TODO: Only write the failed structures that are unique to this iteration to the file.
-        try:
-            failedFile.write('==============================================================\n')
-            failedFile.write('\tIteration: ' + str(iteration) + '\n')
-            failedFile.write('==============================================================\n')
-            for i in xrange(len(failedStructs)):
-                failedFile.write('\n******************** ' + atomList[i] + ' ********************\n')
-                for j in xrange(len(failedStructs[i])):
-                    if (j + 1) % 20 == 0 or j == len(failedStructs[i]) - 1:
-                        failedFile.write(str(failedStructs[i][j]) + '\n')
-                    else:
-                        failedFile.write(str(failedStructs[i][j]) + ', ')
-            failedFile.flush()
-            os.fsync(failedFile.fileno())
-        except IOError:
-            subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])
+        writeFailedVasp(failedFile, failedStructs, iteration, atomList)
                 
         # Add the the number of structures specified by growNum with the lowest formation energy 
         # that have not been through VASP calculations (converged or failed) to the newStructs 
@@ -300,23 +333,7 @@ if __name__ == '__main__':
             newStructs.append(atomStructs)
         
         # Print the new GSS structures to a file.
-        try:
-            lowestGssFile.write('==================================================================\n')
-            lowestGssFile.write('\tIteration: ' + str(iteration) + '\n')
-            lowestGssFile.write('==================================================================\n')
-            for i in xrange(len(newStructs)):
-                lowestGssFile.write('\n***************** ' + atomList[i] + ' *******************\n')
-                atomLength = len(newStructs[i])
-                if atomLength >= 100:
-                    for j in xrange(len(newStructs[i])):
-                        if (j + 1) % 20 == 0 or j == 99:
-                            lowestGssFile.write(str(newStructs[i][j]) + '\n')
-                        else:
-                            lowestGssFile.write(str(newStructs[i][j]) + ', ')
-            lowestGssFile.flush()
-            os.fsync(lowestGssFile.fileno())
-        except IOError:
-            subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
+        writeLowestGSS(lowestGssFile, newStructs, iteration, atomList)
          
         # Keep track of which iteration we're on.
         iteration += 1
