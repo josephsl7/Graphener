@@ -383,8 +383,10 @@ class MakeUncleFiles:
         """ Closes both the structures.in and structures.holdout files. """
         if self.infile != None:
             self.infile.close()
+            self.infile = None
         if self.holdoutFile != None:
             self.holdoutFile.close()
+            self.holdoutFile = None
 
     def setIDString(self, poscarDir):
         """ Sets the first written line of each structure to the form:
@@ -565,7 +567,10 @@ class MakeUncleFiles:
                     self.copyFromExisting(self.atoms[i])
                     if iteration == 1:
                         self.getHoldoutFromIn(atomDir)
-                    self.infile = open(atomDir + '/structures.in','a')
+                        self.infile = open(atomDir + '/structures.in','a')
+                    else:
+                        self.infile = open(atomDir + '/structures.in','a')
+                        self.holdoutFile = open(atomDir + '/strutures.holdout','w')
                 else:
                     self.infile = open(atomDir + '/structures.in','w')
                     self.holdoutFile = open(atomDir + '/structures.holdout','w')

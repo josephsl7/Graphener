@@ -260,7 +260,7 @@ if __name__ == '__main__':
     
         # Create structures.in and structures.holdout files for each atom.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration)
-        uncleFileMaker.makeUncleFiles(holdoutStructs)
+        uncleFileMaker.makeUncleFiles(iteration, holdoutStructs)
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
