@@ -212,8 +212,8 @@ if __name__ == '__main__':
     
     startFromExisting = parseStartStructures(atomList)
     
-    enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
-    enumerator.enumerate()
+    #enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
+    #enumerator.enumerate()
     
     changed = True
     iteration = 1
@@ -221,6 +221,7 @@ if __name__ == '__main__':
     newStructs = []
     gssStructs = []
     pastStructs = []
+    holdoutStructs = []
     lowestStructsFile = open('lowest_vasp.txt','w')
     lowestGssFile = open('lowest_gss.txt','w')
     failedFile = open('failed_vasp.txt','w')
@@ -259,7 +260,7 @@ if __name__ == '__main__':
     
         # Create structures.in and structures.holdout files for each atom.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration)
-        uncleFileMaker.makeUncleFiles()
+        uncleFileMaker.makeUncleFiles(holdoutStructs)
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
@@ -291,6 +292,7 @@ if __name__ == '__main__':
             atomLength = len(vaspStructs[i])
             if atomLength >= 100:
                 if equals(vaspStructs[i][:100], gssStructs[i][:100]):
+                    startFromExisting.remove(startFromExisting[i])
                     removeAtoms.append(atomList[i])
                     removeGss.append(gssStructs[i])
                     removeVasp.append(vaspStructs[i])
@@ -339,14 +341,20 @@ if __name__ == '__main__':
         
         # Print the new GSS structures to a file.
         writeLowestGSS(lowestGssFile, newStructs, iteration, atomList)
-         
+        
+        # Set holdoutStructs to the vaspStructs that were used in the last iteration of the loop.
+        if len(vaspStructs) > 100:
+            holdoutStructs = deepcopy(vaspStructs[:100])
+        else:
+            holdoutStructs = deepcopy(vaspStructs[:len(vaspStructs) / 2])
+
         # Keep track of which iteration we're on.
         iteration += 1
     
     uncleOutput.close()
     lowestStructsFile.close()
     lowestGssFile.close()
-    # Should do some analysis after the loop has finished as well.
+    # Should do some analysis after the loop has finished as well. """
         
 
     

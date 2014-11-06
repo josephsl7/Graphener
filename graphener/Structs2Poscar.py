@@ -22,14 +22,6 @@ class Structs2Poscar:
         self.atoms = atoms
         self.structList = structList
     
-    def makeAtomDirectories(self):
-        """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
-            VASP and UNCLE files for the atom will be placed in this directory. """
-        for atom in self.atoms:
-            atomDir = os.getcwd() + '/' + atom
-            if not os.path.isdir(atomDir):
-                subprocess.call(['mkdir',atomDir])
-    
     def makePlots(self, plotDir):
         """ NOT WORKING CURRENTLY.  This method puts a visual representation of each structure in 
             its directory. """
@@ -41,8 +33,6 @@ class Structs2Poscar:
         """ Converts all the pseudo-POSCARs created by the Extractor class into POSCAR files that
             VASP can use to run calculations and puts them in a directory that will contain all
             the information for that structure. """
-        self.makeAtomDirectories()
-        
         for name in glob('enum/vasp.0*'):
             structNum = str(self.retrieveStructNum(name))
             self.changeToPoscar(name)

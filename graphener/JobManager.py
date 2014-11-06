@@ -53,11 +53,14 @@ class JobManager:
                         else:
                             total += 1
             
-            percent = float(float(converged) / float(total)) * 100.0
-            notConverged = total - converged
-            subprocess.call(['echo','\t%5.2f %% of the structures converged during low-precision relaxation.' % percent])
-            subprocess.call(['echo','\t%d structures converged.' % converged])
-            subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
+            if total == 0:
+                subprocess.call(['echo','\tNo structures were submitted for ' + self.atoms[i]])
+            else:
+                percent = float(float(converged) / float(total)) * 100.0
+                notConverged = total - converged
+                subprocess.call(['echo','\t%5.2f %% of the structures converged during low-precision relaxation.' % percent])
+                subprocess.call(['echo','\t%d structures converged.' % converged])
+                subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
                             
     def FinishCheck(self, folder):
         """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
@@ -118,12 +121,14 @@ class JobManager:
                                 converged += 1
                             else:
                                 total += 1
-            
-            percent = float(float(converged) / float(total)) * 100.0
-            notConverged = total - converged
-            subprocess.call(['echo','\t%5.2f %% of the structures converged during normal-precision relaxation.' % percent])
-            subprocess.call(['echo','\t%d structures converged.' % converged])
-            subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
+            if total == 0:
+                subprocess.call(['echo','\tNo structures were submitted for ' + self.atoms[i]])
+            else:
+                percent = float(float(converged) / float(total)) * 100.0
+                notConverged = total - converged
+                subprocess.call(['echo','\t%5.2f %% of the structures converged during normal-precision relaxation.' % percent])
+                subprocess.call(['echo','\t%d structures converged.' % converged])
+                subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
     def reportDOSStats(self, structList):
         """ Reports the percentage of structures that converged during the Density of States VASP
@@ -146,11 +151,14 @@ class JobManager:
                             else:
                                 total += 1
             
-            percent = float(float(converged) / float(total)) * 100.0
-            notConverged = total - converged
-            subprocess.call(['echo','\t%5.2f %% of the structures converged during the DOS run.' % percent])
-            subprocess.call(['echo','\t%d structures converged.' % converged])
-            subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
+            if total == 0:
+                subprocess.call(['echo','\tNo structures were submitted for ' + self.atoms[i]])
+            else:
+                percent = float(float(converged) / float(total)) * 100.0
+                notConverged = total - converged
+                subprocess.call(['echo','\t%5.2f %% of the structures converged during the DOS run.' % percent])
+                subprocess.call(['echo','\t%d structures converged.' % converged])
+                subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
     def runLowJobs(self, structList):
         """ Starts the low-precision VASP calculations for all of the structures in 'structList'

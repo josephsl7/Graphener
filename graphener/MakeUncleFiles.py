@@ -13,7 +13,6 @@ class MakeUncleFiles:
 
     def __init__(self, atoms, startFromExisting, iteration):
         """ CONSTRUCTOR """
-        
         self.atoms = atoms
         self.structuresInLengths = zeros(len(self.atoms))
         self.startFromExisting = startFromExisting
@@ -140,6 +139,24 @@ class MakeUncleFiles:
             inFile.close()
         else:
             subprocess.call(['echo','\n~~~~~~~~~~ The structures.in.base file does not exist for ' + atom + '. ~~~~~~~~~~\n'])
+
+    def getHoldoutFromIn(self, atomDir):
+        """ Creates a 'structures.holdout' file when we start from an existing 'structures.in' file
+            on the first iteration of the loop. """
+        oldfile = open(atomDir + '/structures.in.base','r')
+        newHoldoutFile = open(atomDir + 'structures.holdout','w')
+
+        count = 0
+        for line in oldfile:
+            if list(line.strip().split()[:2] == ['#','-']):
+                if count >= 10:
+                    break
+                count += 1
+
+            newHoldoutFile.write(line)
+
+        oldfile.close()
+        newHoldoutFile.close()
 
     def getEnergyFromExisting(self, label):
         """ This method is used to extract the energy of the pure structures when they are in the
@@ -364,8 +381,10 @@ class MakeUncleFiles:
     
     def closeOutFiles(self):
         """ Closes both the structures.in and structures.holdout files. """
-        self.infile.close()
-        self.holdoutFile.close()
+        if self.infile != None:
+            self.infile.close()
+        if self.holdoutFile != None:
+            self.holdoutFile.close()
 
     def setIDString(self, poscarDir):
         """ Sets the first written line of each structure to the form:
@@ -437,7 +456,7 @@ class MakeUncleFiles:
         """ Writes the headers of the structures.in and structures.holdout files. """
         if not self.startFromExisting[index]:
             self.infile.write(self.header)
-        self.holdoutFile.write(self.header)
+        #self.holdoutFile.write(self.header)
     
     def writeDashedLine(self):
         """ Writes a dashed line in the structures.in/.holdout files as a separator between
@@ -484,11 +503,11 @@ class MakeUncleFiles:
         self.outfile.write("#Energy:\n")
         self.outfile.write(str(self.energy) + "\n") 
     
-    def writePOSCAR(self, poscarDir, atomInd):
+    def writePOSCAR(self, poscarDir, atomInd, holdoutList):
         """ Calls all the methods needed to write all the needed information about the current
-            structure to the structures.in or structures.holdout files.  Puts a maximum of 
-            approximately 10% of the structures in the structures.holdout file. """
-        if self.holdoutCount / float(len(self.structList[atomInd])) < .10 and random() < .15:
+            structure to the 'structures.in' or 'structures.holdout' files.  Uses an input list
+            to decide which structures to put in the 'structures.holdout' file. """
+        if self.contains(poscarDir, holdoutList) and not self.holdoutFile == None:
             self.outfile = self.holdoutFile
             self.holdoutCount += 1
         else:
@@ -518,7 +537,18 @@ class MakeUncleFiles:
         else:
             return 'in'
 
-    def makeUncleFiles(self):
+    def contains(self, struct, alist):
+        """ Returns True if the list 'alist' contains the structure 'struct', False otherwise. """
+        if len(alist) <= 0:
+            return False
+
+        for elem in alist:
+            if str(struct) == str(elem):
+                return True
+
+        return False
+
+    def makeUncleFiles(self, iteration, holdoutList):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
         self.setStructureList()
@@ -529,24 +559,38 @@ class MakeUncleFiles:
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
                 self.reinitialize()
 
-                if self.startFromExisting:
+                if self.startFromExisting[i]:
                     # If we start from an existing structures.in.base file, we will copy everything
                     # from that file and then append the structures we have calculated at the end
                     self.copyFromExisting(self.atoms[i])
+                    if iteration == 1:
+                        self.getHoldoutFromIn(atomDir)
                     self.infile = open(atomDir + '/structures.in','a')
                 else:
                     self.infile = open(atomDir + '/structures.in','w')
+                    self.holdoutFile = open(atomDir + '/structures.holdout','w')
                 
-                self.holdoutFile = open(atomDir + '/structures.holdout','w')
                 self.writeHeader(i)   
                 self.sortStructsByFormEnergy(i)
                 
                 num = 0
                 structuresInCount = 0
                 for structure in self.structList[i]:
-                    if structuresInCount >= 500:    # Write a maximum of 500 structures to the file
-                        break                       # for any given atom.
-                    whichFile = self.writePOSCAR(structure, i)
+                    # Uncomment the next two lines if you wish to place a limit on the number of 
+                    # structures going into the structures.in file for the fit.
+                    #if structuresInCount >= 500:    # Write a maximum of 500 structures to the file
+                    #    break                       # for any given atom.
+                    if self.startFromExisting[i] and iteration == 1:
+                        whichFile = self.writePOSCAR(structure, i, [])
+                    elif not self.startFromExisting[i] and iteration == 1:
+                        l = len(self.structList[i])
+                        if l > 20:
+                            whichFile = self.writePOSCAR(structure, i, self.structList[i][:10])
+                        else:
+                            whichFile = self.writePOSCAR(structure, i, self.structList[i][:l/2])
+                    else:
+                        whichFile = self.writePOSCAR(structure, i, holdoutList[i])
+
                     if whichFile == 'in':
                         structuresInCount += 1
                     num += 1

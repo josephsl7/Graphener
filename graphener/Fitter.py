@@ -70,6 +70,8 @@ class Fitter:
                     subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                     subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                     subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
+                    subprocess.call(['mv','structures.in', 'structures.in_' + str(iteration)])
+                    subprocess.call(['mv','structures.holdout', 'structures.holdout_' + str(iteration)])
                     os.chdir(lastDir)
 
 
