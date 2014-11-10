@@ -81,8 +81,8 @@ def readSettingsFile():
     return [atoms, volRange, clusterNums, startFromExisting, trainStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel]
 
 def parseStartStructures(atomList):
-    """ Right now this method assumes the structures.in file will have the following format for
-        the structure identification line:
+    """ Right now this method assumes that the structures.in file will have all of the pure 
+        structures and will have the following format for the structure identification line:
             graphene str #: (structure number) FE = 0.545, Concentration = .473
         or, for a pure structure:
             PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
@@ -346,7 +346,7 @@ if __name__ == '__main__':
         if len(vaspStructs) > 100:
             holdoutStructs = deepcopy(vaspStructs[:100])
         else:
-            holdoutStructs = deepcopy(vaspStructs[:len(vaspStructs) / 2])
+            holdoutStructs = deepcopy(vaspStructs[:len(vaspStructs)])
 
         # Keep track of which iteration we're on.
         iteration += 1
@@ -355,6 +355,8 @@ if __name__ == '__main__':
     lowestStructsFile.close()
     lowestGssFile.close()
     # Should do some analysis after the loop has finished as well. """
+
+    subprocess.call(['echo','\n---------- PROGRAM ENDED ----------\n'])
         
 
     

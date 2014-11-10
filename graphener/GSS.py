@@ -36,7 +36,8 @@ class GSS:
             if os.path.isdir(atomDir):
                 self.fitsDir = atomDir + '/fits/'
                 gssDir = atomDir + '/gss/'
-                subprocess.call(['mkdir',gssDir])
+                if not os.path.exists(gssDir):
+                    subprocess.call(['mkdir',gssDir])
                 subprocess.call(['cp',self.enumFolder + 'struct_enum.out', gssDir])
                 subprocess.call(['cp',self.enumFolder + 'lat.in', gssDir])
                 subprocess.call(['cp',self.fitsDir + 'J.1.out', gssDir])
@@ -97,6 +98,9 @@ class GSS:
     
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
+        if len(alist) == 0:
+            return False
+
         for i in xrange(len(alist)):
             if str(struct) == str(alist[i]):
                 return True

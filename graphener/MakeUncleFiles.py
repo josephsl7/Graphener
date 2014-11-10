@@ -144,11 +144,11 @@ class MakeUncleFiles:
         """ Creates a 'structures.holdout' file when we start from an existing 'structures.in' file
             on the first iteration of the loop. """
         oldfile = open(atomDir + '/structures.in.base','r')
-        newHoldoutFile = open(atomDir + 'structures.holdout','w')
+        newHoldoutFile = open(atomDir + '/structures.holdout','w')
 
         count = 0
         for line in oldfile:
-            if list(line.strip().split()[:2] == ['#','-']):
+            if list(line.strip().split()[0])[:2] == ['#','-']:
                 if count >= 10:
                     break
                 count += 1
@@ -195,14 +195,17 @@ class MakeUncleFiles:
             structList. Sorts the list by concentration (N_M / N_total). Adds the structures that
             failed VASP calculations to the member 'failedList'. """   
         self.structList = []
+        self.failedStructs = []
         
         lastDir = os.getcwd()
         
         for i in xrange(len(self.atoms)):
             # If it is the first iteration and we are starting from an existing structures.in.base
-            # file, we just append an empty list to the structList.  Else, proceed as normal.
+            # file, we just append an empty list to the structList and the failedList.  Else, 
+            # proceed as normal.
             if self.iteration == 1 and self.startFromExisting[i]:
                 self.structList.append([])
+                self.failedStructs.append([])
             else:
                 atomDir = lastDir + '/' + self.atoms[i]
                 os.chdir(atomDir)
@@ -218,9 +221,7 @@ class MakeUncleFiles:
                     if etest != 999999:
                         self.pureHenergy = etest
                     else:
-                        # TODO: What if the pure H structure is not in structures.in.base, but we are
-                        #       on the first iteration starting from structures.in.base?
-                        pass
+                        subprocess.call(['echo','\nERROR:  The pure H structure is not part of structures.base.in for ' + self.atoms[i] + '.\n'])
             
                 if os.path.exists(pureMdir):
                     self.setAtomCounts(pureMdir)
@@ -231,9 +232,7 @@ class MakeUncleFiles:
                     if etest != 999999:
                         self.pureMenergy = etest
                     else:
-                        # TODO:  What if the pure M structure is not in structures.in.base, but we are 
-                        #        on the first iteration starting from structures.in.base
-                        pass
+                        subprocess.call(['echo','\nERROR:  The pure M structure is not part of structures.base.in for ' + self.atoms[i] + '.\n'])
             
                 conclist = []
                 atomStructs = []
@@ -565,10 +564,7 @@ class MakeUncleFiles:
                     # If we start from an existing structures.in.base file, we will copy everything
                     # from that file and then append the structures we have calculated at the end
                     self.copyFromExisting(self.atoms[i])
-                    if iteration == 1:
-                        self.getHoldoutFromIn(atomDir)
-                        self.infile = open(atomDir + '/structures.in','a')
-                    else:
+                    if iteration != 1:
                         self.infile = open(atomDir + '/structures.in','a')
                         self.holdoutFile = open(atomDir + '/strutures.holdout','w')
                 else:
@@ -600,6 +596,9 @@ class MakeUncleFiles:
                         structuresInCount += 1
                     num += 1
                 
+                if iteration == 1:
+                    self.getHoldoutFromIn(atomDir)
+
                 self.structuresInLengths[i] = structuresInCount
                 self.closeOutFiles()
 
