@@ -379,7 +379,8 @@ if __name__ == '__main__':
 
         # Keep track of which iteration we're on.
         iteration += 1
-        if iteration == 3:
+        
+        if iteration == 4:
             break
     
     uncleOutput.close()
