@@ -25,7 +25,8 @@ def readSettingsFile():
     atoms = []
     volRange = []
     clusterNums = []
-    startFromExisting = False
+    base = False
+    GorT = 'g'
     trainStructs = 0
     fitStructs = 0
     fitSubsets = 0
@@ -52,10 +53,15 @@ def readSettingsFile():
             parts = line.split()
             for i in xrange(1, 11):
                 clusterNums.append(int(parts[i]))
-        elif line.split()[0] == 'STRUCTURES_IN:':
+
+        elif line.split()[0] == 'BASE:':
             if str(line.split()[1]).lower() == 'true':
-                startFromExisting = True
+                base = True
         
+        elif line.split()[0] == 'G/T:':
+            if str(line.split()[1]).lower() == 't':
+                GorT = 't'
+
         elif line.split()[0] == 'TRAINING_STRUCTS:':
             trainStructs = int(line.split()[1])
           
@@ -77,7 +83,7 @@ def readSettingsFile():
         elif line.split()[0] == 'YLAB:':
             ylabel = line.split('\'')[1]
     
-    return [atoms, volRange, clusterNums, startFromExisting, trainStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel]
+    return [atoms, volRange, clusterNums, base, GorT, trainStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel]
 
 def parseStartStructures(atomList):
     """ Right now this method assumes that the structures.in file will have all of the pure 
@@ -89,6 +95,7 @@ def parseStartStructures(atomList):
     os.chdir(lastDir + '/needed_files')
     
     startFromExisting = []
+    found = False
     for i in xrange(len(atomList)):
         if (os.path.exists('structures.start.' + atomList[i])):
             infile = open('structures.start.' + atomList[i],'r')
@@ -106,10 +113,14 @@ def parseStartStructures(atomList):
                             outfile.write(str(structLine[3]) + '\n')
             outfile.close()
             startFromExisting.append(True)
+            found = True
         else:
             startFromExisting.append(False)
     
     os.chdir(lastDir)
+
+    if not found:
+        subprocess.call(['echo','\tNo structures.start files found!  Proceeding without them. . .'])
     return startFromExisting          
 
 def contains(struct, alist):
@@ -213,13 +224,18 @@ def writeLowestGSS(lowestGssFile, newStructs, iteration, atomList):
 if __name__ == '__main__':
     seed()
     
-    [atomList, volRange, clusterNums, existing, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
+    [atomList, volRange, clusterNums, base, GorT, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     
-    startFromExisting = parseStartStructures(atomList)
+    startFromExisting = []
+    if base:
+        startFromExisting = parseStartStructures(atomList)
+    else:
+        for i in xrange(len(atomList)):
+            startFromExisting.append(False)
     
-    #enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
-    #enumerator.enumerate()
+    enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
+    enumerator.enumerate()
     
     changed = True
     iteration = 1
@@ -240,16 +256,19 @@ if __name__ == '__main__':
         subprocess.call(['echo','========================================================\n'])
         
         # Extract the pseudo-POSCARs from struct_enum.out
-        # TODO:  Modify this to choose from iteration to iteration whether to use gss.out or
-        #        another set of training structures.
         extractor = Extractor.Extractor(atomList, uncleOutput, startFromExisting)
         pastStructs = extractor.getPastStructs()
         if iteration == 1:
+            enumerator.chooseTrainingStructures()
             extractor.setStructsFromTraining(iteration, pastStructs)
-        elif iteration > 1:
+        elif iteration > 1 and GorT == 'g':
             extractor.setStructsFromGSS(newStructs)
+        elif iteration > 1 and GorT == 't':
+            enumerator.chooseTrainingStructures()
+            extractor.setStructsFromTraining(iteration, pastStructs)
 
         toCalculate = extractor.getStructList()
+
         extractor.extract()
     
         # Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them

@@ -80,18 +80,21 @@ class Enumerator:
             settings.in. """
         lastDir = os.getcwd()
         
+        # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
+        #        takes about an hour per atom for vol 1-8.)
         for atom in self.atoms:
             neededFilesDir = lastDir + '/needed_files'
             atomDir = lastDir + '/' + atom
             try:
                 # Look for the past_structs.dat file in needed_files folder.  If it is there, copy
                 # it to the atom's enum/ directory. If there's not, make an empty one for that atom.
-                pastStructFile = neededFilesDir + '/past_structs.' + atom + '.dat'
-                if os.path.exists(pastStructFile):
-                    subprocess.call(['cp', pastStructFile, atomDir + '/enum/past_structs.dat'])
-                else:
-                    emptyFile = open(atomDir + '/enum/past_structs.dat','w')
-                    emptyFile.close()
+                if not os.path.exists(atomDir + '/past_structs.dat'):
+                    pastStructFile = neededFilesDir + '/past_structs.' + atom + '.dat'
+                    if os.path.exists(pastStructFile):
+                        subprocess.call(['cp', pastStructFile, atomDir + '/enum/past_structs.dat'])
+                    else:
+                        emptyFile = open(atomDir + '/enum/past_structs.dat','w')
+                        emptyFile.close()
                     
                 os.chdir(atomDir + '/enum')
                 subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
@@ -145,8 +148,11 @@ class Enumerator:
             if os.path.exists('needed_files/structures.start.' + atom):
                 subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.base'])
         
-        self.chooseTrainingStructures()
-        
+
             
-            
+
+
+
+
+
         

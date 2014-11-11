@@ -179,15 +179,7 @@ class RunVasp:
     def fillDirectories(self, structList):
         """ Fills all the directories in 'structList' with the needed files for VASP to run, namely
             POSCAR, POTCAR, KPOINTS, INCAR, a SLURM job file, and the VASP executable file. """
-
-        subprocess.call(['echo', 'In fillDirectories():'])
-        subprocess.call(['echo', '\tLength of atomList: ' + str(len(self.atomList))])
-        subprocess.call(['echo', '\tLength of structList[0]: ' + str(len(structList[0]))])
-        subprocess.call(['echo', '\tLength of structList[1]: ' + str(len(structList[1])) + '\n'])
-
-
         for i in xrange(len(self.atomList)):
-            subprocess.call(['echo','Atom: ' + self.atomList[i]])
             lastDir = os.getcwd()
             atomDir = lastDir + '/' + self.atomList[i]
             
@@ -196,12 +188,10 @@ class RunVasp:
             for item in structList[i]:
                 if os.path.isdir(item):
                     structures.append(item)
-                    subprocess.call(['echo', '\tAppended ' + item + ' to structures.'])
             
             for structure in structures:
                 structureDir = os.path.abspath(structure)
                 subprocess.call(['cp', 'KPOINTS', 'INCAR', 'job', 'vasp533', structureDir])
-                subprocess.call(['echo','Filled directory ' + structureDir])
                 
                 poscar = open(structureDir + '/POSCAR','r')
                 poscarLines = [line.strip() for line in poscar]

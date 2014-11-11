@@ -5,6 +5,7 @@ Created on Aug 13, 2014
 '''
 from glob import glob
 from math import sqrt
+from copy import deepcopy
 import os, subprocess
 
 
@@ -20,7 +21,7 @@ class Structs2Poscar:
     def __init__(self, atoms, structList):
         """ CONSTRUCTOR """
         self.atoms = atoms
-        self.structList = structList
+        self.structList = deepcopy(structList)
     
     def makePlots(self, plotDir):
         """ NOT WORKING CURRENTLY.  This method puts a visual representation of each structure in 

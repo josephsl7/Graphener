@@ -61,10 +61,10 @@ class Extractor:
                 # structures in the fit on the first iteration because they are used to calculate
                 # formation energies for everything else.
                 if iterNum == 1:
-                    if not self.contains('1', pastStructs):
+                    if not self.contains('1', pastStructs[i]):
                         if not self.contains('1', trainStructs):
                             trainStructs[0] = '1'
-                    if not self.contains('3', pastStructs):
+                    if not self.contains('3', pastStructs[i]):
                         if not self.contains('3', trainStructs):
                             trainStructs[1] = '3'
                 
@@ -75,7 +75,11 @@ class Extractor:
                 pastFile.close()
             
                 self.structList.append(trainStructs)
-    
+
+        subprocess.call(['echo','Length of structList: ' + str(len(self.structList))])
+        subprocess.call(['echo','Length of structList[0]: ' + str(len(self.structList[0]))])
+        subprocess.call(['echo','Length of structList[1]: ' + str(len(self.structList[1]))])
+
     def contains(self, struct, alist):
         """ Returns True if 'alist' contains the item 'struct', False otherwise. """
         if len(alist) == 0:
