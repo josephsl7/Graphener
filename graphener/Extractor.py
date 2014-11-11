@@ -12,13 +12,13 @@ class Extractor:
         routine from the enumlib library in UNCLE.  The Structs2Poscar class will then take this 
         set of pseudo-POSCARs and prepare them for VASP calculations. """
 
-    def __init__(self, atoms, uncleOutput):
+    def __init__(self, atoms, uncleOutput, startFromExisting):
         """ CONSTRUCTOR """
-        
         self.atoms = atoms
         self.extractExec = os.path.abspath('needed_files/makestr.x')
         self.uncleOut = uncleOutput
         self.structList = []
+        self.startFromExisting = startFromExisting
 
     def getPastStructs(self):
         """ Retrieves a list of all the structures in the past_structs.dat file for each metal
@@ -46,31 +46,35 @@ class Extractor:
             the fit, so it makes sure that they are done at least by the end of the first 
             iteration. Appends the chosen structures to past_structs.dat for each atom. """
         self.structList = []
-        for atom in self.atoms:
-            trainStructs = []
-            trainFile = open(atom + '/enum/training_set_structures.dat','r')
-            for line in trainFile:
-                trainStructs.append(line.strip().split()[1])
-            trainFile.close()
-        
-            # Make sure the pure structures are in the first iteration's training structures list
-            # if they are not in the atom's past_structs.dat file.  We want to get the pure
-            # structures in the fit as soon as possible.
-            if iterNum == 1:
-                if not self.contains('1', pastStructs):
-                    if not self.contains('1', trainStructs):
-                        trainStructs[0] = '1'
-                if not self.contains('3', pastStructs):
-                    if not self.contains('3', trainStructs):
-                        trainStructs[1] = '3'
+        for i in xrange(len(self.atoms)):
+            if self.startFromExisting[i] and iterNum == 1:
+                self.structList.append([])
+            else:
+                trainStructs = []
+                trainFile = open(self.atoms[i] + '/enum/training_set_structures.dat','r')
+                for line in trainFile:
+                    trainStructs.append(line.strip().split()[1])
+                trainFile.close()
             
-            # Append the newly chosen structures to past_structs.dat so they don't get chosen again
-            pastFile = open(atom + '/enum/past_structs.dat','a')
-            for struct in trainStructs:
-                pastFile.write(struct + '\n')
-            pastFile.close()
-        
-            self.structList.append(trainStructs)
+                # Make sure the pure structures are in the first iteration's training structures list
+                # if they are not in the atom's past_structs.dat file.  We want to get the pure
+                # structures in the fit on the first iteration because they are used to calculate
+                # formation energies for everything else.
+                if iterNum == 1:
+                    if not self.contains('1', pastStructs):
+                        if not self.contains('1', trainStructs):
+                            trainStructs[0] = '1'
+                    if not self.contains('3', pastStructs):
+                        if not self.contains('3', trainStructs):
+                            trainStructs[1] = '3'
+                
+                # Append the newly chosen structures to past_structs.dat so they don't get chosen again
+                pastFile = open(self.atoms[i] + '/enum/past_structs.dat','a')
+                for struct in trainStructs:
+                    pastFile.write(struct + '\n')
+                pastFile.close()
+            
+                self.structList.append(trainStructs)
     
     def contains(self, struct, alist):
         """ Returns True if 'alist' contains the item 'struct', False otherwise. """

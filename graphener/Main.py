@@ -45,9 +45,8 @@ def readSettingsFile():
                     atoms.append(adatom)
             
         elif line.split()[0] == 'VOL_RANGE:':
-            low = int(line.split()[1])
-            high = int(line.split()[2])
-            volRange = [low, high]
+            high = int(line.split()[1])
+            volRange = [1, high]
             
         elif line.split()[0] == 'CLUSTER_NUMS:':
             parts = line.split()
@@ -151,6 +150,8 @@ def writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList):
                         lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
                     else:
                         lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
+            elif atomLength == 0:
+                lowestStructsFile.write('\nNo structures submitted.\n')
             else:
                 for j in xrange(len(vaspStructs[i][:atomLength])):
                     if (j + 1) % 20 == 0 or j == atomLength - 1:
@@ -171,11 +172,16 @@ def writeFailedVasp(failedFile, failedStructs, iteration, atomList):
         failedFile.write('==============================================================\n')
         for i in xrange(len(failedStructs)):
             failedFile.write('\n******************** ' + atomList[i] + ' ********************\n')
-            for j in xrange(len(failedStructs[i])):
-                if (j + 1) % 20 == 0 or j == len(failedStructs[i]) - 1:
-                    failedFile.write(str(failedStructs[i][j]) + '\n')
-                else:
-                    failedFile.write(str(failedStructs[i][j]) + ', ')
+            atomLength = len(failedStructs[i])
+            if atomLength == 0:
+                failedFile.write('\nNo structures have failed.\n')
+            else:
+                for j in xrange(len(failedStructs[i])):
+                    if (j + 1) % 20 == 0 or j == len(failedStructs[i]) - 1:
+                        failedFile.write(str(failedStructs[i][j]) + '\n')
+                    else:
+                        failedFile.write(str(failedStructs[i][j]) + ', ')
+
         
         failedFile.flush()
         os.fsync(failedFile.fileno())
@@ -236,7 +242,7 @@ if __name__ == '__main__':
         # Extract the pseudo-POSCARs from struct_enum.out
         # TODO:  Modify this to choose from iteration to iteration whether to use gss.out or
         #        another set of training structures.
-        extractor = Extractor.Extractor(atomList, uncleOutput)
+        extractor = Extractor.Extractor(atomList, uncleOutput, startFromExisting)
         pastStructs = extractor.getPastStructs()
         if iteration == 1:
             extractor.setStructsFromTraining(iteration, pastStructs)
@@ -281,6 +287,13 @@ if __name__ == '__main__':
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
         gssStructs = gss.getAllGSSStructures(iteration, failedStructs)
+
+        # Print the lowest energy structures that have been through VASP calculations to a file.
+        writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList)
+        
+        # Write the all the structures that have failed VASP calculations to a file.
+        # TODO: Only write the failed structures that are unique to this iteration to the file.
+        writeFailedVasp(failedFile, failedStructs, iteration, atomList)
         
         # Check the lowest 100 hundred structs from VASP against the lowest 100 structs from UNCLE
         # for each atom.  If they match, then that atom has converged and we remove it from the 
@@ -296,8 +309,11 @@ if __name__ == '__main__':
                     removeAtoms.append(atomList[i])
                     removeGss.append(gssStructs[i])
                     removeVasp.append(vaspStructs[i])
-            else:
-                # If there are not yet 100 structs that have converged in VASP.
+            elif atomLength != 0:
+                # If there are not yet 100 structs that have converged in VASP, just check however
+                # many have finished.  If there are no structures in the list, it is the first
+                # iteration starting from an existing structures.in.base file so we need to go 
+                # through another iteration before checking convergence.                
                 if equals(vaspStructs[i][:atomLength], gssStructs[i][:atomLength]):
                     removeAtoms.append(atomList[i])
                     removeGss.append(gssStructs[i])
@@ -316,14 +332,8 @@ if __name__ == '__main__':
                     
         if not changed:
             subprocess.call(['echo','\n----------------- The loop has converged! ---------------'])
+            break
 
-        # Print the lowest energy structures that have been through VASP calculations to a file.
-        writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList)
-        
-        # Write the all the structures that have failed VASP calculations to a file.
-        # TODO: Only write the failed structures that are unique to this iteration to the file.
-        writeFailedVasp(failedFile, failedStructs, iteration, atomList)
-                
         # Add the the number of structures specified by growNum with the lowest formation energy 
         # that have not been through VASP calculations (converged or failed) to the newStructs 
         # list for each remaining atom.
@@ -350,6 +360,8 @@ if __name__ == '__main__':
 
         # Keep track of which iteration we're on.
         iteration += 1
+        if iteration == 3:
+            break
     
     uncleOutput.close()
     lowestStructsFile.close()

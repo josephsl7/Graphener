@@ -566,13 +566,15 @@ class MakeUncleFiles:
                     self.copyFromExisting(self.atoms[i])
                     if iteration != 1:
                         self.infile = open(atomDir + '/structures.in','a')
-                        self.holdoutFile = open(atomDir + '/strutures.holdout','w')
+                        self.holdoutFile = open(atomDir + '/structures.holdout','w')
                 else:
                     self.infile = open(atomDir + '/structures.in','w')
                     self.holdoutFile = open(atomDir + '/structures.holdout','w')
                 
-                self.writeHeader(i)   
-                self.sortStructsByFormEnergy(i)
+                self.writeHeader(i)
+                
+                if len(self.structList[i]) != 0:   
+                    self.sortStructsByFormEnergy(i)
                 
                 num = 0
                 structuresInCount = 0
