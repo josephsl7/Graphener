@@ -235,7 +235,7 @@ if __name__ == '__main__':
             startFromExisting.append(False)
     
     enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
-    enumerator.enumerate()
+    #enumerator.enumerate()
     
     changed = True
     iteration = 1
@@ -257,14 +257,15 @@ if __name__ == '__main__':
         
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atomList, uncleOutput, startFromExisting)
-        pastStructs = extractor.getPastStructs()
         if iteration == 1:
             enumerator.chooseTrainingStructures()
+            pastStructs = extractor.getPastStructs()
             extractor.setStructsFromTraining(iteration, pastStructs)
         elif iteration > 1 and GorT == 'g':
             extractor.setStructsFromGSS(newStructs)
         elif iteration > 1 and GorT == 't':
             enumerator.chooseTrainingStructures()
+            pastStructs = extractor.getPastStructs()
             extractor.setStructsFromTraining(iteration, pastStructs)
 
         toCalculate = extractor.getStructList()

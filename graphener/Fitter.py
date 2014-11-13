@@ -42,6 +42,7 @@ class Fitter:
             inlines = [line for line in infile]
             infile.close()
             
+            # TODO:  This doesn't work right now unless it's a negative number in settings.in
             outfile = open(fitsDir + 'CS.in','w')
             for i in xrange(len(inlines)):
                 if i == 60:

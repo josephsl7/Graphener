@@ -76,10 +76,6 @@ class Extractor:
             
                 self.structList.append(trainStructs)
 
-        subprocess.call(['echo','Length of structList: ' + str(len(self.structList))])
-        subprocess.call(['echo','Length of structList[0]: ' + str(len(self.structList[0]))])
-        subprocess.call(['echo','Length of structList[1]: ' + str(len(self.structList[1]))])
-
     def contains(self, struct, alist):
         """ Returns True if 'alist' contains the item 'struct', False otherwise. """
         if len(alist) == 0:
