@@ -124,6 +124,9 @@ def parseStartStructures(atomList):
     return startFromExisting          
 
 def contains(struct, alist):
+    if len(alist) == 0:
+        return False
+    
     for i in xrange(len(alist)):
         if str(struct) == str(alist[i]):
             return True
@@ -139,8 +142,9 @@ def equals(alist, blist):
         if not contains(clist[0], dlist):
             return False
         else:
-            clist.remove(clist[0])
-            dlist.remove(clist[0])
+            toRemove = clist[0]
+            clist.remove(toRemove)
+            dlist.remove(toRemove)
     
     if len(dlist) > 0:
         return False
