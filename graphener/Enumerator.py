@@ -56,7 +56,7 @@ class Enumerator:
         
         newFile = open('enum/lat.in','w')
         for i in xrange(len(oldLines)):
-            if i == 38:
+            if 'Number pairs' in oldLines[i-1] and i>=1: #bch use label on previous line
                 for num in self.clusterNums:
                     newFile.write(str(num) + " ")
                 newFile.write("\n")
@@ -122,8 +122,9 @@ class Enumerator:
         infile.close()
         
         structFile = open('enum/struct_enum.in','w')
+        npoints = int(inlines[6].split()[0]) #bch
         for i in xrange(len(inlines)):
-            if i == 9:
+            if i == 7 + npoints:#bch
                 structFile.write(str(self.volRange[0]) + " " + str(self.volRange[1]) + " ")
                 structFile.write("# Starting and ending cell sizes for search\n")
             else:
