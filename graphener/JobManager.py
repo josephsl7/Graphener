@@ -101,6 +101,36 @@ class JobManager:
         except:
             return 9999
 
+    def reportDOSStats(self, structList):
+        """ Reports the percentage of structures that converged during the Density of States VASP
+            calculations.  Also reports the number of structures that converged and the number
+            that didn't. """
+        for i in xrange(len(self.atoms)):
+            subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
+            total = 0
+            converged = 0
+            atomDir = os.getcwd() + '/' + self.atoms[i]
+            if os.path.isdir(atomDir):
+                for struct in structList[i]:
+                    structDir = atomDir + '/' + struct
+                    if os.path.isdir(structDir):
+                        dosDir = structDir + '/DOS'
+                        if os.path.isdir(dosDir):
+                            if self.FinishCheck(dosDir) and self.convergeCheck(dosDir, 2):
+                                total += 1
+                                converged += 1
+                            else:
+                                total += 1            
+            if total == 0:
+                subprocess.call(['echo','\tNo structures were submitted for ' + self.atoms[i]])
+            else:
+                percent = float(float(converged) / float(total)) * 100.0
+                notConverged = total - converged
+                subprocess.call(['echo','\t%5.2f %% of the structures converged during the DOS run.' % percent])
+                subprocess.call(['echo','\t%d structures converged.' % converged])
+                subprocess.call(['echo','\t%d structures did not converge.' % notConverged]) 
+
+
     def reportNormalStats(self, structList):
         """ Reports the percentage of structures that converged during normal-precision VASP
             calculations.  Also reports the number of structures that converged and the number
@@ -130,36 +160,27 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures converged.' % converged])
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
-    def reportDOSStats(self, structList):
-        """ Reports the percentage of structures that converged during the Density of States VASP
-            calculations.  Also reports the number of structures that converged and the number
-            that didn't. """
-        for i in xrange(len(self.atoms)):
-            subprocess.call(['echo','\nFor atom ' + self.atoms[i] + ':'])
-            total = 0
-            converged = 0
-            atomDir = os.getcwd() + '/' + self.atoms[i]
-            if os.path.isdir(atomDir):
-                for struct in structList[i]:
-                    structDir = atomDir + '/' + struct
-                    if os.path.isdir(structDir):
-                        dosDir = structDir + '/DOS'
-                        if os.path.isdir(dosDir):
-                            if self.FinishCheck(dosDir) and self.convergeCheck(dosDir, 2):
-                                total += 1
-                                converged += 1
-                            else:
-                                total += 1
+    def runDOSJobs(self, structList):
+        """ Starts the Density of States VASP calculations for all of the structures in 
+            'structList' and waits for all of the jobs to finish. It checks on the jobs every ten 
+            minutes. """
+        subprocess.call(['echo','\nStarting DOS run. . .\n'])
+        self.vaspRunner.run(3, structList)   
+        s = scheduler(time.time, time.sleep)    
+        finished = False
+        start_time = time.time()
+        event_time = start_time
+        while not finished:
+            event_time += 600
+            s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
+            s.run()
+            finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())   
+        self.reportDOSStats(structList)
+
+    def runHexMono(self): #bch   
+        subprocess.call(['echo','\nPreparing and running hexagonal metal monolayers directories\n']) #bch   
+        self.vaspRunner.makeRunHexMono() #bch 
             
-            if total == 0:
-                subprocess.call(['echo','\tNo structures were submitted for ' + self.atoms[i]])
-            else:
-                percent = float(float(converged) / float(total)) * 100.0
-                notConverged = total - converged
-                subprocess.call(['echo','\t%5.2f %% of the structures converged during the DOS run.' % percent])
-                subprocess.call(['echo','\t%d structures converged.' % converged])
-                subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
-    
     def runLowJobs(self, structList):
         """ Starts the low-precision VASP calculations for all of the structures in 'structList'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
@@ -201,25 +222,10 @@ class JobManager:
     
         self.reportNormalStats(structList)
 
-    def runDOSJobs(self, structList):
-        """ Starts the Density of States VASP calculations for all of the structures in 
-            'structList' and waits for all of the jobs to finish. It checks on the jobs every ten 
-            minutes. """
-        subprocess.call(['echo','\nStarting DOS run. . .\n'])
-        self.vaspRunner.run(3, structList)
-    
-        s = scheduler(time.time, time.sleep)
-    
-        finished = False
-        start_time = time.time()
-        event_time = start_time
-        while not finished:
-            event_time += 600
-            s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
-            s.run()
-            finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
-    
-        self.reportDOSStats(structList)
+    def runSingleAtoms(self): #bch   
+        subprocess.call(['echo','\nPreparing and running single atom directories\n']) #bch   
+        self.vaspRunner.makeRunSingleDirectories() #bch 
+
 
 
 
