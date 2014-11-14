@@ -4,12 +4,87 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 
-import os, subprocess
+import os, subprocess,sys
 from random import seed
-from numpy import zeros
+from numpy import zeros,sqrt,std,amax,amin
 from copy import deepcopy
 
-import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo
+import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
+
+def contains(struct, alist):
+    if len(alist) == 0:
+        return False
+    
+    for i in xrange(len(alist)):
+        if str(struct) == str(alist[i]):
+            return True
+    
+    return False
+
+def equals(alist, blist):
+    clist = deepcopy(alist)
+    dlist = deepcopy(blist)
+    while len(clist) > 0:
+        if len(dlist) == 0:
+            return False
+        if not contains(clist[0], dlist):
+            return False
+        else:
+            toRemove = clist[0]
+            clist.remove(toRemove)
+            dlist.remove(toRemove)
+    
+    if len(dlist) > 0:
+        return False
+    else:
+        return True
+    
+def getDiffE(priority, elast, atomList):
+    '''Finds the L1 norm energy change between iterations, weighted by priority'''
+    ediff = priority[:,:]['energy'] - elast
+    ediffL1 = zeros(len(atomList))
+    for iatom in range(len(atomList)):
+        priorsum = sum(priority[iatom,:]['prior'])
+        ediff[iatom,:] = abs(ediff[iatom,:]) * priority[iatom,:]['prior']/priorsum
+        ediffL1[iatom] = sqrt(sum(ediff[iatom,:]))
+    return ediffL1
+
+def parseStartStructures(atomList):
+    """ Right now this method assumes that the structures.in file will have all of the pure
+    structures and will have the following format for the structure identification line:
+    graphene str #: (structure number) FE = 0.545, Concentration = .473
+    or, for a pure structure:
+    PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
+    lastDir = os.getcwd()
+    os.chdir(lastDir + '/needed_files')
+    startFromExisting = []
+    found = False
+    for i in xrange(len(atomList)):
+        if (os.path.exists('structures.start.' + atomList[i])):
+            infile = open('structures.start.' + atomList[i],'r')
+            lines = infile.readlines()
+            infile.close()
+    
+            outfile =  open('past_structs.' + atomList[i] + '.dat', 'w')
+            for j in xrange(len(lines)):
+                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                    if j != len(lines) - 1:
+                        structLine = lines[j + 1].strip().split()
+                        if structLine[0].lower() == 'pure':
+                            outfile.write(str(structLine[5]) + '\n')
+                        else:
+                            outfile.write(str(structLine[3]) + '\n')
+            outfile.close()
+            startFromExisting.append(True)
+            found = True
+        else:
+            startFromExisting.append(False)
+    
+    os.chdir(lastDir)
+
+    if not found:
+        subprocess.call(['echo','\tNo structures.start files found!  Proceeding without them. . .'])
+    return startFromExisting   
 
 def readSettingsFile():
     currDir = os.getcwd()
@@ -85,101 +160,6 @@ def readSettingsFile():
     
     return [atoms, volRange, clusterNums, base, GorT, trainStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel]
 
-def parseStartStructures(atomList):
-    """ Right now this method assumes that the structures.in file will have all of the pure 
-        structures and will have the following format for the structure identification line:
-            graphene str #: (structure number) FE = 0.545, Concentration = .473
-        or, for a pure structure:
-            PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
-    lastDir = os.getcwd()
-    os.chdir(lastDir + '/needed_files')
-    
-    startFromExisting = []
-    found = False
-    for i in xrange(len(atomList)):
-        if (os.path.exists('structures.start.' + atomList[i])):
-            infile = open('structures.start.' + atomList[i],'r')
-            lines = infile.readlines()
-            infile.close()
-    
-            outfile =  open('past_structs.' + atomList[i] + '.dat', 'w')
-            for j in xrange(len(lines)):
-                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
-                    if j != len(lines) - 1:
-                        structLine = lines[j + 1].strip().split()
-                        if structLine[0].lower() == 'pure':
-                            outfile.write(str(structLine[5]) + '\n')
-                        else:
-                            outfile.write(str(structLine[3]) + '\n')
-            outfile.close()
-            startFromExisting.append(True)
-            found = True
-        else:
-            startFromExisting.append(False)
-    
-    os.chdir(lastDir)
-
-    if not found:
-        subprocess.call(['echo','\tNo structures.start files found!  Proceeding without them. . .'])
-    return startFromExisting          
-
-def contains(struct, alist):
-    if len(alist) == 0:
-        return False
-    
-    for i in xrange(len(alist)):
-        if str(struct) == str(alist[i]):
-            return True
-    
-    return False
-
-def equals(alist, blist):
-    clist = deepcopy(alist)
-    dlist = deepcopy(blist)
-    while len(clist) > 0:
-        if len(dlist) == 0:
-            return False
-        if not contains(clist[0], dlist):
-            return False
-        else:
-            toRemove = clist[0]
-            clist.remove(toRemove)
-            dlist.remove(toRemove)
-    
-    if len(dlist) > 0:
-        return False
-    else:
-        return True
-  
-def writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList):
-    try:
-        lowestStructsFile.write('==============================================================\n')
-        lowestStructsFile.write('\tIteration: ' + str(iteration) + '\n')
-        lowestStructsFile.write('==============================================================\n')
-        for i in xrange(len(vaspStructs)):
-            lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
-            atomLength = len(vaspStructs[i])
-            if atomLength >= 100:
-                for j in xrange(len(vaspStructs[i][:100])):
-                    if (j + 1) % 20 == 0 or j == 99:
-                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
-                    else:
-                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
-            elif atomLength == 0:
-                lowestStructsFile.write('\nNo structures submitted.\n')
-            else:
-                for j in xrange(len(vaspStructs[i][:atomLength])):
-                    if (j + 1) % 20 == 0 or j == atomLength - 1:
-                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
-                    else:
-                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
-                        
-        lowestStructsFile.flush()
-        os.fsync(lowestStructsFile.fileno())
-        
-    except IOError:
-        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
-
 def writeFailedVasp(failedFile, failedStructs, iteration, atomList):
     try:
         failedFile.write('==============================================================\n')
@@ -222,7 +202,35 @@ def writeLowestGSS(lowestGssFile, newStructs, iteration, atomList):
         os.fsync(lowestGssFile.fileno())
     except IOError:
         subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
-   
+
+def writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList):
+    try:
+        lowestStructsFile.write('==============================================================\n')
+        lowestStructsFile.write('\tIteration: ' + str(iteration) + '\n')
+        lowestStructsFile.write('==============================================================\n')
+        for i in xrange(len(vaspStructs)):
+            lowestStructsFile.write('\n******************** ' + atomList[i] + ' ********************\n')
+            atomLength = len(vaspStructs[i])
+            if atomLength >= 100:
+                for j in xrange(len(vaspStructs[i][:100])):
+                    if (j + 1) % 20 == 0 or j == 99:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
+                    else:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')
+            elif atomLength == 0:
+                lowestStructsFile.write('\nNo structures submitted.\n')
+            else:
+                for j in xrange(len(vaspStructs[i][:atomLength])):
+                    if (j + 1) % 20 == 0 or j == atomLength - 1:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + '\n')
+                    else:
+                        lowestStructsFile.write(str(vaspStructs[i][j]) + ', ')                       
+        lowestStructsFile.flush()
+        os.fsync(lowestStructsFile.fileno())
+        
+    except IOError:
+        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
+
 # -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
@@ -240,6 +248,7 @@ if __name__ == '__main__':
     
     enumerator = Enumerator.Enumerator(atomList, volRange, clusterNums, trainingStructs, uncleOutput)
     #enumerator.enumerate()
+    elast = zeros((ntot,len(atomList)),dtype=float) #energies of last iteration, sorted by structure name
     
     changed = True
     iteration = 1
@@ -285,11 +294,13 @@ if __name__ == '__main__':
         # Start VASP jobs and wait until they all complete or time out.
         manager = JobManager.JobManager(atomList)
         manager.runLowJobs(toCalculate)
-        manager.runNormalJobs(toCalculate)
-        manager.runDOSJobs(toCalculate)
+        finaldir = '/'  #if want low precision runs only        
+#        manager.runNormalJobs(toCalculate)
+#        manager.runDOSJobs(toCalculate)
     
         # Create structures.in and structures.holdout files for each atom.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration)
+        uncleFileMaker.finaldir = finaldir #bch
         uncleFileMaker.makeUncleFiles(iteration, holdoutStructs)
         
         # Get all the structs that have been through VASP calculations for each atom. These
@@ -311,7 +322,10 @@ if __name__ == '__main__':
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
         gssStructs = gss.getAllGSSStructures(iteration, failedStructs)
-
+        priority = gss.getGssInfo(iteration)
+        diffe = getDiffE(priority,elast,atomList)
+        print 'diffe',diffe
+        elast = priority[:,:]['energy']
         # Print the lowest energy structures that have been through VASP calculations to a file.
         writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList)
         
