@@ -27,10 +27,10 @@ class Extractor:
         pastStructs = []
         topDir = os.getcwd()
         for atom in self.atoms:
-            atomDir = topDir + '/' + atom + '/enum'
+            atomDir = topDir + '/' + atom
             atomStructs = []
             
-            pastFile = open(atomDir + '/past_structs.dat','r')
+            pastFile = open(atomDir + '/past/past_structs.dat','r')
             for line in pastFile:
                 atomStructs.append(line.strip())
             pastFile.close()
@@ -51,7 +51,7 @@ class Extractor:
                 self.structList.append([])
             else:
                 trainStructs = []
-                trainFile = open(self.atoms[i] + '/enum/training_set_structures.dat','r')
+                trainFile = open(self.atoms[i] + '/past/training_set_structures.dat','r')
                 for line in trainFile:
                     trainStructs.append(line.strip().split()[1])
                 trainFile.close()
@@ -69,7 +69,7 @@ class Extractor:
                             trainStructs[1] = '3'
                 
                 # Append the newly chosen structures to past_structs.dat so they don't get chosen again
-                pastFile = open(self.atoms[i] + '/enum/past_structs.dat','a')
+                pastFile = open(self.atoms[i] + '/past/past_structs.dat','a')
                 for struct in trainStructs:
                     pastFile.write(struct + '\n')
                 pastFile.close()

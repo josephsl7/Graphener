@@ -167,7 +167,6 @@ class Analyzer:
             time =  float(result[0][-10:-3].strip()) #last few characters
         except:
             time = 0
-        
         return time
     
     def writeEnergiesOszicar(self, alist):           

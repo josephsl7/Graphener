@@ -55,7 +55,7 @@ class MakeUncleFiles:
         self.energy = 0.0   
         self.singleE = [] #bch
         self.hexE = [] #bch
-        self.finaldir = '' #bch
+        self.finalDir = '' #bch
 
     def closeOutFiles(self):
         """ Closes both the structures.in and structures.holdout files. """
@@ -90,10 +90,10 @@ class MakeUncleFiles:
 
     def copyFromExisting(self, atom):
         """ Creates a structures.in file from a file that already exists and has the same format.
-            The file should be called 'structures.in.base'. """
+            The file should be called 'structures.in.start'. """
         atomDir = os.getcwd() + '/' + atom
-        if os.path.exists(atomDir + '/structures.in.base'):
-            startFile = open(atomDir + '/structures.in.base', 'r')
+        if os.path.exists(atomDir + '/structures.in.start'):
+            startFile = open(atomDir + '/structures.in.start', 'r')
             inFile = open(atomDir + '/structures.in', 'w')
             for line in startFile:
                 inFile.write(line)
@@ -159,9 +159,9 @@ class MakeUncleFiles:
 
     def getEnergyFromExisting(self, label):
         """ This method is used to extract the energy of the pure structures when they are in the
-            structures.in.base file and hence will not be calculated. If the pure structure is not
-            in the structures.in.base file, return 999999. """
-        infile = open('structures.in.base', 'r')
+            structures.in.start file and hence will not be calculated. If the pure structure is not
+            in the structures.in.start file, return 999999. """
+        infile = open('structures.in.start', 'r')
         lines = infile.readlines()
         infile.close()
         
@@ -279,7 +279,7 @@ class MakeUncleFiles:
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
                 self.reinitialize()
                 if self.startFromExisting[i]:
-                    # If we start from an existing structures.in.base file, we will copy everything
+                    # If we start from an existing structures.in.start file, we will copy everything
                     # from that file and then append the structures we have calculated at the end
                     self.copyFromExisting(self.atoms[i])
                     if iteration != 1:
@@ -460,7 +460,7 @@ class MakeUncleFiles:
         lastDir = os.getcwd()
         
         for i in xrange(len(self.atoms)):
-            # If it is the first iteration and we are starting from an existing structures.in.base
+            # If it is the first iteration and we are starting from an existing structures.in.start
             # file, we just append an empty list to the structList and the failedList.  Else, 
             # proceed as normal.
             if self.iteration == 1 and self.startFromExisting[i]:
@@ -481,7 +481,7 @@ class MakeUncleFiles:
                     if etest != 999999:
                         self.pureHenergy = etest
                     else:
-                        subprocess.call(['echo', '\nERROR:  The pure H structure is not part of structures.base.in for ' + self.atoms[i] + '.\n'])
+                        subprocess.call(['echo', '\nERROR:  The pure H structure is not part of structures.in.start for ' + self.atoms[i] + '.\n'])
             
                 if os.path.exists(pureMdir):
                     self.setAtomCounts(pureMdir)
@@ -492,7 +492,7 @@ class MakeUncleFiles:
                     if etest != 999999:
                         self.pureMenergy = etest
                     else:
-                        subprocess.call(['echo', '\nERROR:  The pure M structure is not part of structures.base.in for ' + self.atoms[i] + '.\n'])
+                        subprocess.call(['echo', '\nERROR:  The pure M structure is not part of structures.in.start for ' + self.atoms[i] + '.\n'])
             
                 conclist = []
                 atomStructs = []
@@ -548,7 +548,7 @@ class MakeUncleFiles:
     def sortStructsByFormEnergy(self, atomInd):
         """ Sorts the list of structures by formation energy. """
         # TODO:  We should probably figure out how to sort the structures in existing 
-        #        structures.in.base files together with the structures we have calculated in VASP 
+        #        structures.in.start files together with the structures we have calculated in VASP 
         #        during the loop.
         lastDir = os.getcwd()
         os.chdir(lastDir + '/' + self.atoms[atomInd])

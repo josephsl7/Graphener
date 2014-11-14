@@ -173,13 +173,13 @@ class RunVasp:
         jobFile = open('DOS/job','w')
         
         jobFile.write("#!/bin/bash\n\n")
-        jobFile.write("#SBATCH --time=6:00:00\n")
+        jobFile.write("#SBATCH --time=0:30:00\n")
         jobFile.write("#SBATCH --ntasks=16\n")
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
         jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")
-           jobFile.write("#SBATCH --mail-type=END\n")  
+        jobFile.write("#SBATCH --mail-type=END\n")  
         jobFile.write("#SBATCH --job-name=%s\n" % name)
-     jobFile.write("#SBATCH --mail-type=FAIL\n")
+        jobFile.write("#SBATCH --mail-type=FAIL\n")
         jobFile.write("\nmpiexec vasp533 > vasp.out\n")
     
         jobFile.close()          
@@ -190,10 +190,9 @@ class RunVasp:
         
         for direc in dirList:
             name = direc #bch (which atom)
-            jobFile = open(direc + '/job','w')
-    
+            jobFile = open(direc + '/job','w')   
             jobFile.write("#!/bin/bash\n\n")
-            jobFile.write("#SBATCH --time=06:00:00\n")
+            jobFile.write("#SBATCH --time=00:30:00\n")
             jobFile.write("#SBATCH --ntasks=16\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")              
@@ -340,37 +339,27 @@ class RunVasp:
             "pure" structure. This method creates these POTCAR files. """       
         for atom in self.atomList:
             atomPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom
-            purePotcar = open(atom + "/C" + atom + "_POTCAR", "w")
-                
-                CPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR", "r")
-                CLines = CPotcar.readlines()
-                CPotcar.close()
-                
-                atomPotcar = open(atomPotcarDir + "/POTCAR", "r")
-                atomLines = atomPotcar.readlines()
-                atomPotcar.close()
-                
-                for line in CLines:
-                    purePotcar.write(line)
-                
-                for line in atomLines:
-                    purePotcar.write(line)
-                
-                purePotcar.close()
-                
-                CHPotcar = open(atom + "/CH_POTCAR", "w")
-                
-                HPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/H/POTCAR", "r")
-                HLines = HPotcar.readlines()
-                HPotcar.close()
-                
-                for line in CLines:
-                    CHPotcar.write(line)
-                
-                for line in HLines:
-                    CHPotcar.write(line)
-                
-                CHPotcar.close()  
+            purePotcar = open(atom + "/C" + atom + "_POTCAR", "w")                
+            CPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR", "r")
+            CLines = CPotcar.readlines()
+            CPotcar.close()            
+            atomPotcar = open(atomPotcarDir + "/POTCAR", "r")
+            atomLines = atomPotcar.readlines()
+            atomPotcar.close()            
+            for line in CLines:
+                purePotcar.write(line)           
+            for line in atomLines:
+                purePotcar.write(line)            
+            purePotcar.close()            
+            CHPotcar = open(atom + "/CH_POTCAR", "w")           
+            HPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/H/POTCAR", "r")
+            HLines = HPotcar.readlines()
+            HPotcar.close()           
+            for line in CLines:
+                CHPotcar.write(line)           
+            for line in HLines:
+                CHPotcar.write(line)            
+            CHPotcar.close()  
         
     def makeRunHexMono(self): #bch all
         topDir = os.getcwd()
@@ -492,6 +481,7 @@ class RunVasp:
         self.makeKPOINTS(6, 6)
         self.makeJobFiles()
         self.copyVaspExec()
+        self.fillDirectories(structList)
             
     def run(self, runNum, structList):
         """ Starts the VASP runs (specified by 'runNum') for each of the structures in

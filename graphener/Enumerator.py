@@ -27,25 +27,6 @@ class Enumerator:
         self.enumExec = os.path.abspath('needed_files/enum.x')
         self.uncleOut = uncleOutput
 
-    def changeEnumFile(self):
-        """ In order to build the clusters that will be used in the cluster expansion correctly, 
-            we have to change the 'surf' setting in struct_enum.out (from UNCLE enumeration) to 
-            'bulk'.  It changes the name of the old 'surf' version to 'struct_enum.out_OLD'. """
-        subprocess.call(['mv',self.enumFile, self.enumFile + '_OLD'])
-        
-        oldfile = open(self.enumFile + '_OLD','r')
-        oldlines = [line for line in oldfile]
-        oldfile.close()
-        
-        newfile = open(self.enumFile, 'w')
-        for i in xrange(len(oldlines)):
-            if i == 1:
-                newfile.write('bulk\n')
-            else:
-                newfile.write(oldlines[i])
-        
-        newfile.close()
-    
     def buildClusters(self):
         """ Uses UNCLE to build the number of each n-body clusters specified in the settings.in
             file. """
@@ -71,6 +52,25 @@ class Enumerator:
         
         os.chdir(lastDir)
 
+    def changeEnumFile(self):
+        """ In order to build the clusters that will be used in the cluster expansion correctly, 
+            we have to change the 'surf' setting in struct_enum.out (from UNCLE enumeration) to 
+            'bulk'.  It changes the name of the old 'surf' version to 'struct_enum.out_OLD'. """
+        subprocess.call(['mv',self.enumFile, self.enumFile + '_OLD'])
+        
+        oldfile = open(self.enumFile + '_OLD','r')
+        oldlines = [line for line in oldfile]
+        oldfile.close()
+        
+        newfile = open(self.enumFile, 'w')
+        for i in xrange(len(oldlines)):
+            if i == 1:
+                newfile.write('bulk\n')
+            else:
+                newfile.write(oldlines[i])
+        
+        newfile.close()
+
     def chooseTrainingStructures(self):
         """ Chooses a list of i.i.d. structures from struct_enum.out for each different metal atom. 
             The UNCLE option that we run to choose the training structures should look for a file 
@@ -85,32 +85,22 @@ class Enumerator:
         for atom in self.atoms:
             neededFilesDir = lastDir + '/needed_files'
             atomDir = lastDir + '/' + atom
-            try:
-                # Look for the past_structs.dat file in needed_files folder.  If it is there, copy
-                # it to the atom's enum/ directory. If there's not, make an empty one for that atom.
-                if not os.path.exists(atomDir + '/past_structs.dat'):
-                    pastStructFile = neededFilesDir + '/past_structs.' + atom + '.dat'
-                    if os.path.exists(pastStructFile):
-                        subprocess.call(['cp', pastStructFile, atomDir + '/enum/past_structs.dat'])
-                    else:
-                        emptyFile = open(atomDir + '/enum/past_structs.dat','w')
-                        emptyFile.close()
-                    
-                os.chdir(atomDir + '/enum')
-                subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
-                subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
-                os.chdir(lastDir)
-            except:
-                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
+#            try:
+            # Look for the past_structs.dat file in past/ folder. If there's not, make an empty one for that atom.
+            if not os.path.isdir(atomDir + '/past'): subprocess.call(['mkdir', atomDir + '/past'])
+            if not os.path.exists(atomDir + '/past/past_structs.dat'): 
+                file = open(atomDir + '/past/past_structs.dat', 'w'); file.close()                    
+            os.chdir(atomDir + '/past')
+            subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
+            subprocess.call(['ln','-s','../../enum/struct_enum.out'])
+            subprocess.call(['ln','-s','../../enum/lat.in']) 
+            subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
+            subprocess.call(['ln','-s','../../enum/clusters.out'])                          
+            subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
+            os.chdir(lastDir)
+#            except:
+            subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
 
-    def makeAtomDirectories(self):
-        """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
-            VASP and UNCLE files for the atom will be placed in this directory. """
-        for atom in self.atoms:
-            atomDir = os.getcwd() + '/' + atom
-            if not os.path.isdir(atomDir):
-                subprocess.call(['mkdir',atomDir])
-    
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an
             i.i.d. set of training structures. """
@@ -146,14 +136,26 @@ class Enumerator:
         self.makeAtomDirectories()
         for atom in self.atoms:
             subprocess.call(['cp','-r','enum', atom + '/'])
-            if os.path.exists('needed_files/structures.start.' + atom):
-                subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.base'])
-        
+            if os.path.exists('needed_files/structures.start.' + atom): 
+                subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.start']) 
 
+    def getNtot(self,dir):
+        """Gets total number of structures in enumeration"""
+        return int(self.readfile(dir + '/struct_enum.out')[-1].split()[0])
+                          
+    def makeAtomDirectories(self):
+        """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
+            VASP and UNCLE files for the atom will be placed in this directory. """
+        for atom in self.atoms:
+            atomDir = os.getcwd() + '/' + atom
+            if not os.path.isdir(atomDir):
+                subprocess.call(['mkdir',atomDir])    
+            subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.start']) 
+
+    def readfile(self, filepath):
+        file1 = open(filepath,'r')
+        lines = file1.readlines()
+        file1.close()
+        return lines
             
-
-
-
-
-
-        
+                  
