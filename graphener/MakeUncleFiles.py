@@ -89,17 +89,15 @@ class MakeUncleFiles:
         except:
             return False  # True/False
 
-    def copyFromExisting(self, atom):
-        """ Creates a structures.in file from a file that already exists and has the same format.
-            The file should be called 'structures.in.start'. """
-        atomDir = os.getcwd() + '/' + atom
-        if os.path.exists(atomDir + '/structures.in.start'):
-            startFile = open(atomDir + '/structures.in.start', 'r')
-            inFile = open(atomDir + '/structures.in', 'w')
-            for line in startFile:
-                inFile.write(line)
+#    def copyFromExisting(self, atom):
+#        """ Creates a structures.in file from a file that already exists and has the same format.
+#            The file should be called 'structures.in.start'. """
+#        atomDir = os.getcwd() + '/' + atom
+#        if os.path.exists(atomDir + '/structures.in.start'):
+#            subprocess.call(['cp',)  REPLACE THIS WITH A COPY IN THE ROUTINE THAT CHECKS PRESENCE OF FILE AND STARTSTRUCTS
 
-    def elConvergeCheck(self,folder,NELM): #bch
+
+    def elConvergeCheck(self,folder,NELM):  
         """Tests electronic convergence is done by whether the electronic step is less than NELM."""
         try:
             value = self.getElSteps(folder)
@@ -107,7 +105,7 @@ class MakeUncleFiles:
         except:
             return False #True/False
                         
-    def electronicConvergeFinish(self,dir): #bch
+    def electronicConvergeFinish(self,dir): 
         '''Test requires electronic convergence AND vasp finishing'''
         #get NELM, the max electronic steps allowed in the run.  Using first directory in dirslist
         proc = subprocess.Popen(['grep','-i','NELM',dir+'/INCAR'],stdout=subprocess.PIPE)
@@ -135,7 +133,7 @@ class MakeUncleFiles:
         os.chdir(lastfolder)            
         return newstring[0].find('Voluntary') > -1
 
-    def getElSteps(self,folder):#bch
+    def getElSteps(self,folder): 
         '''number of electronic steps for isolated runs'''
         lastfolder = os.getcwd()
         os.chdir(folder)
@@ -270,8 +268,8 @@ class MakeUncleFiles:
     def makeUncleFiles(self, iteration, holdoutList):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
-        self.singleAtomsEnergies(os.getcwd())  #bch
-        self.hexMonolayerEnergies(os.getcwd())   #bch
+        self.singleAtomsEnergies(os.getcwd())   
+        self.hexMonolayerEnergies(os.getcwd())    
         self.setStructureList()
         
         for i in xrange(len(self.atoms)):
@@ -282,13 +280,13 @@ class MakeUncleFiles:
                 if self.startFromExisting[i]:
                     # If we start from an existing structures.in.start file, we will copy everything
                     # from that file and then append the structures we have calculated at the end
-                    self.copyFromExisting(self.atoms[i])
+#                    self.copyFromExisting(self.atoms[i]) #bch replaced
                     if iteration != 1:
-                        self.infile = open(atomDir + '/structures.in', 'a')
-                        self.holdoutFile = open(atomDir + '/structures.holdout', 'w')
+                        self.infile = open(atomDir + '/fits/structures.in', 'a')
+                        self.holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
                 else:
-                    self.infile = open(atomDir + '/structures.in', 'w')
-                    self.holdoutFile = open(atomDir + '/structures.holdout', 'w')                
+                    self.infile = open(atomDir + '/fits/structures.in', 'w')
+                    self.holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')                
                 self.writeHeader(i)                
                 if len(self.structList[i]) != 0:   
                     self.sortStructsByFormEnergy(i)                
@@ -598,6 +596,7 @@ class MakeUncleFiles:
         vaspBEfile.close()#bch
         vaspHFEfile.close()#bch        
         formEnergyList.sort()
+        sys.exit('stop HFE')
         
         for pair in formEnergyList:
             sortedStructs.append(pair[1])

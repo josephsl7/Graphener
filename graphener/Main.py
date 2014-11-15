@@ -52,42 +52,42 @@ def getDiffE(priority, eLast, atomList):
         ediffL1[iatom] = sqrt(sum(ediff[iatom,:]))
     return ediffL1
 
-def parseStartStructures(atomList):
+def parseStartStructures(atomList,startStructs):
     """ Right now this method assumes that the structures.in file will have all of the pure
     structures and will have the following format for the structure identification line:
     graphene str #: (structure number) FE = 0.545, Concentration = .473
     or, for a pure structure:
     PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
     lastDir = os.getcwd()
-    os.chdir(lastDir + '/needed_files')
+#    os.chdir(lastDir + '/needed_files')
     startFromExisting = []
-    found = False
-    for i in xrange(len(atomList)):
-        if (os.path.exists('structures.start.' + atomList[i])):
-            infile = open('structures.start.' + atomList[i],'r')
-            lines = infile.readlines()
-            infile.close()
-               
-            print lastDir + '/' + atomList[i] + '/past/past_structs.dat'
-            outfile =  open(lastDir + '/' + atomList[i] + '/past/past_structs.dat', 'w')
-            for j in xrange(len(lines)):
-                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
-                    if j != len(lines) - 1:
-                        structLine = lines[j + 1].strip().split()
-                        if structLine[0].lower() == 'pure':
-                            outfile.write(str(structLine[5]) + '\n')
-                        else:
-                            outfile.write(str(structLine[3]) + '\n')
-            outfile.close()
-            startFromExisting.append(True)
-            found = True
+    for i,atom in enumerate(atomList):
+        if startStructs[i] == 1: #chosen by user in settings file to start from startstrucs
+            startfile ='/needed_files/structures.start.' + atomList[i] 
+            if not os.path.exists(startfile):
+                subprocess.call(['echo',"ERROR: structures.start."+ atomList[i] + ' is missing from needed_files'])
+            else: 
+                if not os.path.isdir(atom + '/fits'): subprocess.call(['mkdir',atom + '/fits']) 
+                subprocess.call(['cp',startfile,atom + '/fits/'])
+                #add structs to past_structs.dat
+                infile = open('/needed_files/structures.start.' + atom,'r')
+                lines = infile.readlines()
+                infile.close() 
+                outfile =  open(lastDir + '/' + atom + '/past/past_structs.dat', 'w')
+                for j in xrange(len(lines)):
+                    if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                        if j != len(lines) - 1:
+                            structLine = lines[j + 1].strip().split()
+                            if structLine[0].lower() == 'pure':
+                                outfile.write(str(structLine[5]) + '\n')
+                            else:
+                                outfile.write(str(structLine[3]) + '\n')
+                outfile.close()
+                startFromExisting.append(True)
         else:
             startFromExisting.append(False)
     
     os.chdir(lastDir)
-
-    if not found:
-        subprocess.call(['echo','\tNo structures.start files found!  Proceeding without them. . .'])
     return startFromExisting   
 
 def readSettingsFile():
@@ -137,8 +137,6 @@ def readSettingsFile():
             startStructs = zeros(len(atoms), dtype = int) #sets all atoms false
             if str(line.split()[1]).lower() != 'f': #false...no atoms will have start structures
                 try:
-                    print line
-                    print re.search(':(.+?)#', line).group(1)
                     startStructs[:] = re.search(':(.+?)#', line).group(1).split() #extracts only text between START_STRUCTS and #
                 except AttributeError:
                     print "Can't parse START_STRUCTS 1's and 0's.  Defaulting to no start structs." 
@@ -149,8 +147,7 @@ def readSettingsFile():
 
         elif line.split()[0] == 'RUN_TYPES:':
             try:
-                print re.search(':(.+?)#', line).group(1)
-                run_types = re.search(':(.+?)#', line).group(1).lower.split() #extracts only text between START_STRUCTS and #
+                run_types = re.search(':(.+?)#', line).group(1).lower().split() #extracts only text between START_STRUCTS and #
             except AttributeError:
                 print "Can't parse RUN_TYPES. Defaulting to LOW precision runs only."             
 
@@ -258,11 +255,22 @@ def writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList):
         toPoscar = Structs2Poscar.Structs2Poscar(atomList, toCalculate)
         toPoscar.convertOutputsToPoscar()
         # Start VASP jobs and wait until they all complete or time out.
-        manager = JobManager.JobManager(atomList)
-        manager.runLowJobs(toCalculate)     
-#        manager.runNormalJobs(toCalculate)
-#        manager.runDOSJobs(toCalculate)
-        finalDir = '/'
+        manager2 = JobManager.JobManager(atomList)
+        if runTypes ==['low']:
+            manager2.runLowJobs(toCalculate)
+            finalDir = '/'
+        elif runTypes ==['low','normal']:
+            manager2.runLowJobs(toCalculate)
+            manager2.runNormalJobs(toCalculate) 
+            finalDir = '/normal'          
+        elif runTypes ==['low','normal','dos']:
+            manager2.runLowJobs(toCalculate)
+            manager2.runNormalJobs(toCalculate)
+            manager2.runDOSJobs(toCalculate) 
+            finalDir = '/DOS' 
+        else:
+            sys.exit('The only supported RUN_TYPES are "low", "low normal" and "low normal DOS"')
+        
         return finalDir
 
 # -------------------------------------------- MAIN -----------------------------------------------
@@ -278,6 +286,13 @@ if __name__ == '__main__':
     
     [atomList, volRange, clusterNums, startStructs, PriorOrIID, trainingStructs, fitStructs, fitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
+   
+    if not os.path.isdir('single_atoms'):
+        manager1 = JobManager.JobManager(atomList)
+        manager1.runSingleAtoms()
+    if not os.path.isdir('hex_monolayer_refs'):
+        manager1 = JobManager.JobManager(atomList)
+        manager1.runHexMono()
     
     startFromExisting = []
     if sum(startStructs) != 0:
@@ -323,6 +338,8 @@ if __name__ == '__main__':
             enumerator.chooseTrainingStructures()
             pastStructs = extractor.getPastStructs()
             finalDir = extract2vasp(iteration)
+        else:
+            finalDir = '' #starting exclusively from structures.start
    
         # Create structures.in and structures.holdout files for each atom.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration, finalDir) 

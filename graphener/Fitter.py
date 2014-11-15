@@ -32,7 +32,7 @@ class Fitter:
         for n in xrange(len(self.atoms)):
             atomDir = os.path.abspath(self.atoms[n])
             fitsDir = atomDir + '/fits/'
-            subprocess.call(['mkdir',fitsDir])
+            if not os.path.isdir(fitsDir): subprocess.call(['mkdir',fitsDir])
             subprocess.call(['cp',self.enumFolder + 'lat.in', fitsDir])
             subprocess.call(['cp',self.enumFolder + 'clusters.out', fitsDir])
             subprocess.call(['cp',atomDir + '/structures.in', fitsDir])

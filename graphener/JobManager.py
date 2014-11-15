@@ -177,9 +177,9 @@ class JobManager:
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())   
         self.reportDOSStats(structList)
 
-    def runHexMono(self): #bch   
+    def runHexMono(self):    
         subprocess.call(['echo','\nPreparing and running hexagonal metal monolayers directories\n']) #bch   
-        self.vaspRunner.makeRunHexMono() #bch 
+        self.vaspRunner.makeRunHexMono()  
             
     def runLowJobs(self, structList):
         """ Starts the low-precision VASP calculations for all of the structures in 'structList'
@@ -226,16 +226,6 @@ class JobManager:
         self.reportNormalStats(structList)
         print 'done with runNormalJobs'
 
-    def runSingleAtoms(self): #bch   
+    def runSingleAtoms(self):  
         subprocess.call(['echo','\nPreparing and running single atom directories\n']) #bch   
-        self.vaspRunner.makeRunSingleDirectories() #bch 
-
-
-
-
-
-
-
-
-
-
+        self.vaspRunner.makeRunSingleDirectories()  

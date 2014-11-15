@@ -104,7 +104,7 @@ class Enumerator:
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an
             i.i.d. set of training structures. """
-        subprocess.call(['mkdir','enum'])
+        if not os.path.isdir('enum'): subprocess.call(['mkdir','enum'])
         infile = open('needed_files/struct_enum.in','r')
         inlines = []
         for line in infile:
