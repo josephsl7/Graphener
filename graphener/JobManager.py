@@ -207,6 +207,7 @@ class JobManager:
         """ Starts the normal-precision VASP calculations for all of the structures in 'structList'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
+        print 'structList', structList
         self.vaspRunner.run(2, structList)
         
         s = scheduler(time.time, time.sleep)
@@ -214,13 +215,16 @@ class JobManager:
         finished = False
         start_time = time.time()
         event_time = start_time
-        while not finished:
+        print 'job ids'
+        print self.vaspRunner.getCurrentJobIds()
+        while not finished or len(self.vaspRunner.getCurrentJobIds())==0:
             event_time += 600
-            s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
+            s.enterabs(event_time, 1,self.reportFinshed(self.vaspRunner.getCurrentJobIds())) #bch: was self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
     
         self.reportNormalStats(structList)
+        print 'done with runNormalJobs'
 
     def runSingleAtoms(self): #bch   
         subprocess.call(['echo','\nPreparing and running single atom directories\n']) #bch   

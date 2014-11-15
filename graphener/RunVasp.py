@@ -468,8 +468,7 @@ class RunVasp:
             poscar.close()
             subprocess.call(['sbatch','job'])
             os.chdir('../')      
-        os.chdir(topDir)  
-     
+        os.chdir(topDir)      
     
     def prepareForVasp(self, structList):
         """ Makes all of the files that could be copied to a first, low-precision VASP run for any 

@@ -7,9 +7,9 @@ Created on Aug 26, 2014
 #notes for Eric:
 #removed "base".  replaced with startStructs for the boolean, and start.in for base.in
 
-import os, subprocess,sys
+import os, subprocess,sys,re
 from random import seed
-from numpy import zeros,sqrt,std,amax,amin
+from numpy import zeros,array,sqrt,std,amax,amin
 from copy import deepcopy
 
 import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
@@ -104,8 +104,8 @@ def readSettingsFile():
     atoms = []
     volRange = []
     clusterNums = []
-    startStructs = False
-    PriorOrIID = 'g'
+    runTypes = ['Low']
+    PriorOrIID = 'p'
     trainStructs = 0
     fitStructs = 0
     fitSubsets = 0
@@ -115,7 +115,7 @@ def readSettingsFile():
     ylabel = "ylabel"
     
     for line in inlines:
-        if line.split()[0] == 'ATOMS:':
+        if line.split()[0] == 'ATOMS:': #this needs to come 
             i = 1
             adatoms = line.split()[1:]
             for adatom in adatoms:
@@ -123,7 +123,7 @@ def readSettingsFile():
                     break
                 else:
                     atoms.append(adatom)
-            
+           
         elif line.split()[0] == 'VOL_RANGE:':
             high = int(line.split()[1])
             volRange = [1, high]
@@ -133,13 +133,26 @@ def readSettingsFile():
             for i in xrange(1, 11):
                 clusterNums.append(int(parts[i]))
 
-        elif line.split()[0] == 'START_STRUCTS:': #read from a structures.in.start and fit these
-            if str(line.split()[1]).lower() == 'true':
-                startStructs = True
-        
+        elif line.split()[0] == 'START_STRUCTS:': #read from a structures.in.start and fit these.  Needs to come after the ATOMS list in the settings lin
+            startStructs = zeros(len(atoms), dtype = int) #sets all atoms false
+            if str(line.split()[1]).lower() != 'f': #false...no atoms will have start structures
+                try:
+                    print line
+                    print re.search(':(.+?)#', line).group(1)
+                    startStructs[:] = re.search(':(.+?)#', line).group(1).split() #extracts only text between START_STRUCTS and #
+                except AttributeError:
+                    print "Can't parse START_STRUCTS 1's and 0's.  Defaulting to no start structs." 
+#       
         elif line.split()[0] == 'PRIORITY/IID:':
             if str(line.split()[1]).lower() == 'i':
                 PriorOrIID = 'i'
+
+        elif line.split()[0] == 'RUN_TYPES:':
+            try:
+                print re.search(':(.+?)#', line).group(1)
+                run_types = re.search(':(.+?)#', line).group(1).lower.split() #extracts only text between START_STRUCTS and #
+            except AttributeError:
+                print "Can't parse RUN_TYPES. Defaulting to LOW precision runs only."             
 
         elif line.split()[0] == 'TRAINING_STRUCTS:':
             trainStructs = int(line.split()[1])
@@ -234,6 +247,23 @@ def writeLowestVasp(lowestStructsFile, vaspStructs, iteration, atomList):
         
     except IOError:
         subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
+                
+    def extract2vasp(iteration,runTypes):
+        ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
+         and put the POSCARs in their corresponding directories. Run VASP'''
+        extractor.setStructsFromTraining(iteration, pastStructs)
+        toCalculate = extractor.getStructList()
+        extractor.extract()
+        subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
+        toPoscar = Structs2Poscar.Structs2Poscar(atomList, toCalculate)
+        toPoscar.convertOutputsToPoscar()
+        # Start VASP jobs and wait until they all complete or time out.
+        manager = JobManager.JobManager(atomList)
+        manager.runLowJobs(toCalculate)     
+#        manager.runNormalJobs(toCalculate)
+#        manager.runDOSJobs(toCalculate)
+        finalDir = '/'
+        return finalDir
 
 # -------------------------------------------- MAIN -----------------------------------------------
           
@@ -250,7 +280,7 @@ if __name__ == '__main__':
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     
     startFromExisting = []
-    if startStructs:
+    if sum(startStructs) != 0:
         startFromExisting = parseStartStructures(atomList)
     else:
         for i in xrange(len(atomList)):
@@ -281,37 +311,21 @@ if __name__ == '__main__':
         
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atomList, uncleOutput, startFromExisting)
-        if iteration == 1:
+        if iteration == 1 and sum(startStructs) != 0: 
             enumerator.chooseTrainingStructures()
             pastStructs = extractor.getPastStructs()
             extractor.setStructsFromTraining(iteration, pastStructs)
+            finalDir = extract2vasp(iteration)
         elif iteration > 1 and PriorOrIID == 'p':
             extractor.setStructsFromGSS(newStructs)
+            finalDir = extract2vasp(iteration)
         elif iteration > 1 and PriorOrIID == 'i':
             enumerator.chooseTrainingStructures()
             pastStructs = extractor.getPastStructs()
-            extractor.setStructsFromTraining(iteration, pastStructs)
-
-        toCalculate = extractor.getStructList()
-
-        extractor.extract()
-    
-        # Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
-        # and put the POSCARs in their corresponding directories.
-        subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
-        toPoscar = Structs2Poscar.Structs2Poscar(atomList, toCalculate)
-        toPoscar.convertOutputsToPoscar()
-     
-        # Start VASP jobs and wait until they all complete or time out.
-        manager = JobManager.JobManager(atomList)
-        manager.runLowJobs(toCalculate)
-        finalDir = '/'  #if want low precision runs only        
-#        manager.runNormalJobs(toCalculate)
-#        manager.runDOSJobs(toCalculate)
-    
+            finalDir = extract2vasp(iteration)
+   
         # Create structures.in and structures.holdout files for each atom.
-        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration)
-        uncleFileMaker.finalDir = finalDir #bch
+        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atomList, startFromExisting, iteration, finalDir) 
         uncleFileMaker.makeUncleFiles(iteration, holdoutStructs)
         
         # Get all the structs that have been through VASP calculations for each atom. These

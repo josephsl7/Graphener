@@ -85,21 +85,21 @@ class Enumerator:
         for atom in self.atoms:
             neededFilesDir = lastDir + '/needed_files'
             atomDir = lastDir + '/' + atom
-#            try:
-            # Look for the past_structs.dat file in past/ folder. If there's not, make an empty one for that atom.
-            if not os.path.isdir(atomDir + '/past'): subprocess.call(['mkdir', atomDir + '/past'])
-            if not os.path.exists(atomDir + '/past/past_structs.dat'): 
-                file = open(atomDir + '/past/past_structs.dat', 'w'); file.close()                    
-            os.chdir(atomDir + '/past')
-            subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
-            subprocess.call(['ln','-s','../../enum/struct_enum.out'])
-            subprocess.call(['ln','-s','../../enum/lat.in']) 
-            subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
-            subprocess.call(['ln','-s','../../enum/clusters.out'])                          
-            subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
-            os.chdir(lastDir)
-#            except:
-            subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
+            try:
+            #Look for the past_structs.dat file in past/ folder. If there's not, make an empty one for that atom.
+                if not os.path.isdir(atomDir + '/past'): subprocess.call(['mkdir', atomDir + '/past'])
+                if not os.path.exists(atomDir + '/past/past_structs.dat'): 
+                    file = open(atomDir + '/past/past_structs.dat', 'w'); file.close()                    
+                os.chdir(atomDir + '/past')
+                subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
+                subprocess.call(['ln','-s','../../enum/struct_enum.out'])
+                subprocess.call(['ln','-s','../../enum/lat.in']) 
+                subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
+                subprocess.call(['ln','-s','../../enum/clusters.out'])                          
+                subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
+                os.chdir(lastDir)
+            except:
+                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
 
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an

@@ -11,13 +11,14 @@ from random import random
 class MakeUncleFiles:
 
 
-    def __init__(self, atoms, startFromExisting, iteration):
+    def __init__(self, atoms, startFromExisting, iteration,finalDir):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.structuresInLengths = zeros(len(self.atoms))
         self.startFromExisting = startFromExisting
         self.iteration = iteration
-    
+        self.finalDir = finalDir   
+        
         self.structList = []
         self.failedStructs = []
         self.pureHenergy = 0.0
@@ -55,7 +56,7 @@ class MakeUncleFiles:
         self.energy = 0.0   
         self.singleE = [] #bch
         self.hexE = [] #bch
-        self.finalDir = '' #bch
+
 
     def closeOutFiles(self):
         """ Closes both the structures.in and structures.holdout files. """
