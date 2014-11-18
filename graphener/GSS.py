@@ -250,9 +250,7 @@ class GSS:
                 subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
                 subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
-                os.chdir(lastDir)
-            
-                
+                os.chdir(lastDir)              
 
     def readfile(self,filepath): #bch
         file1 = open(filepath,'r')

@@ -31,19 +31,17 @@ class Fitter:
             and the current structures.in and structures.holdout files. """
         for n in xrange(len(self.atoms)):
             atomDir = os.path.abspath(self.atoms[n])
-            fitsDir = atomDir + '/fits/'
+            fitsDir = atomDir + '/fits'
             if not os.path.isdir(fitsDir): subprocess.call(['mkdir',fitsDir])
-            subprocess.call(['cp',self.enumFolder + 'lat.in', fitsDir])
-            subprocess.call(['cp',self.enumFolder + 'clusters.out', fitsDir])
-            subprocess.call(['cp',atomDir + '/structures.in', fitsDir])
-            subprocess.call(['cp',atomDir + '/structures.holdout', fitsDir])
+            subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
+            subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])
+            subprocess.call(['ln','-s',self.enumFolder + '/clusters.out',fitsDir])
             
             infile = open(self.neededFilesDir + 'CS.in','r')
             inlines = [line for line in infile]
             infile.close()
-            
             # TODO:  This doesn't work right now unless it's a negative number in settings.in
-            outfile = open(fitsDir + 'CS.in','w')
+            outfile = open(fitsDir + '/CS.in','w')
             for i in xrange(len(inlines)):
                 if i == 60:
                     if (self.M_fitStructures > self.structuresInLengths[n] and self.M_fitStructures > 0):

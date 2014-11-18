@@ -160,7 +160,7 @@ class MakeUncleFiles:
         """ This method is used to extract the energy of the pure structures when they are in the
             structures.in.start file and hence will not be calculated. If the pure structure is not
             in the structures.in.start file, return 999999. """
-        infile = open('structures.in.start', 'r')
+        infile = open('structures.in.start', 'r')#read only
         lines = infile.readlines()
         infile.close()
         
@@ -191,26 +191,41 @@ class MakeUncleFiles:
         proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
         return int(proc.communicate()[0].split('=')[-1])   
 
-    def getHoldoutFromIn(self, atomDir):
-        """ Creates a 'structures.holdout' file from the first 10 structures in the structures.in
-            file. """
-        infile = open(atomDir + '/structures.in', 'r')
-        newHoldoutFile = open(atomDir + '/structures.holdout', 'w')
+    def writeHoldoutFromIn(self, atomDir):
+#        '''Returns holdoutList list for the first iteration, for a given atom
+#        If starting from existing struct calculations, takes up to N structs in the top of the 
+#        past_structs.dat file.  Useful when starting from existing structs.  In this case, 
+#        they should be the lowest N FE structs, since past_structs.dat should be ordered at first. 
+#        
+#        If starting with no past structs calculated, takes up to N structs from the iid structures'''
+#        
+#        holdoutList = []
+#        nholdout = 0
+#        lines = self.readfile(atomDir + '/vaspstructs/past_structs.dat')
+#        for line in lines:
+#            if nholdout < nmax:
+#                holdoutList.append(line.split()[0])
+#                nholdout +=1   
+#        print 'holdoutList', holdoutList  
+#        return holdoutList   
+        nmax = 100
+        infile = open(atomDir + '/fits/structures.in', 'r')
+        holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
 
         count = 0
         for line in infile:
             if list(line.strip().split()[0])[:2] == ['#', '-']:
-                if count >= 10:
+                if count >= nmax:
                     break
                 count += 1
 
-            newHoldoutFile.write(line)
+            holdoutFile.write(line)
 
         infile.close()
-        newHoldoutFile.close()
+        holdoutFile.close()
 
     def getSteps(self, folder):
-        """ Returns the number of ionic relaxation steps that VASP performed as an integer. """
+        """ Returns the number of ionic relaxation steps that VASP performed, as an integer. """
         lastfolder = os.getcwd()
         os.chdir(folder)
         if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
@@ -227,7 +242,7 @@ class MakeUncleFiles:
             return 9999 
         
     def getStructureList(self):
-        """ Returns the list of usable structures along with the list of structures that failed
+        """ Returns the list of completed structures along with the list of structures that failed
             VASP calculations. """
         returnList = []
         for i in xrange(len(self.structList)):
@@ -246,10 +261,11 @@ class MakeUncleFiles:
     
     def getStructuresInLengths(self):
         """ Returns a list of the lengths of the structures.in file for each atom. """
-        lengths = zeros(len(self.structuresInLengths))
-        for i in xrange(len(self.structuresInLengths)):
-            lengths[i] = self.structuresInLengths[i]        
-        return lengths       
+        return self.structuresInLengths
+#        lengths = zeros(len(self.structuresInLengths))
+#        for i in xrange(len(self.structuresInLengths)):
+#            lengths[i] = self.structuresInLengths[i]        
+#        return lengths       
 
     def hexMonolayerEnergies(self,dir1): #bch
         file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
@@ -271,42 +287,37 @@ class MakeUncleFiles:
         self.singleAtomsEnergies(os.getcwd())   
         self.hexMonolayerEnergies(os.getcwd())    
         self.setStructureList()
-        
         for i in xrange(len(self.atoms)):
             atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
-                self.reinitialize()
-                if self.startFromExisting[i]:
-                    # If we start from an existing structures.in.start file, we will copy everything
-                    # from that file and then append the structures we have calculated at the end
-#                    self.copyFromExisting(self.atoms[i]) #bch replaced
-                    if iteration != 1:
-                        self.infile = open(atomDir + '/fits/structures.in', 'a')
-                        self.holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
-                else:
-                    self.infile = open(atomDir + '/fits/structures.in', 'w')
-                    self.holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')                
-                self.writeHeader(i)                
-                if len(self.structList[i]) != 0:   
-                    self.sortStructsByFormEnergy(i)                
-                structuresInCount = 0
-                for structure in self.structList[i]:
-                    self.writePOSCAR(structure, self.infile)                
-                if iteration == 1:
-                    self.closeOutFiles()
-                    self.getHoldoutFromIn(atomDir)
-                else:
-                    # Write the structures.holdout file from a list
+                self.reinitialize()              
+                if iteration == 1 and self.startFromExisting[i]: #need only structures.holdout
+                    self.writeHoldoutFromIn(atomDir)
+#                     holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
+#                     holdoutFile.write(self.header)
+#                     for structure in holdoutList[i]: 
+#                        self.writePOSCAR(structure, holdoutFile)
+#                     holdoutFile.close()
+                        
+                else: #need both structures.in and .holdout
+                    outfile = open(atomDir + '/fits/structures.in', 'w')                                   
+                    outfile.write(self.header)                
+                    if len(self.structList[i]) != 0: self.sortStructsByFormEnergy(i)                
+                    structuresInCount = 0 #???never incremented? 
+                    for structure in self.structList[i]:
+                        self.writePOSCAR(structure,outfile)
+                    outfile.close                                    
+                    outfile = open(atomDir + '/fits/structures.holdout', 'w')
+                    outfile.write(self.header) 
                     for structure in holdoutList[i]:
-                        # Make sure the structure has converged before trying to write it to
-                        # structures.holdout
+                            # Make sure the structure has converged before trying to write it to
+                            # structures.holdout
                         fullPath = os.path.abspath(structure)
-                        if self.contains(fullPath, self.structList[i]):
-                            self.writePOSCAR(structure, self.holdoutFile)
-                self.closeOutFiles()
-                self.structuresInLengths[i] = structuresInCount
-
+                        if self.contains(fullPath, self.structList[i]): self.writePOSCAR(structure, self.holdoutFile)
+    #                self.closeOutFiles()
+                    self.structuresInLengths[i] = structuresInCount
+                    outfile.close 
     def readfile(self,filepath): #bch
         file1 = open(filepath,'r')
         lines = file1.readlines()
@@ -393,7 +404,7 @@ class MakeUncleFiles:
         """ Retrieves the energy of the structure from the OSZICAR file and sets the corresponding 
             member. """   
         try:
-            oszicar = open(directory + self.finaldir + '/OSZICAR','r')
+            oszicar = open(directory + self.finalDir + '/OSZICAR','r')
             energy = oszicar.readlines()[-1].split()[2]
             oszicar.close()
         except:
@@ -506,7 +517,7 @@ class MakeUncleFiles:
                     fullPath = os.path.abspath(item)
                     if os.path.isdir(fullPath):
                         if os.path.isdir(self.finalDir): #bch finaldir indtead of '/DOS'
-                            if self.FinishCheck(fullPath + self.finaldir) and self.convergeCheck(fullPath + self.finaldir, self.getNSW(fullPath + self.finaldir)): #finaldir                           
+                            if self.FinishCheck(fullPath + self.finalDir) and self.convergeCheck(fullPath + self.finaldir, self.getNSW(fullPath + self.finaldir)): #finaldir                           
                                # Check for concentration
                                 self.setAtomCounts(fullPath)                            
                                 concentration = 0.0
@@ -634,11 +645,11 @@ class MakeUncleFiles:
         self.outfile.write("#Energy:\n")
         self.outfile.write(str(self.energy) + "\n")    
 
-    def writeHeader(self, index):
-        """ Writes the headers of the structures.in and structures.holdout files. """
-        if not self.startFromExisting[index]:
-            self.infile.write(self.header)
-        # self.holdoutFile.write(self.header)
+#    def writeHeader(self,index):
+#        """ Writes the headers of the structures.in and structures.holdout files. """
+#        if not self.startFromExisting[index]:
+#            self.infile.write(self.header)
+#        self.holdoutFile.write(self.header)
        
     def writeIDString(self):
         """ Writes the ID string of the current structure to either the structures.in or 

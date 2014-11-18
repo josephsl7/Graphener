@@ -71,26 +71,38 @@ class Enumerator:
         
         newfile.close()
 
-    def chooseTrainingStructures(self):
-        """ Chooses a list of i.i.d. structures from struct_enum.out for each different metal atom. 
+    def chooseTrainingStructures(self,iteration, startFromExisting):
+        """ If startFromExisting is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
+         
             The UNCLE option that we run to choose the training structures should look for a file 
             called 'past_structs.dat' so as not to choose structures from that list. (Dr. Hess 
             added that option in the UNCLE executable we're using.) The length of the list of
             training structures for each atom is determined by the TRAINING_STRUCTS setting in 
             settings.in. """
         lastDir = os.getcwd()
-        
         # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
         #        takes about an hour per atom for vol 1-8.)
-        for atom in self.atoms:
-            neededFilesDir = lastDir + '/needed_files'
-            atomDir = lastDir + '/' + atom
-            try:
-            #Look for the past_structs.dat file in past/ folder. If there's not, make an empty one for that atom.
-                if not os.path.isdir(atomDir + '/past'): subprocess.call(['mkdir', atomDir + '/past'])
-                if not os.path.exists(atomDir + '/past/past_structs.dat'): 
-                    file = open(atomDir + '/past/past_structs.dat', 'w'); file.close()                    
-                os.chdir(atomDir + '/past')
+        if iteration == 1: #initialize vaspstructs/.  Compute iid structures once, and copy to all atom folders that need them
+            if startFromExisting.count(False)>0:
+                subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
+                os.chdir('enum')
+                subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
+                for i,atom in enumerate(self.atoms):
+                    atomDir = lastDir + '/' + atom
+                    vsDir = atomDir + '/vaspstructs'
+                    if os.path.isdir(vsDir): subprocess.call(['rm','-r' ,vsDir])                    
+                    subprocess.call(['mkdir', vsDir])                
+                    file = open(vsDir + '/past_structs.dat', 'w'); file.close()  #just create it.                   
+                    if not startFromExisting[i]:
+                        subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
+                        subprocess.call(['cp','training_set_structures.dat',vsDir])  
+            os.chdir(lastDir)                           
+        else: # later iterations: must get separate iid structures for each atom         
+            for atom in self.atoms:
+                atomDir = lastDir + '/' + atom
+    #            try:
+                #Look for the past_structs.dat file in vaspstructs/ folder. If there's not, make an empty one for that atom.
+                os.chdir(atomDir + '/vaspstructs')
                 subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
                 subprocess.call(['ln','-s','../../enum/struct_enum.out'])
                 subprocess.call(['ln','-s','../../enum/lat.in']) 
@@ -98,8 +110,8 @@ class Enumerator:
                 subprocess.call(['ln','-s','../../enum/clusters.out'])                          
                 subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
                 os.chdir(lastDir)
-            except:
-                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
+#            except:
+#                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
 
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an
@@ -134,10 +146,6 @@ class Enumerator:
         self.buildClusters()
         
         self.makeAtomDirectories()
-        for atom in self.atoms:
-            subprocess.call(['cp','-r','enum', atom + '/'])
-            if os.path.exists('needed_files/structures.start.' + atom): 
-                subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.start']) 
 
     def getNtot(self,dir):
         """Gets total number of structures in enumeration"""
@@ -150,7 +158,6 @@ class Enumerator:
             atomDir = os.getcwd() + '/' + atom
             if not os.path.isdir(atomDir):
                 subprocess.call(['mkdir',atomDir])    
-            subprocess.call(['cp','needed_files/structures.start.' + atom, atom + '/structures.in.start']) 
 
     def readfile(self, filepath):
         file1 = open(filepath,'r')
