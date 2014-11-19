@@ -5,10 +5,10 @@ class RunVasp:
         submitting VASP jobs to the supercomputer.  It keeps track of the SLURM job ids of all the
         jobs that are currently running from a particular instance of the class. """
     
-    def __init__(self, atomList):
+    def __init__(self, atoms):
         """ CONSTRUCTOR """
         
-        self.atomList = atomList
+        self.atoms = atoms
         self.neededFilesFolder = os.getcwd() + '/needed_files/'
         
         self.currJobIds = []
@@ -41,20 +41,20 @@ class RunVasp:
       
     def copyVaspExec(self):
         """ Copies the vasp executable file to the current working directory. """
-        dirList = self.atomList
+        dirList = self.atoms
         for direc in dirList:
             subprocess.call(['cp','-P','/fslhome/bch/bin/vasp533',direc + '/vasp533']) #bch
 
-    def fillDirectories(self, structList):
-        """ Fills all the directories in 'structList' with the needed files for VASP to run, namely
+    def fillDirectories(self, runStructList):
+        """ Fills all the directories in 'runStructList' with the needed files for VASP to run, namely
             POSCAR, POTCAR, KPOINTS, INCAR, a SLURM job file, and the VASP executable file. """
-        for i in xrange(len(self.atomList)):
+        for i in xrange(len(self.atoms)):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + self.atomList[i]
+            atomDir = lastDir + '/' + self.atoms[i]
             
             os.chdir(atomDir)
             structures = []
-            for item in structList[i]:
+            for item in runStructList[i]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -68,7 +68,7 @@ class RunVasp:
                 if poscarLines[0].split()[1] == 'H':
                     subprocess.call(['cp','CH_POTCAR',structureDir + '/POTCAR'])
                 elif poscarLines[0].split()[1] == 'M':
-                    subprocess.call(['cp','C' + self.atomList[i] + '_POTCAR',structureDir + '/POTCAR'])
+                    subprocess.call(['cp','C' + self.atoms[i] + '_POTCAR',structureDir + '/POTCAR'])
                 else:
                     subprocess.call(['cp','POTCAR',structureDir])            
             os.chdir(lastDir)
@@ -112,16 +112,16 @@ class RunVasp:
         else:
             return False    
 
-    def makeDOSDirectories(self, structList):
+    def makeDOSDirectories(self, runStructList):
         """ After the normal-precision relaxation, creates a directory for the Density of States
             run and populates it with the files from the normal-precision run. Copies the normal
             CONTCAR to the DOS POSCAR. """  
         topDir = os.getcwd()
-        for i in xrange(len(self.atomList)):
-            elementDir = topDir + '/' + self.atomList[i]
+        for i in xrange(len(self.atoms)):
+            elementDir = topDir + '/' + self.atoms[i]
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in structList[i]:
+                for structure in runStructList[i]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
@@ -134,7 +134,7 @@ class RunVasp:
                                              'normal/POSCAR','normal/POTCAR','normal/REPORT',
                                              'normal/vasprun.xml','normal/XDATCAR','DOS'])
                             self.makeDOS_INCAR()
-                            self.makeDOSJobFile(self.atomList[i]+structure) #bch 
+                            self.makeDOSJobFile(self.atoms[i]+structure) #bch 
                             subprocess.call(['cp','DOS/CONTCAR','DOS/POSCAR'])
                             os.chdir(elementDir)
             else:
@@ -186,7 +186,7 @@ class RunVasp:
 
     def makeJobFiles(self):
         """ Creates a standard job file for submitting a VASP job on the supercomputer. """
-        dirList = self.atomList
+        dirList = self.atoms
         
         for direc in dirList:
             name = direc #bch (which atom)
@@ -206,7 +206,7 @@ class RunVasp:
         """ Creates a KPOINTS file based on the input parameters num1 and num2. It specifies that 
             the job will have num1 x num2 kpoints. For example, if we wanted to specify an 8x8 
             kpoints mesh, we would call makeKPOINTS(8, 8). """
-        dirList = self.atomList
+        dirList = self.atoms
         
         for direc in dirList:
             kpoints = open(direc + '/KPOINTS','w')
@@ -223,7 +223,7 @@ class RunVasp:
     def makeLowINCARs(self):
         """ Creates a standard INCAR file and puts it in each different structure's top 
             directory. """
-        dirList = self.atomList
+        dirList = self.atoms
         
         for direc in dirList:
             incar = open(direc + '/INCAR','w')    
@@ -243,13 +243,13 @@ class RunVasp:
             incar.write("LCHARG=.TRUE.\n")    
             incar.close()
 
-    def makeNormalDirectories(self, structList):
+    def makeNormalDirectories(self, runStructList):
         topDir = os.getcwd()
-        for i in xrange(len(self.atomList)):
-            elementDir = topDir + '/' + self.atomList[i]
+        for i in xrange(len(self.atoms)):
+            elementDir = topDir + '/' + self.atoms[i]
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in structList[i]:
+                for structure in runStructList[i]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir) and self.finishCheck(structDir) and self.convergeCheck(structDir, 400):
                         os.chdir(structDir)
@@ -290,9 +290,9 @@ class RunVasp:
 
 
     def makePOTCARs(self):
-        """ Creates a POTCAR file for each atom in the member 'atomList'. Concatenates the 
+        """ Creates a POTCAR file for each atom in the member 'atoms'. Concatenates the 
             individual POTCAR files to make a single POTCAR file for the multi-atom structure. """
-        for atom in self.atomList:
+        for atom in self.atoms:
             CPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR"
             HPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/H/POTCAR"
             atomPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom + "/POTCAR"
@@ -337,7 +337,7 @@ class RunVasp:
             structure, even if we tell it that there are zero of one of the kinds of atoms.  It 
             needs a POTCAR file that doesn't even mention the element that is not a part of the 
             "pure" structure. This method creates these POTCAR files. """       
-        for atom in self.atomList:
+        for atom in self.atoms:
             atomPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom
             purePotcar = open(atom + "/C" + atom + "_POTCAR", "w")                
             CPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR", "r")
@@ -366,7 +366,7 @@ class RunVasp:
         if not os.path.isdir('hex_monolayer_refs'): os.mkdir('hex_monolayer_refs')
         os.chdir('hex_monolayer_refs')
 #        os.system('rm -r -f *')
-        for atom in self.atomList:
+        for atom in self.atoms:
             os.mkdir(atom)
             os.chdir(atom)
             atomPotcar = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom + '/POTCAR'
@@ -421,7 +421,7 @@ class RunVasp:
         if not os.path.isdir('single_atoms'): os.mkdir('single_atoms')
         os.chdir('single_atoms')
 #        os.system('rm -r -f *')
-        for atom in self.atomList:
+        for atom in self.atoms:
             os.mkdir(atom)
             os.chdir(atom)
             atomPotcar = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom + '/POTCAR'
@@ -470,7 +470,7 @@ class RunVasp:
             os.chdir('../')      
         os.chdir(topDir)      
     
-    def prepareForVasp(self, structList):
+    def prepareForVasp(self, runStructList):
         """ Makes all of the files that could be copied to a first, low-precision VASP run for any 
             given structure.  This includes concatenating the POTCARS for the pure and non-pure
             cases. """
@@ -480,35 +480,35 @@ class RunVasp:
         self.makeKPOINTS(6, 6)
         self.makeJobFiles()
         self.copyVaspExec()
-        self.fillDirectories(structList)
+        self.fillDirectories(runStructList)
             
-    def run(self, runNum, structList):
+    def run(self, runNum, runStructList):
         """ Starts the VASP runs (specified by 'runNum') for each of the structures in
-            'structList'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
+            'runStructList'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
             normal-precision run, runNum = 3 starts a DOS run. """
         if runNum == 1:
-            self.startJobs(structList)
+            self.startJobs(runStructList)
     
         elif runNum == 2:
-            self.makeNormalDirectories(structList)
-            self.startNormalJobs(structList)
+            self.makeNormalDirectories(runStructList)
+            self.startNormalJobs(runStructList)
            
         elif runNum == 3:
-            self.makeDOSDirectories(structList)
-            self.startDOSJobs(structList)
+            self.makeDOSDirectories(runStructList)
+            self.startDOSJobs(runStructList)
 
-    def startDOSJobs(self, structList):
-        """ Submits all the VASP jobs for structures in 'structList' to the supercomputer for 
+    def startDOSJobs(self, runStructList):
+        """ Submits all the VASP jobs for structures in 'runStructList' to the supercomputer for 
             Density of States calculations. Records their SLURM job IDs. """
         topDir = os.getcwd()
         self.clearCurrentJobIds()
         
-        for i in xrange(len(self.atomList)):
-            elementDir = topDir + '/' + self.atomList[i]
+        for i in xrange(len(self.atoms)):
+            elementDir = topDir + '/' + self.atoms[i]
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
                 
-                for structure in structList[i]:
+                for structure in runStructList[i]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         os.chdir(structDir)
@@ -530,19 +530,19 @@ class RunVasp:
             os.chdir(topDir)
 
 
-    def startJobs(self, structList):
-        """ Submits all the VASP jobs for structures in 'structList' to the supercomputer for 
+    def startJobs(self, runStructList):
+        """ Submits all the VASP jobs for structures in 'runStructList' to the supercomputer for 
             low-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         
-        for i in xrange(len(self.atomList)):
+        for i in xrange(len(self.atoms)):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + self.atomList[i]
+            atomDir = lastDir + '/' + self.atoms[i]
             
             os.chdir(atomDir)
             
             structures = []
-            for item in structList[i]:
+            for item in runStructList[i]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -557,19 +557,19 @@ class RunVasp:
             
             os.chdir(lastDir)
 
-    def startNormalJobs(self, structList):
-        """ Submits all the VASP jobs for structures in 'structList' to the supercomputer for 
+    def startNormalJobs(self, runStructList):
+        """ Submits all the VASP jobs for structures in 'runStructList' to the supercomputer for 
             normal-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         
-        for i in xrange(len(self.atomList)):
+        for i in xrange(len(self.atoms)):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + self.atomList[i]
+            atomDir = lastDir + '/' + self.atoms[i]
             
             os.chdir(atomDir)
             
             structures = []
-            for item in structList[i]:
+            for item in runStructList[i]:
                 if os.path.isdir(item + '/normal'):
                     structures.append(item)
             

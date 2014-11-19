@@ -12,13 +12,12 @@ class Fitter:
         keeps track of the fitting errors, prediction errors, and summaries of cluster expansion 
         terms from iteration to iteration. """
 
-    def __init__(self, atoms, M_fitStructures, N_subsets, structuresInLengths, uncleOutput):
-        """ CONSTRUCTOR """
-        
+    def __init__(self, atoms, M_fitStructures, N_subsets, vstructsFinished, uncleOutput):
+        """ CONSTRUCTOR """  
+        self.vstructsFinished = vstructsFinished  
         self.atoms = atoms
         self.M_fitStructures = M_fitStructures
         self.N_subsets = N_subsets
-        self.structuresInLengths = structuresInLengths
         
         self.enumFolder = os.getcwd() + '/enum/'
         self.neededFilesDir = os.getcwd() + '/needed_files/'
@@ -44,8 +43,8 @@ class Fitter:
             outfile = open(fitsDir + '/CS.in','w')
             for i in xrange(len(inlines)):
                 if i == 60:
-                    if (self.M_fitStructures > self.structuresInLengths[n] and self.M_fitStructures > 0):
-                        outfile.write(str(self.structuresInLengths[n]) + "\n")
+                    if (self.M_fitStructures > len(self.vstructsFinished[n]) and self.M_fitStructures > 0):
+                        outfile.write(str(len(self.vstructsFinished[n])) + "\n")
                     else:
                         outfile.write(str(self.M_fitStructures) + "\n")
                 elif i == 62:

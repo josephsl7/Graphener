@@ -38,7 +38,7 @@ class GSS:
                 return True
         return False
 
-    def getAllGSSStructures(self, iteration, failedStructs):
+    def getAllGSSStructures(self, iteration, newlyFailed):
         """ Returns a list of all the structures sorted by their predicted formation energies.
             It does this for each metal atom that has been specified by the user so this will 
             actually return a list of lists--a list for each atom. """
@@ -56,7 +56,7 @@ class GSS:
                     struct = int(line.strip().split()[0])
                     
                     # Do not include structures that failed VASP calculations.
-                    if not self.contains(struct, failedStructs[n]):
+                    if not self.contains(struct, newlyFailed[n]):
                         structsByEnergy.append([formEnergy, struct])
                 i += 1
             infile.close()
@@ -220,6 +220,68 @@ class GSS:
                     else:
                         outfile.write(inlines[i])
                 outfile.close()
+                
+        def writeFilesForPlots(self, atomInd):
+        """ Sorts the list of structures by formation energy. """
+        # TODO:  We should probably figure out how to sort the structures in existing 
+        #        structures.in.start files together with the structures we have calculated in VASP 
+        #        during the loop.
+        lastDir = os.getcwd()
+        os.chdir(lastDir + '/' + self.atoms[atomInd])
+        pureHdir = os.getcwd() + '/1'
+        pureMdir = os.getcwd() + '/3'
+        
+        self.setAtomCounts(pureHdir)
+        self.setEnergy(pureHdir)
+        self.pureHenergy = float(self.energy)
+        
+        self.setAtomCounts(pureMdir)
+        self.setEnergy(pureMdir)
+        self.pureMenergy = float(self.energy)
+        eIsolatedH = -1.115 #bch
+        eIsolatedC = -1.3179 #bch
+        eH2 = -6.7591696/2.0 #bch
+        energyGraphene = -18.456521 #for 2 C atoms #bch
+        
+        formEnergyList = []
+        sortedStructs = []
+        vaspFEfile = open('vaspFE.out','w') #bch 
+        vaspBEfile = open('vaspBE.out','w') #bch 
+        vaspHFEfile = open('vaspHFE.out','w') #bch 
+        for structDir in self.newlyFinished[atomInd]:
+            self.setAtomCounts(structDir)
+            self.setEnergy(structDir)
+            structEnergy = float(self.energy)
+            struct = structDir.split('/')[-1] #bch
+            concentration = 0.0
+            if self.atomCounts[0] == 0:
+                concentration = 1.0
+            else:
+                concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
+                        
+            formationEnergy = structEnergy - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
+            formEnergyList.append([formationEnergy, structDir])
+            vaspFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,formationEnergy))#bch 
+            
+            ncarbon = self.atomCounts[0] + self.atomCounts[1] #bch:  
+            bindEnergy = structEnergy - (self.atomCounts[0]*eIsolatedH + self.atomCounts[1]*self.singleE[atomInd] + ncarbon*energyGraphene/2)/ float(self.atomCounts[0] + self.atomCounts[1]) #2 atoms in graphene 
+            vaspBEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,bindEnergy))#bch  
+            hexFormationEnergy = structEnergy - energyGraphene/2  - (concentration * self.hexE[atomInd] + (1.0 - concentration) * eH2)
+            vaspHFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,hexFormationEnergy))#bch    
+                                      
+        vaspFEfile.close()#bch
+        vaspBEfile.close()#bch
+        vaspHFEfile.close()#bch        
+        formEnergyList.sort()
+        sys.exit('stop HFE')
+        
+        for pair in formEnergyList:
+            sortedStructs.append(pair[1])
+        
+        self.newlyFinished[atomInd] = sortedStructs
+            
+        os.chdir(lastDir)
+
 
     def makePlots(self, iteration):
         """ Creates the plots of the predicted energies of all the structures that have been 

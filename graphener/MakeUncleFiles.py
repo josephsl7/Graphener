@@ -3,7 +3,7 @@ Created on Aug 29, 2014
 
 @author: eswens13
 '''
-from numpy import zeros, mod #bch
+from numpy import zeros, mod, count_nonzero #bch
 import os, subprocess
 from random import random
 
@@ -14,13 +14,12 @@ class MakeUncleFiles:
     def __init__(self, atoms, startFromExisting, iteration,finalDir):
         """ CONSTRUCTOR """
         self.atoms = atoms
-        self.structuresInLengths = zeros(len(self.atoms))
         self.startFromExisting = startFromExisting
         self.iteration = iteration
         self.finalDir = finalDir   
         
-        self.structList = []
-        self.failedStructs = []
+        self.newlyFinished = [[]*len(atoms)]
+        self.newlyFailed = [[]*len(atoms)]
         self.pureHenergy = 0.0
         self.pureMenergy = 0.0
         
@@ -56,19 +55,8 @@ class MakeUncleFiles:
         self.energy = 0.0   
         self.singleE = [] #bch
         self.hexE = [] #bch
+        self.vdata = []
 
-
-    def closeOutFiles(self):
-        """ Closes both the structures.in and structures.holdout files. """
-        if self.infile != None:
-            if not self.infile.closed:
-                self.infile.close()
-                self.infile = None
-        if self.holdoutFile != None:
-            if not self.holdoutFile.closed:
-                self.holdoutFile.close()
-                self.holdoutFile = None
-                 
     def contains(self, struct, alist):
         """ Returns True if the list 'alist' contains the structure 'struct', False otherwise. """
         if len(alist) <= 0:
@@ -88,14 +76,6 @@ class MakeUncleFiles:
             return value < NSW and self.energyDropCheck(folder)
         except:
             return False  # True/False
-
-#    def copyFromExisting(self, atom):
-#        """ Creates a structures.in file from a file that already exists and has the same format.
-#            The file should be called 'structures.in.start'. """
-#        atomDir = os.getcwd() + '/' + atom
-#        if os.path.exists(atomDir + '/structures.in.start'):
-#            subprocess.call(['cp',)  REPLACE THIS WITH A COPY IN THE ROUTINE THAT CHECKS PRESENCE OF FILE AND STARTSTRUCTS
-
 
     def elConvergeCheck(self,folder,NELM):  
         """Tests electronic convergence is done by whether the electronic step is less than NELM."""
@@ -148,7 +128,7 @@ class MakeUncleFiles:
             os.chdir(lastfolder)         
             return 9999    
         
-    def getEnergy(self,dir): #bch
+    def getEnergy(self,dir): 
         lines = self.readfile(dir+'/OSZICAR')
         if len(lines[-1].split())>1:
             energy = float(lines[-1].split()[2])  #Free energy
@@ -156,7 +136,7 @@ class MakeUncleFiles:
             energy = 0.0
         return energy
 
-    def getEnergyFromExisting(self, label):
+    def getPureEnergyFromExisting(self, label):
         """ This method is used to extract the energy of the pure structures when they are in the
             structures.in.start file and hence will not be calculated. If the pure structure is not
             in the structures.in.start file, return 999999. """
@@ -192,22 +172,11 @@ class MakeUncleFiles:
         return int(proc.communicate()[0].split('=')[-1])   
 
     def writeHoldoutFromIn(self, atomDir):
-#        '''Returns holdoutList list for the first iteration, for a given atom
-#        If starting from existing struct calculations, takes up to N structs in the top of the 
-#        past_structs.dat file.  Useful when starting from existing structs.  In this case, 
-#        they should be the lowest N FE structs, since past_structs.dat should be ordered at first. 
-#        
-#        If starting with no past structs calculated, takes up to N structs from the iid structures'''
-#        
-#        holdoutList = []
-#        nholdout = 0
-#        lines = self.readfile(atomDir + '/vaspstructs/past_structs.dat')
-#        for line in lines:
-#            if nholdout < nmax:
-#                holdoutList.append(line.split()[0])
-#                nholdout +=1   
-#        print 'holdoutList', holdoutList  
-#        return holdoutList   
+        '''Returns holdoutList list for the first iteration, for a given atom
+        If starting from existing struct calculations, takes up to N structs in the top of the 
+        structures.in file.  Useful when starting from existing structs.  In this case, 
+        they should be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
+ 
         nmax = 100
         infile = open(atomDir + '/fits/structures.in', 'r')
         holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
@@ -240,33 +209,7 @@ class MakeUncleFiles:
             return value
         except:
             return 9999 
-        
-    def getStructureList(self):
-        """ Returns the list of completed structures along with the list of structures that failed
-            VASP calculations. """
-        returnList = []
-        for i in xrange(len(self.structList)):
-            subList = []
-            for j in xrange(len(self.structList[i])):
-                subList.append(self.structList[i][j].split('/')[-1])
-            returnList.append(subList)
-        
-        failedList = []
-        for i in xrange(len(self.failedStructs)):
-            subList = []
-            for j in xrange(len(self.failedStructs[i])):
-                subList.append(self.failedStructs[i][j].split('/')[-1])
-            failedList.append(subList)        
-        return returnList, failedList
-    
-    def getStructuresInLengths(self):
-        """ Returns a list of the lengths of the structures.in file for each atom. """
-        return self.structuresInLengths
-#        lengths = zeros(len(self.structuresInLengths))
-#        for i in xrange(len(self.structuresInLengths)):
-#            lengths[i] = self.structuresInLengths[i]        
-#        return lengths       
-
+           
     def hexMonolayerEnergies(self,dir1): #bch
         file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
         self.hexE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
@@ -281,31 +224,27 @@ class MakeUncleFiles:
                 file.write('{} monolayer not converged \n'.format(atom))
         os.chdir(dir1)  
 
-    def makeUncleFiles(self, iteration, holdoutList):
+    def makeUncleFiles(self, iteration, holdoutList,vstructsCurrent,vdata):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
+        self.vdata = vdata
         self.singleAtomsEnergies(os.getcwd())   
         self.hexMonolayerEnergies(os.getcwd())    
-        self.setStructureList()
+        self.analyzeNewVasp(vstructsCurrent)
         for i in xrange(len(self.atoms)):
             atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + self.atoms[i] + '\n'])
                 self.reinitialize()              
                 if iteration == 1 and self.startFromExisting[i]: #need only structures.holdout
-                    self.writeHoldoutFromIn(atomDir)
-#                     holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
-#                     holdoutFile.write(self.header)
-#                     for structure in holdoutList[i]: 
-#                        self.writePOSCAR(structure, holdoutFile)
-#                     holdoutFile.close()
-                        
-                else: #need both structures.in and .holdout
+                    startfile = os.getcwd() + '/needed_files/structures.start.' + self.atoms[i]                     
+                    subprocess.call(['cp',startfile,atomDir + '/fits/structures.in'])
+                    self.writeHoldoutFromIn(atomDir)                      
+                else: #need both structures.in and .holdout                   
                     outfile = open(atomDir + '/fits/structures.in', 'w')                                   
                     outfile.write(self.header)                
-                    if len(self.structList[i]) != 0: self.sortStructsByFormEnergy(i)                
-                    structuresInCount = 0 #???never incremented? 
-                    for structure in self.structList[i]:
+                    if len(self.newlyFinished[i]) != 0: self.sortByFEwriteFiles(i)                
+                    for structure in self.newlyFinished[i]:
                         self.writePOSCAR(structure,outfile)
                     outfile.close                                    
                     outfile = open(atomDir + '/fits/structures.holdout', 'w')
@@ -314,10 +253,11 @@ class MakeUncleFiles:
                             # Make sure the structure has converged before trying to write it to
                             # structures.holdout
                         fullPath = os.path.abspath(structure)
-                        if self.contains(fullPath, self.structList[i]): self.writePOSCAR(structure, self.holdoutFile)
+                        if self.contains(fullPath, self.newlyFinished[i]): self.writePOSCAR(structure, self.holdoutFile)
     #                self.closeOutFiles()
-                    self.structuresInLengths[i] = structuresInCount
                     outfile.close 
+        return self.newlyFinished, self.newlyFailed, vdata
+                    
     def readfile(self,filepath): #bch
         file1 = open(filepath,'r')
         lines = file1.readlines()
@@ -411,8 +351,7 @@ class MakeUncleFiles:
             energy = 0
         
         energy = float(energy)
-        peratom = energy / sum(self.atomCounts)
-        
+        peratom = energy / sum(self.atomCounts)       
         self.energy = str(peratom)
         
     def setIDString(self, poscarDir):
@@ -423,7 +362,7 @@ class MakeUncleFiles:
         self.idString = ID
         
     def setLatticeVectors(self, structFile):
-        """ Gets the lattice vectors from the first structure in the structList and sets the 
+        """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
             corresponding member components. """
         vecFile = open(structFile + '/POSCAR', 'r')
         vecFileLines = vecFile.readlines()
@@ -459,23 +398,21 @@ class MakeUncleFiles:
         else:
             self.vec3z = vec3comps[2]
 
-    def setStructureList(self):
+    def analyzeNewVasp(self,vstructsCurrent)):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
-            files by adding only the structures that VASP finished relaxing to the member
-            structList. Sorts the list by concentration (N_M / N_total). Adds the structures that
+            files by adding only the structures that VASP finished to the member
+            newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
             failed VASP calculations to the member 'failedList'. """   
-        self.structList = []
-        self.failedStructs = []
-        
+        self.newlyFinished = []
+        self.newlyFailed = []
         lastDir = os.getcwd()
         
         for i in xrange(len(self.atoms)):
             # If it is the first iteration and we are starting from an existing structures.in.start
-            # file, we just append an empty list to the structList and the failedList.  Else, 
+            # file, we just append an empty list to the newlyFinished and the failedList.  Else, 
             # proceed as normal.
             if self.iteration == 1 and self.startFromExisting[i]:
-                self.structList.append([])
-                self.failedStructs.append([])
+                'Do nothing...already empty for all atoms'
             else:
                 atomDir = lastDir + '/' + self.atoms[i]
                 os.chdir(atomDir)
@@ -487,7 +424,7 @@ class MakeUncleFiles:
                     self.setEnergy(pureHdir)
                     self.pureHenergy = float(self.energy)
                 else:
-                    etest = self.getEnergyFromExisting('H')
+                    etest = self.getPureEnergyFromExisting('H')
                     if etest != 999999:
                         self.pureHenergy = etest
                     else:
@@ -498,7 +435,7 @@ class MakeUncleFiles:
                     self.setEnergy(pureMdir)
                     self.pureMenergy = float(self.energy)
                 else:
-                    etest = self.getEnergyFromExisting('M')
+                    etest = self.getPureEnergyFromExisting('M')
                     if etest != 999999:
                         self.pureMenergy = etest
                     else:
@@ -507,16 +444,11 @@ class MakeUncleFiles:
                 conclist = []
                 atomStructs = []
                 failed = []
-                            
-                dirList = os.listdir(atomDir)
-                dirList2 = [] #bch
-                for i in dirList:#bch
-                    if os.path.isdir(i): dirList2.append(i) #bch
-                for i, item in enumerate(dirList2):#bch enumerate
+                for i, item in enumerate(vstructsCurrent[i]):
                     if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(dirList2), 'structures in', atom  #bch
                     fullPath = os.path.abspath(item)
                     if os.path.isdir(fullPath):
-                        if os.path.isdir(self.finalDir): #bch finaldir indtead of '/DOS'
+                        if os.path.isdir(self.finalDir):
                             if self.FinishCheck(fullPath + self.finalDir) and self.convergeCheck(fullPath + self.finaldir, self.getNSW(fullPath + self.finaldir)): #finaldir                           
                                # Check for concentration
                                 self.setAtomCounts(fullPath)                            
@@ -529,18 +461,16 @@ class MakeUncleFiles:
                             else:
                                 failed.append(fullPath)
                         else:
-                            # Don't add the 'gss' or 'fits' directories.
-                            if not fullPath.split('/')[-1] == 'gss' and not fullPath.split('/')[-1] == 'fits':
-                                failed.append(fullPath)
-            
-                self.failedStructs.append(failed)
-                conclist.sort()
+                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + fullPath
+       
+                self.newlyFailed[i].append(failed) #for atom i
                 
+                conclist.sort()                
                 for i in xrange(len(conclist)):
-                    atomStructs.append(conclist[i][1])
-                self.structList.append(atomStructs)
-                
+                    atomStructs.append(conclist[i][1]) 
+                self.newlyFinished[i].append(atomStructs) #sorted by concentration, for atomi
                 os.chdir(lastDir)
+
 
     def singleAtomsEnergies(self,dir1): #bch
         self.singleE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
@@ -555,8 +485,8 @@ class MakeUncleFiles:
         file.close()  
         os.chdir(dir1) 
     
-    def sortStructsByFormEnergy(self, atomInd):
-        """ Sorts the list of structures by formation energy. """
+    def sortByFEwriteFiles(self, atomInd):
+        """ Sorts the list of structures by formation energy, and records to vdata. """
         # TODO:  We should probably figure out how to sort the structures in existing 
         #        structures.in.start files together with the structures we have calculated in VASP 
         #        during the loop.
@@ -582,27 +512,36 @@ class MakeUncleFiles:
         vaspFEfile = open('vaspFE.out','w') #bch 
         vaspBEfile = open('vaspBE.out','w') #bch 
         vaspHFEfile = open('vaspHFE.out','w') #bch 
-        for structDir in self.structList[atomInd]:
+        nfinished = count_nonzero(vdata[:]['struct'])
+        istruct = nfinished
+        for structDir in self.newlyFinished[atomInd]:
             self.setAtomCounts(structDir)
             self.setEnergy(structDir)
+            struct = structDir.split('/')[-1]
+            vdata[istruct]['struct'] = struct
             structEnergy = float(self.energy)
-            struct = structDir.split('/')[-1] #bch
+            vdata[istruct]['energy'] = structEnergy
+            
+ 
             concentration = 0.0
             if self.atomCounts[0] == 0:
                 concentration = 1.0
             else:
                 concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
-                        
+            vdata[istruct]['conc'] = concentration                       
             formationEnergy = structEnergy - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
             formEnergyList.append([formationEnergy, structDir])
+            vdata[istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,formationEnergy))#bch 
             
             ncarbon = self.atomCounts[0] + self.atomCounts[1] #bch:  
             bindEnergy = structEnergy - (self.atomCounts[0]*eIsolatedH + self.atomCounts[1]*self.singleE[atomInd] + ncarbon*energyGraphene/2)/ float(self.atomCounts[0] + self.atomCounts[1]) #2 atoms in graphene 
+            vdata[istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,bindEnergy))#bch  
             hexFormationEnergy = structEnergy - energyGraphene/2  - (concentration * self.hexE[atomInd] + (1.0 - concentration) * eH2)
+            vdata[istruct]['HFE'] = hexFormationEnergy
             vaspHFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,hexFormationEnergy))#bch    
-                                      
+            istruct += 1                          
         vaspFEfile.close()#bch
         vaspBEfile.close()#bch
         vaspHFEfile.close()#bch        
@@ -612,7 +551,7 @@ class MakeUncleFiles:
         for pair in formEnergyList:
             sortedStructs.append(pair[1])
         
-        self.structList[atomInd] = sortedStructs
+        self.newlyFinished[atomInd] = sortedStructs
             
         os.chdir(lastDir)
         

@@ -18,10 +18,10 @@ class Structs2Poscar:
         calculations.  It populates these directories with the converted POSCAR file corresponding 
         to that structure. """
         
-    def __init__(self, atoms, structList):
+    def __init__(self, atoms, s2pStructList):
         """ CONSTRUCTOR """
         self.atoms = atoms
-        self.structList = deepcopy(structList)
+        self.s2pStructList = deepcopy(s2pStructList)
     
     def makePlots(self, plotDir):
         """ NOT WORKING CURRENTLY.  This method puts a visual representation of each structure in 
@@ -37,11 +37,11 @@ class Structs2Poscar:
         for name in glob('enum/vasp.0*'):
             structNum = str(self.retrieveStructNum(name))
             self.changeToPoscar(name)
-            print self.structList
+            print self.s2pStructList
             
-            for i in xrange(len(self.structList)):
-                if self.contains(structNum, self.structList[i]):
-                    print i, len(self.structList), self.atoms
+            for i in xrange(len(self.s2pStructList)):
+                if self.contains(structNum, self.s2pStructList[i]):
+                    print i, len(self.s2pStructList), self.atoms
                     structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
                     if os.path.isdir(structDir):
                         subprocess.call('rm -r ' + structDir + '/*', shell=True)
@@ -49,7 +49,7 @@ class Structs2Poscar:
                         subprocess.call(['mkdir', structDir])                    
                     
                     subprocess.call(['cp','POSCAR',structDir])
-                    self.structList[i].remove(str(structNum))
+                    self.s2pStructList[i].remove(str(structNum))
             
             subprocess.call(['rm',name])
             subprocess.call(['rm','POSCAR'])

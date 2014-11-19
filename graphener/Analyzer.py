@@ -14,25 +14,25 @@ class Analyzer:
     def __init__(self, atoms):
         """ CONSTRUCTOR """
         self.atoms = atoms
-        self.structList = []
+        self.anStructList = []
         
-        self.setStructList()
+        self.setanStructList()
     
     def makeAnalysisDir(self):
         subprocess.call(['mkdir','analysis'])
     
-    def setStructList(self):
+    def setanStructList(self):
         atomDir = os.getcwd() + '/' + self.atoms[0]
         contents = os.listdir(atomDir)
         for item in contents:
             itemDir = atomDir + '/' + item
             if os.path.isdir(itemDir):
-                self.structList.append(item)
+                self.anStructList.append(item)
         
     def analyze(self):
         for atom in self.atoms:
             atomDir = os.getcwd() + '/' + atom
-            for struct in self.structList:
+            for struct in self.anStructList:
                 structDir = atomDir + '/' + struct + '/'
                 self.writeAnalysis(structDir)
                 if os.path.isdir(structDir + 'normal'):

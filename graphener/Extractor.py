@@ -17,27 +17,8 @@ class Extractor:
         self.atoms = atoms
         self.extractExec = os.path.abspath('needed_files/makestr.x')
         self.uncleOut = uncleOutput
-        self.structList = []
+        self.exStructList = []
         self.startFromExisting = startFromExisting
-
-    def getPastStructs(self):
-        """ Retrieves a list of all the structures in the past_structs.dat file for each metal
-            atom. This is a list of all the structures we have VASP data for or that have failed
-            VASP convergence. """
-        pastStructs = []
-        topDir = os.getcwd()
-        for atom in self.atoms:
-            atomDir = topDir + '/' + atom
-            atomStructs = []
-            
-            pastFile = open(atomDir + '/vaspstructs/past_structs.dat','r')
-            for line in pastFile:
-                atomStructs.append(line.strip())
-            pastFile.close()
-            
-            pastStructs.append(atomStructs)
-        
-        return pastStructs
 
     def setStructsFromTraining(self, iterNum, pastStructs):
         """ This method sets the structure list for each atom to the list of training structures
@@ -45,13 +26,13 @@ class Extractor:
             it just sets the member list of this class.  We always include the pure structures in 
             the fit, so it makes sure that they are done at least by the end of the first 
             iteration. Appends the chosen structures to past_structs.dat for each atom. """
-        self.structList = []
+        self.exStructList = []
         for i in xrange(len(self.atoms)):
             if self.startFromExisting[i] and iterNum == 1:
-                self.structList.append([])
+                self.exStructList.append([])
             else:
                 trainStructs = []
-                trainFile = open(self.atoms[i] + '/vaspstructs/training_set_structures.dat','r')
+                trainFile = open(self.atoms[i] + '/enumpast/training_set_structures.dat','r')
                 for line in trainFile:
                     trainStructs.append(line.strip().split()[1])
                 trainFile.close()
@@ -69,12 +50,12 @@ class Extractor:
                             trainStructs[1] = '3'
                 
                 # Append the newly chosen structures to past_structs.dat so they don't get chosen again
-                pastFile = open(self.atoms[i] + '/vaspstructs/past_structs.dat','a')
+                pastFile = open(self.atoms[i] + '/enumpast/past_structs.dat','a')
                 for struct in trainStructs:
                     pastFile.write(struct + '\n')
                 pastFile.close()
             
-                self.structList.append(trainStructs)
+                self.exStructList.append(trainStructs)
 
     def contains(self, struct, alist):
         """ Returns True if 'alist' contains the item 'struct', False otherwise. """
@@ -91,34 +72,34 @@ class Extractor:
         """ Sets the list of structures that we want to run through VASP calculations.  The list 
             being passed to this method (alist) will actually be a list of lists.  It will have a 
             structure list for each atom that still has not finished the main convergence loop. """
-        self.structList = []
+        self.exStructList = []
         for atomStructs in alist:
-            self.structList.append(atomStructs)
+            self.exStructList.append(atomStructs)
     
-    def getStructList(self):
+    def getexStructList(self):
         """ Returns the list of structures for each atom that has not finished the convergence
             loop. """
         structs = []
-        for atomStructs in self.structList:
+        for atomStructs in self.exStructList:
             structs.append(atomStructs)
         
         return structs
           
     def extract(self):
-        """ You must call either the setTrainingStructs() or setStructList() functions before calling
+        """ You must call either the setTrainingStructs() or setexStructList() functions before calling
             this method.  This method uses the makestr.x executable from the enumlib in UNCLE to 
-            create the pseudo-POSCAR files for each structure in self.structList. These files are 
+            create the pseudo-POSCAR files for each structure in self.exStructList. These files are 
             generally called something like "vasp.000241" indicating the structure number in 
             struct_enum.out.  We only want to extract the union of all the lists in 
-            self.structList. """
+            self.exStructList. """
         subprocess.call(['echo','\nExtracting structures from struct_enum.out\n'])
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        uniqueSet = set(self.structList[0])
+        uniqueSet = set(self.exStructList[0])
         
         # Only extract the union of all the sets of structures.  (No duplicates)
-        for i in xrange(1,len(self.structList)):
-            uniqueSet = uniqueSet.union(self.structList[i])
+        for i in xrange(1,len(self.exStructList)):
+            uniqueSet = uniqueSet.union(self.exStructList[i])
         
         for struct in uniqueSet:
             subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut)

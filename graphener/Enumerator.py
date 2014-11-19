@@ -14,13 +14,13 @@ class Enumerator:
         the struct_enum.out file that is produced. The methods in this class are only needed for 
         the first iteration of the main convergence loop. """
   
-    def __init__(self, atoms, volRange, clusterNums, trainStructNum, uncleOutput):
+    def __init__(self, atoms, volRange, clusterNums, ntrainStructs, uncleOutput):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
         
         self.clusterNums = clusterNums
-        self.trainStructNum = trainStructNum
+        self.ntrainStructs = ntrainStructs
         
         self.uncleExec = os.path.abspath('needed_files/uncle.x')
         self.enumFile = os.path.abspath('enum/struct_enum.out')
@@ -70,7 +70,7 @@ class Enumerator:
                 newfile.write(oldlines[i])
         
         newfile.close()
-
+        
     def chooseTrainingStructures(self,iteration, startFromExisting):
         """ If startFromExisting is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
          
@@ -82,33 +82,29 @@ class Enumerator:
         lastDir = os.getcwd()
         # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
         #        takes about an hour per atom for vol 1-8.)
-        if iteration == 1: #initialize vaspstructs/.  Compute iid structures once, and copy to all atom folders that need them
+        if iteration == 1: #initialize enumpast/.  Compute iid structures once, and copy to all atom folders that need them
             if startFromExisting.count(False)>0:
                 subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
                 os.chdir('enum')
-                subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
-                for i,atom in enumerate(self.atoms):
-                    atomDir = lastDir + '/' + atom
-                    vsDir = atomDir + '/vaspstructs'
-                    if os.path.isdir(vsDir): subprocess.call(['rm','-r' ,vsDir])                    
-                    subprocess.call(['mkdir', vsDir])                
-                    file = open(vsDir + '/past_structs.dat', 'w'); file.close()  #just create it.                   
-                    if not startFromExisting[i]:
-                        subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
-                        subprocess.call(['cp','training_set_structures.dat',vsDir])  
-            os.chdir(lastDir)                           
+                subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
+            for i,atom in enumerate(self.atoms):
+                if not startFromExisting[i]:
+                    subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
+                    vsDir = lastDir + '/' + atom + '/enumpast'
+                    subprocess.call(['cp','training_set_structures.dat',vsDir])
+                    os.chdir(lastDir)                           
         else: # later iterations: must get separate iid structures for each atom         
             for atom in self.atoms:
                 atomDir = lastDir + '/' + atom
     #            try:
-                #Look for the past_structs.dat file in vaspstructs/ folder. If there's not, make an empty one for that atom.
-                os.chdir(atomDir + '/vaspstructs')
+                #Look for the past_structs.dat file in enumpast/ folder. If there's not, make an empty one for that atom.
+                os.chdir(atomDir + '/enumpast')
                 subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
                 subprocess.call(['ln','-s','../../enum/struct_enum.out'])
                 subprocess.call(['ln','-s','../../enum/lat.in']) 
                 subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
                 subprocess.call(['ln','-s','../../enum/clusters.out'])                          
-                subprocess.call([self.uncleExec, '42', str(self.trainStructNum)], stdout=self.uncleOut)
+                subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
                 os.chdir(lastDir)
 #            except:
 #                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])

@@ -17,7 +17,7 @@ class DistanceInfo:
     
         self.atoms = atoms
     
-        self.structList = []
+        self.disStructList = []
         self.setStructureList()
         
         self.inPlaneDistances = []
@@ -56,12 +56,12 @@ class DistanceInfo:
         unsortedStructs.sort()  # Now it's sorted by concentration
         
         for struct in unsortedStructs:
-            self.structList.append(struct[1])
+            self.disStructList.append(struct[1])
     
     def getStructureList(self):
-        return self.structList
+        return self.disStructList
     
-    def getAtomList(self):
+    def getatoms(self):
         return self.atoms
     
     def getOriginalPositions(self, structureDir):
@@ -468,7 +468,7 @@ class DistanceInfo:
             outfile.write("\t, ,\t,*********************, ********** " + atom + " **********, *********************\n")
             atomDir = topDir + '/' + atom
             if os.path.isdir(atomDir):
-                for structure in self.structList:
+                for structure in self.disStructList:
                     structDir = atomDir + '/' + structure
                     if os.path.isdir(structDir):
                         dfile = structDir + '/distance_info'
@@ -506,7 +506,7 @@ class DistanceInfo:
 
     def getDistanceInfo(self):
         topDir = os.getcwd()
-        for atom in self.getAtomList():
+        for atom in self.getatoms():
             atomDir = topDir + '/' + atom
             if os.path.isdir(atomDir):
                 subprocess.call(['echo','********************'])
@@ -514,7 +514,7 @@ class DistanceInfo:
                 subprocess.call(['echo','********************'])
                 os.chdir(atomDir)
             
-                for structure in self.structList:
+                for structure in self.disStructList:
                     structDir = atomDir + '/' + structure
                     if os.path.isdir(structDir):
                         DOSdir = structDir + '/DOS/'
