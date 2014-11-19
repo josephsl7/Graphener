@@ -4,6 +4,7 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 import os, subprocess
+from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median
 
 class GSS:
     """ This class performs the UNCLE ground state search for the lowest formation energy
@@ -38,45 +39,43 @@ class GSS:
                 return True
         return False
 
-    def getAllGSSStructures(self, iteration, newlyFailed):
-        """ Returns a list of all the structures sorted by their predicted formation energies.
-            It does this for each metal atom that has been specified by the user so this will 
-            actually return a list of lists--a list for each atom. """
-        allStructs = []
-        for n in xrange(len(self.atoms)):
-            atomStructs = []
-            structsByEnergy = []
-            gssFile = os.getcwd() + '/' + self.atoms[n] + '/gss/gss_' + str(iteration) + '.out'
-            infile = open(gssFile, 'r')
-            
-            i = 0
-            for line in infile:
-                if i >= 2:
-                    formEnergy = float(line.strip().split()[7])
-                    struct = int(line.strip().split()[0])
-                    
-                    # Do not include structures that failed VASP calculations.
-                    if not self.contains(struct, newlyFailed[n]):
-                        structsByEnergy.append([formEnergy, struct])
-                i += 1
-            infile.close()
-            
-            structsByEnergy.sort()
-            
-            for struct in structsByEnergy:
-                atomStructs.append(str(struct[1]))
-            
-            allStructs.append(atomStructs)
-            
-        return allStructs
+#    def getAllGSSStructures(self, iteration, newlyFailed):
+#        """ Returns a list of all the structures sorted by their predicted formation energies.
+#            It does this for each metal atom that has been specified by the user so this will 
+#            actually return a list of lists--a list for each atom. """
+#        allStructs = []
+#        for n in xrange(len(self.atoms)):
+#            atomStructs = []
+#            structsByEnergy = []
+#            gssFile = os.getcwd() + '/' + self.atoms[n] + '/gss/gss_' + str(iteration) + '.out'
+#            infile = open(gssFile, 'r')
+#            
+#            for i,line in enumerate(infile):
+#                if i >= 2:
+#                    formEnergy = float(line.strip().split()[7])
+#                    struct = int(line.strip().split()[0])                    
+#                    # Do not include structures that failed VASP calculations.
+#                    if not self.contains(struct, newlyFailed[n]):
+#                        structsByEnergy.append([formEnergy, struct])
+#            infile.close()
+#            
+#            structsByEnergy.sort()
+#            
+#            for struct in structsByEnergy:
+#                atomStructs.append(str(struct[1]))
+#            
+#            allStructs.append(atomStructs)
+#            
+#        return allStructs
     
     def getGssInfo(self,iteration):  #bch
         lastDir = os.getcwd()
         dir = lastDir
-        self.getNcs()
-        Ntot = sum(self.Ncs)        
+        self.getNcs() #number at each concentration
         numberCs = len(self.Ncs)
-        print 'Number of concentrations:' ,numberCs       
+        Ntot = sum(self.Ncs) #total number of structures              
+        print 'Number of concentrations:' ,numberCs 
+              
         self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('energy', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom in range(len(self.atoms)):
@@ -106,7 +105,8 @@ class GSS:
                     self.priorities[iatom,istr]['energy'] = en
                     self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width) 
                 iplace += Nc
-            priorfile = open(atomDir+'/priorities.out','w')
+            self.priorities = sort(self.priorities, order=['prior'])[:,::-1] #::-1 sorts reverse the structures ordering, which was sorted low to high 
+            priorfile = open(atomDir+'/priorities_{}.out'.format(iteration),'w')
             priorfile.write('structure,priority,concentration,FEnergy\n')
             for i in range(Ntot):
                 priorfile.write('{:10s}{:10.6f}{:8.4f}{:10.6f}\n'.format( \
@@ -114,10 +114,10 @@ class GSS:
                        gss_info[i]['conc'],gss_info[i]['energy']))               
             priorfile.close()
             os.chdir(atomDir)
-            os.system('sort -g -r -k 2 priorities.out > priorities_sorted.out') #puts highest priorites at top
+#            os.system('sort -g -r -k 2 priorities.out > priorities_sorted.out') #puts highest priorites at top
 #            print sort(self.priorities[iatom,:], order = ['prior'] )
         os.chdir(lastDir)
-        return self.priorities                 
+        return self.priorities                
             
     def getNcs(self): #bch
         '''Find the number of structures at each concentration''' 
@@ -128,12 +128,13 @@ class GSS:
         lines = self.readfile('tempout');os.system('rm tempout')         
         conc_old = 1.0 #starts with highest concentration first 
         Nc = 0  
+        print 'Concentrations and number of structures'
         for line in lines[2:]:
             conc = float(line.strip().split()[1])
             if conc == conc_old:
                 Nc += 1
             else: 
-                print conc_old,Nc
+                print '{:8.3f}{:10d}'.format(conc_old,Nc)
                 self.Ncs.append(Nc) #for the previous concentration           
                 Nc = 1
                 conc_old = conc
@@ -220,68 +221,6 @@ class GSS:
                     else:
                         outfile.write(inlines[i])
                 outfile.close()
-                
-        def writeFilesForPlots(self, atomInd):
-        """ Sorts the list of structures by formation energy. """
-        # TODO:  We should probably figure out how to sort the structures in existing 
-        #        structures.in.start files together with the structures we have calculated in VASP 
-        #        during the loop.
-        lastDir = os.getcwd()
-        os.chdir(lastDir + '/' + self.atoms[atomInd])
-        pureHdir = os.getcwd() + '/1'
-        pureMdir = os.getcwd() + '/3'
-        
-        self.setAtomCounts(pureHdir)
-        self.setEnergy(pureHdir)
-        self.pureHenergy = float(self.energy)
-        
-        self.setAtomCounts(pureMdir)
-        self.setEnergy(pureMdir)
-        self.pureMenergy = float(self.energy)
-        eIsolatedH = -1.115 #bch
-        eIsolatedC = -1.3179 #bch
-        eH2 = -6.7591696/2.0 #bch
-        energyGraphene = -18.456521 #for 2 C atoms #bch
-        
-        formEnergyList = []
-        sortedStructs = []
-        vaspFEfile = open('vaspFE.out','w') #bch 
-        vaspBEfile = open('vaspBE.out','w') #bch 
-        vaspHFEfile = open('vaspHFE.out','w') #bch 
-        for structDir in self.newlyFinished[atomInd]:
-            self.setAtomCounts(structDir)
-            self.setEnergy(structDir)
-            structEnergy = float(self.energy)
-            struct = structDir.split('/')[-1] #bch
-            concentration = 0.0
-            if self.atomCounts[0] == 0:
-                concentration = 1.0
-            else:
-                concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
-                        
-            formationEnergy = structEnergy - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
-            formEnergyList.append([formationEnergy, structDir])
-            vaspFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,formationEnergy))#bch 
-            
-            ncarbon = self.atomCounts[0] + self.atomCounts[1] #bch:  
-            bindEnergy = structEnergy - (self.atomCounts[0]*eIsolatedH + self.atomCounts[1]*self.singleE[atomInd] + ncarbon*energyGraphene/2)/ float(self.atomCounts[0] + self.atomCounts[1]) #2 atoms in graphene 
-            vaspBEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,bindEnergy))#bch  
-            hexFormationEnergy = structEnergy - energyGraphene/2  - (concentration * self.hexE[atomInd] + (1.0 - concentration) * eH2)
-            vaspHFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,hexFormationEnergy))#bch    
-                                      
-        vaspFEfile.close()#bch
-        vaspBEfile.close()#bch
-        vaspHFEfile.close()#bch        
-        formEnergyList.sort()
-        sys.exit('stop HFE')
-        
-        for pair in formEnergyList:
-            sortedStructs.append(pair[1])
-        
-        self.newlyFinished[atomInd] = sortedStructs
-            
-        os.chdir(lastDir)
-
 
     def makePlots(self, iteration):
         """ Creates the plots of the predicted energies of all the structures that have been 

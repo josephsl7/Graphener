@@ -172,7 +172,7 @@ class MakeUncleFiles:
         return int(proc.communicate()[0].split('=')[-1])   
 
     def writeHoldoutFromIn(self, atomDir):
-        '''Returns holdoutList list for the first iteration, for a given atom
+        '''Writes structures.holdout for the first iteration, for a given atom
         If starting from existing struct calculations, takes up to N structs in the top of the 
         structures.in file.  Useful when starting from existing structs.  In this case, 
         they should be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
@@ -224,7 +224,7 @@ class MakeUncleFiles:
                 file.write('{} monolayer not converged \n'.format(atom))
         os.chdir(dir1)  
 
-    def makeUncleFiles(self, iteration, holdoutList,vstructsCurrent,vdata):
+    def makeUncleFiles(self, iteration, holdoutStructs,vstructsCurrent,vdata):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
         self.vdata = vdata
@@ -243,19 +243,20 @@ class MakeUncleFiles:
                 else: #need both structures.in and .holdout                   
                     outfile = open(atomDir + '/fits/structures.in', 'w')                                   
                     outfile.write(self.header)                
-                    if len(self.newlyFinished[i]) != 0: self.sortByFEwriteFiles(i)                
+                    if len(self.newlyFinished[i]) != 0: self.vaspToVdata(i)                
                     for structure in self.newlyFinished[i]:
                         self.writePOSCAR(structure,outfile)
                     outfile.close                                    
                     outfile = open(atomDir + '/fits/structures.holdout', 'w')
                     outfile.write(self.header) 
-                    for structure in holdoutList[i]:
+                    for structure in holdoutStructs[i]:
                             # Make sure the structure has converged before trying to write it to
                             # structures.holdout
                         fullPath = os.path.abspath(structure)
                         if self.contains(fullPath, self.newlyFinished[i]): self.writePOSCAR(structure, self.holdoutFile)
     #                self.closeOutFiles()
                     outfile.close 
+                self.vFE2PlotFiles(i) #record vasp formation/binding energies and write to files for plotting in gss
         return self.newlyFinished, self.newlyFailed, vdata
                     
     def readfile(self,filepath): #bch
@@ -398,7 +399,7 @@ class MakeUncleFiles:
         else:
             self.vec3z = vec3comps[2]
 
-    def analyzeNewVasp(self,vstructsCurrent)):
+    def analyzeNewVasp(self,vstructsCurrent):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
             files by adding only the structures that VASP finished to the member
             newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
@@ -461,7 +462,7 @@ class MakeUncleFiles:
                             else:
                                 failed.append(fullPath)
                         else:
-                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + fullPath
+                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + fullPath])
        
                 self.newlyFailed[i].append(failed) #for atom i
                 
@@ -484,14 +485,57 @@ class MakeUncleFiles:
                 self.singleE[i] = self.getEnergy(dir2)
         file.close()  
         os.chdir(dir1) 
-    
-    def sortByFEwriteFiles(self, atomInd):
-        """ Sorts the list of structures by formation energy, and records to vdata. """
+
+    def vFE2PlotFiles(self, iatom):
+        """ For all finished structs, record the different vasp formation and binding energies to files 
+        for plots.  vaspToVdata should be run first"""
+        
         # TODO:  We should probably figure out how to sort the structures in existing 
         #        structures.in.start files together with the structures we have calculated in VASP 
         #        during the loop.
         lastDir = os.getcwd()
-        os.chdir(lastDir + '/' + self.atoms[atomInd])
+        os.chdir(lastDir + '/' + self.atoms[iatom])
+        eIsolatedH = -1.115 #bch
+        eIsolatedC = -1.3179 #bch
+        eH2 = -6.7591696/2.0 #bch
+        energyGraphene = -18.456521 #for 2 C atoms #bch
+        vaspFEfile = open('vaspFE.out','w')  
+        vaspBEfile = open('vaspBE.out','w')  
+        vaspHFEfile = open('vaspHFE.out','w')  
+        nfinished = count_nonzero(self.vdata[:]['struct'])
+        istruct = 0 #creating for all finished structs
+        for i in range(nfinished):
+            struct = self.vdata[iatom,istruct]['struct']
+            conc = self.vdata[iatom,istruct]['conc']
+            natoms = self.vdata[iatom,istruct]['natoms']
+            nmetal = int(conc*natoms)
+            nH = natoms - nmetal 
+            ncarbon = nH + nmetal #all C sites have an adatom           
+            structEnergy = self.vdata[iatom,istruct]['energy']                    
+            formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
+            self.vdata[iatom,istruct]['FE'] = formationEnergy
+            vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))#bch            
+            bindEnergy = structEnergy - (nH*eIsolatedH + nmetal*self.singleE[iatom] + ncarbon*energyGraphene/2)/ natoms #2 atoms in graphene 
+            self.vdata[iatom,istruct]['BE'] = bindEnergy
+            vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))#bch  
+            hexFormationEnergy = structEnergy - energyGraphene/2  - (conc * self.hexE[iatom] + (1.0 - conc) * eH2)
+            self.vdata[iatom,istruct]['HFE'] = hexFormationEnergy
+            vaspHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,hexFormationEnergy))#bch    
+            istruct += 1                          
+        vaspFEfile.close()#bch
+        vaspBEfile.close()#bch
+        vaspHFEfile.close()#bch                 
+        os.chdir(lastDir)
+
+    
+    def vaspToVdata(self, iatom):
+        """ Record the newly finished structures into vdata, and sorts the 
+        leaves the list of newly finished structures sorted by formation energy"""
+        # TODO:  We should probably figure out how to sort the structures in existing 
+        #        structures.in.start files together with the structures we have calculated in VASP 
+        #        during the loop.
+        lastDir = os.getcwd()
+        os.chdir(lastDir + '/' + self.atoms[iatom])
         pureHdir = os.getcwd() + '/1'
         pureMdir = os.getcwd() + '/3'
         
@@ -502,57 +546,37 @@ class MakeUncleFiles:
         self.setAtomCounts(pureMdir)
         self.setEnergy(pureMdir)
         self.pureMenergy = float(self.energy)
-        eIsolatedH = -1.115 #bch
-        eIsolatedC = -1.3179 #bch
-        eH2 = -6.7591696/2.0 #bch
-        energyGraphene = -18.456521 #for 2 C atoms #bch
         
         formEnergyList = []
         sortedStructs = []
-        vaspFEfile = open('vaspFE.out','w') #bch 
-        vaspBEfile = open('vaspBE.out','w') #bch 
-        vaspHFEfile = open('vaspHFE.out','w') #bch 
         nfinished = count_nonzero(vdata[:]['struct'])
-        istruct = nfinished
-        for structDir in self.newlyFinished[atomInd]:
+        istruct = nfinished #starting position for vdata array
+        for structDir in self.newlyFinished[iatom]:
             self.setAtomCounts(structDir)
             self.setEnergy(structDir)
             struct = structDir.split('/')[-1]
-            vdata[istruct]['struct'] = struct
+            self.vdata[iatom,istruct]['struct'] = struct
             structEnergy = float(self.energy)
-            vdata[istruct]['energy'] = structEnergy
-            
- 
-            concentration = 0.0
+            self.vdata[iatom,istruct]['energy'] = structEnergy 
+            conc = 0.0
+            natoms =  float(self.atomCounts[0] + self.atomCounts[1])
+            self.vdata[iatom,istruct]['natoms'] = natoms
             if self.atomCounts[0] == 0:
-                concentration = 1.0
+                conc = 1.0
             else:
-                concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))
-            vdata[istruct]['conc'] = concentration                       
-            formationEnergy = structEnergy - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
+                conc = float(float(self.atomCounts[1])/natoms)
+            self.vdata[iatom,istruct]['conc'] = conc                       
+            formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
             formEnergyList.append([formationEnergy, structDir])
-            vdata[istruct]['FE'] = formationEnergy
-            vaspFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,formationEnergy))#bch 
+            vaspFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))#bch 
             
             ncarbon = self.atomCounts[0] + self.atomCounts[1] #bch:  
-            bindEnergy = structEnergy - (self.atomCounts[0]*eIsolatedH + self.atomCounts[1]*self.singleE[atomInd] + ncarbon*energyGraphene/2)/ float(self.atomCounts[0] + self.atomCounts[1]) #2 atoms in graphene 
-            vdata[istruct]['BE'] = bindEnergy
-            vaspBEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,bindEnergy))#bch  
-            hexFormationEnergy = structEnergy - energyGraphene/2  - (concentration * self.hexE[atomInd] + (1.0 - concentration) * eH2)
-            vdata[istruct]['HFE'] = hexFormationEnergy
-            vaspHFEfile.write('{:10s} {:12.8f} {:12.8f}\n'.format(struct,concentration,hexFormationEnergy))#bch    
-            istruct += 1                          
-        vaspFEfile.close()#bch
-        vaspBEfile.close()#bch
-        vaspHFEfile.close()#bch        
-        formEnergyList.sort()
-        sys.exit('stop HFE')
-        
+            hexFormationEnergy = structEnergy - energyGraphene/2  - (conc * self.hexE[iatom] + (1.0 - conc) * eH2)
+            istruct += 1                                
+        formEnergyList.sort()       
         for pair in formEnergyList:
-            sortedStructs.append(pair[1])
-        
-        self.newlyFinished[atomInd] = sortedStructs
-            
+            sortedStructs.append(pair[1])        
+        self.newlyFinished[iatom] = sortedStructs           
         os.chdir(lastDir)
         
     def writeAtomCounts(self):

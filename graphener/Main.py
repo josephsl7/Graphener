@@ -8,7 +8,7 @@ Created on Aug 26, 2014
 
 import os, subprocess,sys,re
 from random import seed
-from numpy import zeros,array,sqrt,std,amax,amin,int32
+from numpy import zeros,array,sqrt,std,amax,amin,int32,sort
 from copy import deepcopy
 
 import Enumerator, Extractor, Structs2Poscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
@@ -51,17 +51,16 @@ def equals(alist, blist):
     else:
         return True
 
-def getDiffE(priority, eLast, atoms):
+def getDiffE(priority, energiesLast, atoms):
     '''Finds the L1 norm energy change between iterations, weighted by priority'''
-    ediff = priority[:,:]['energy'] - eLast
+    ediff = priority[:,:]['energy'] - energiesLast
     ediffL1 = zeros(len(atoms))
     for iatom in range(len(atoms)):
         priorsum = sum(priority[iatom,:]['prior'])
-        ediff[iatom,:] = abs(ediff[iatom,:]) * priority[iatom,:]['prior']/priorsum
-        ediffL1[iatom] = sqrt(sum(ediff[iatom,:]))
+        ediffL1[iatom] = sqrt(sum(abs(ediff[iatom,:]) * priority[iatom,:]['prior']/priorsum))
     return ediffL1
 
-def parseStartStructures(atoms,startFromExisting,vdata,vstructsFinished):
+def parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata):
     """ Writes past_structures.dat that vasp needs, and returns the structures in structures.in, 
     
     This method assumes that the structures.in file will have all of the pure
@@ -69,14 +68,14 @@ def parseStartStructures(atoms,startFromExisting,vdata,vstructsFinished):
     graphene str #: (structure number) FE = 0.545, Concentration = .473
     or, for a pure structure:
     PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
+    
     istruct = 0
-    Nend = vstructsFinished
     startList = []
     lastDir = os.getcwd()
-    for i,atom in enumerate(atoms):
-        if startFromExisting[i]: #chosen by user in settings file
+    for iatom,atom in enumerate(atoms):
+        if startFromExisting[iatom]:  
             subList = []
-            startFile = lastDir + '/needed_files/structures.start.' + atoms[i]       
+            startFile = lastDir + '/needed_files/structures.start.' + atoms[iatom]       
             if os.path.exists(startFile):      
                 infile = open(startFile,'r')
                 lines = infile.readlines()
@@ -90,22 +89,33 @@ def parseStartStructures(atoms,startFromExisting,vdata,vstructsFinished):
                             if structLine[0].lower() == 'pure':
                                 outfile.write(str(structLine[5]) + '\n')
                                 subList.append(structLine[5])
-                                vdata[istruct]['struct'] = structLine[5]
+                                vdata[iatom,istruct]['struct'] = structLine[5]
                             else:
                                 outfile.write(str(structLine[3]) + '\n')
                                 subList.append(structLine[3])
-                                vdata[istruct]['struct'] = structLine[3]
-                            natomsList = lines[j+6].strip().split()
+                                vdata[iatom,istruct]['struct'] = structLine[3]
+                            natomsList = [int(i) for i in lines[j+6].strip().split()]
                             natoms = natomsList[0]+natomsList[1]
-                            vdata[istruct]['conc'] = float(natomsList[1]/natoms)
-                            vdata[istruct]['energy'] = lines[j+8+natoms].strip().split()[0]                    
+                            vdata[iatom,istruct]['natoms'] = natoms
+                            vdata[iatom,istruct]['conc'] = float(natomsList[1]/float(natoms))
+                            vdata[iatom,istruct]['energy'] = float(lines[j+9+natoms].strip().split()[0])                    
                 outfile.close()
             else: 
                 subprocess.call(['echo',"ERROR: structures.start."+ atoms[i] + ' is missing from needed_files/'])       
         startList.append(subList)
+        
+        
     os.chdir(lastDir)
-    return startList, vdata  
- 
+    return startList, vdata
+  
+def pastStructsUpdate(vstructsCurrent,atoms):
+    for i,atom in enumerate(atoms):
+        file = open(atom+ '/enumpast/past_structs.dat','a')
+        if len(vstructsCurrent[i])>0:
+            for struct in vstructsCurrent[i]:
+                file.write(str(struct)+'\n')
+        file.close
+     
 def readfile(filepath):
         file1 = open(filepath,'r')
         lines = file1.readlines()
@@ -224,25 +234,25 @@ def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
     except IOError:
         subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])   
 
-def writeLowestGSS(lowestGssFile, newStructs, iteration, atoms):
-    try:
-        lowestGssFile.write('\n==================================================================\n')
-        lowestGssFile.write('\tIteration: ' + str(iteration) + '\n')
-        lowestGssFile.write('==================================================================\n')
-        for i in xrange(len(newStructs)):
-            lowestGssFile.write('\n***************** ' + atoms[i] + ' *******************\n')
-            atomLength = len(newStructs[i])
-            if atomLength >= 100:
-                for j in xrange(len(newStructs[i])):
-                    if (j + 1) % 20 == 0 or j == 99:
-                        lowestGssFile.write(str(newStructs[i][j]) + '\n')
-                    else:
-                        lowestGssFile.write(str(newStructs[i][j]) + ', ')
-        
-        lowestGssFile.flush()
-        os.fsync(lowestGssFile.fileno())
-    except IOError:
-        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
+#def writeLowestGSS(lowestGssFile, newStructs, iteration, atoms):
+#    try:
+#        lowestGssFile.write('\n==================================================================\n')
+#        lowestGssFile.write('\tIteration: ' + str(iteration) + '\n')
+#        lowestGssFile.write('==================================================================\n')
+#        for i in xrange(len(newStructs)):
+#            lowestGssFile.write('\n***************** ' + atoms[i] + ' *******************\n')
+#            atomLength = len(newStructs[i])
+#            if atomLength >= 100:
+#                for j in xrange(len(newStructs[i])):
+#                    if (j + 1) % 20 == 0 or j == 99:
+#                        lowestGssFile.write(str(newStructs[i][j]) + '\n')
+#                    else:
+#                        lowestGssFile.write(str(newStructs[i][j]) + ', ')
+#        
+#        lowestGssFile.flush()
+#        os.fsync(lowestGssFile.fileno())
+#    except IOError:
+#        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_gss file. ~~~~~~~~~~\n'])
 
 def writeLowestVasp(lowestStructsFile, vStructsFinished, iteration, atoms):
     try:
@@ -299,7 +309,7 @@ def extractToVasp(iteration,runTypes,atoms):
     else:
         print 'Your RUN_TYPES is ', runTypes
         sys.exit('The only supported RUN_TYPES are "low", "low normal" and "low normal DOS"')   
-    return finalDir
+    return finalDir, vstructsCurrent
 
 # -------------------------------------------- MAIN -----------------------------------------------
           
@@ -311,16 +321,16 @@ if __name__ == '__main__':
     
     seed()
     maxvstructs = 20000 #maximum number of structures for each atom
-    vdata = zeros(maxvstructs,dtype = [('struct', int32),('conc', float), ('energy', float), ('FE', float),('BE', float),('HFE', float)]) #data from vasp
-    vstructsAll = [] #every structure vasp has attempted, a list for each atom
-    vstructsFinished = [] #every structure vasp has finished, a list for each atom
-    vstructFailed = [] #every structure vasp has failed, a list for each atom
-    vstructsCurrent = [] #the structures vasp has attempted or will attempt this iteration, a list for each atom
-#    vstructs = [vstructsAll,vstructsFinished,vstructFailed,vstructsCurrent]
-    
+   
     [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, ntrainStructs, mfitStructs, nfitSubsets, growNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
-   
+    natoms = len(atoms)
+#    vstructsAll = [[]*natoms] #every structure vasp has attempted, a list for each atom
+    vstructsFinished = [[]*natoms] #every structure vasp has finished, a list for each atom
+    vstructsFailed = [[]*natoms] #every structure vasp has failed, a list for each atom
+    vstructsCurrent = [[]*natoms] #the structures vasp has attempted or will attempt this iteration, a list for each atom   
+    vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
+
     if not os.path.isdir('single_atoms'):
         manager1 = JobManager.JobManager(atoms)
         manager1.runSingleAtoms()
@@ -333,12 +343,11 @@ if __name__ == '__main__':
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, ntrainStructs, uncleOutput)
     enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum')
-    eLast = zeros((ntot,len(atoms)),dtype=float) #energies of last iteration, sorted by structure name
+    energiesLast = zeros((ntot,natoms),dtype=float) #energies of last iteration, sorted by structure name
     
     changed = True
     iteration = 1
     
-    newStructs = []
     gssStructs = []
     pastStructs = []
     holdoutStructs = []
@@ -357,7 +366,7 @@ if __name__ == '__main__':
         extractor = Extractor.Extractor(atoms, uncleOutput, startFromExisting)
         if iteration == 1:
             if startFromExisting.count(False) == 0: #all start from existing
-                vstructsFinished,vdata = parseStartStructures(atoms,startFromExisting,vdata,vstructsFinished)
+                vstructsFinished,vdata = parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata,)
                 vstructsAll = vstructsFinished
 #                pastStructs = extractor.getPastStructs() 
                 finalDir = []
@@ -365,32 +374,27 @@ if __name__ == '__main__':
                 enumerator.chooseTrainingStructures(iteration,startFromExisting)
 #                pastStructs = extractor.getPastStructs()
                 extractor.setStructsFromTraining(iteration, vtructsAll)
-                finalDir = extractToVasp(iteration,runTypes,atoms)
+                finalDir,vstructsCurrent = extractToVasp(iteration,runTypes,atoms)
         elif iteration > 1 and PriorOrIID == 'p':
-            extractor.setStructsFromGSS(newStructs)
+            extractor.setStructsFromGSS(newStructsPrior)
             finalDir = extractToVasp(iteration,runTypes,atoms)
         elif iteration > 1 and PriorOrIID == 'i':
             enumerator.chooseTrainingStructures(iteration,startFromExisting)
 #            pastStructs = extractor.getPastStructs()
-            finalDir = extractToVasp(iteration,runTypes,atoms)
+            finalDir,vstructsCurrent = extractToVasp(iteration,runTypes,atoms)
         else:
             finalDir = '' #starting exclusively from structures.start
    
         # Create structures.in and structures.holdout files for each atom.
-        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir)
-        print holdoutStructs
-        [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent) 
+        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir) 
+        [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent,vdata) 
+        vstructsFinished.append(newlyFinished);vstructsFailed.append(newlyFailed)
+        pastStructsUpdate(vstructsCurrent,atoms)
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
         # TODO:  Check the precision of the energy per atom that I take from VASP and put
         # into structures.in.  See if it's coming from low-precision or normal-precision
         # rather than DOS.
-#        [newlyFinished, newlyFailed, vdata] = uncleFileMaker.getNewVaspResults(vstructsCurrent,vdata) 
-        #BCH replace the above.. Do it all in analyzeNewVasp in makeUncleFiles
-        #This will be done above:
-#            1. vstructs_current gets analyzed and sorted.  Append to finished and failed
-#            3. Put energies and conc from vasp into vdata
-        2. Append all of vstructs_current to past_structs.dat file
                 
         # Perform a fit to the VASP data in structures.in for each atom.
         fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
@@ -402,90 +406,112 @@ if __name__ == '__main__':
         gss.makeGSSDirectories()
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
-        gssStructs = gss.getAllGSSStructures(iteration, vstructFailed)
-        priority = gss.getGssInfo(iteration)
-        diffe = getDiffE(priority,eLast,atoms)
-        print 'diffe',diffe
-        eLast = priority[:,:]['energy']
-        # Print the lowest energy structures that have been through VASP calculations to a file.
-        writeLowestVasp(lowestStructsFile, vStructsFinished, iteration, atoms)
-        
-        # Write the all the structures that have failed VASP calculations to a file.
-        # TODO: Only write the failed structures that are unique to this iteration to the file.
-        writeFailedVasp(failedFile, vstructFailed, iteration, atoms)
-        
-        # Check the lowest 100 hundred structs from VASP against the lowest 100 structs from UNCLE
-        # for each atom.  If they match, then that atom has converged and we remove it from the 
-        # lists.
-        removeAtoms = []
-        removeGss = []
-        removeVasp = []
-        for i in xrange(len(vStructsFinished)):
-            atomLength = len(vStructsFinished[i])
-            if atomLength >= 100:
-                if equals(vStructsFinished[i][:100], gssStructs[i][:100]):
-                    startFromExisting.remove(startFromExisting[i])#??? This should only be used during first interation anyway? 
-                    removeAtoms.append(atoms[i])
-                    removeGss.append(gssStructs[i])
-                    removeVasp.append(vStructsFinished[i])
-            elif atomLength != 0:
-                # If there are not yet 100 structs that have converged in VASP, just check however
-                # many have finished.  If there are no structures in the list, it is the first
-                # iteration starting from an existing structures.in.start file so we need to go 
-                # through another iteration before checking convergence.                
-                if equals(vStructsFinished[i][:atomLength], gssStructs[i][:atomLength]):
-                    removeAtoms.append(atoms[i])
-                    removeGss.append(gssStructs[i])
-                    removeVasp.append(vStructsFinished[i])
-        
-        for i in xrange(len(removeAtoms)):
-            atoms.remove(removeAtoms[i])
-        for i in xrange(len(removeGss)):
-            gssStructs.remove(removeGss[i])
-        for i in xrange(len(removeVasp)):
-            vStructsFinished.remove(removeVasp[i])
-        
-        # If all of the atoms have converged, exit the loop.  Else, keep going.
-        if len(atoms) > 0:
-            changed = True
+        #get the priority of each structure in each atom
+        priority = gss.getGssInfo(iteration) #first structure listed is highest priority
+        #test weighted energy difference since last iteration
+        diffe = getDiffE(priority,energiesLast,atoms)
+        energiesLast = priority[:,:]['energy'] #to be used next iteration
+        # Determine which atoms need to continue
+        diffMax = 0.10 # 10 meV convergence criterion
+        print 'Energy change'
+        atomnumbers = range(natoms)
+        for iatom, atom in enumerate(atoms):
+            print atom, diffe[iatom]
+            if diffe[iatom]<diffMax: #Converged
+                print 'Atom has converged:', atom
+                atoms.remove(atom)
+                atomnumbers.remove(iatom)
+        natoms = len(atoms) #could be lower now
+        vstructsFinished2 = []
+        vstructsFailed2 = []
+        vstructsCurrent = [] 
+        newStructsPrior = [[]*natoms]
+        for i in atomnumbers:
+            vstructsFinished2.append(vstructsFinished[i])
+            vstructsFailed2.append(vstructsFailed[i])
+            newStructsPrior[i] = priority[i,:growNum] 
+
+         
+#        # Print the lowest energy structures that have been through VASP calculations to a file.
+##        writeLowestVasp(lowestStructsFile, vStructsFinished, iteration, atoms)
+#        
+#        # Write the all the structures that have failed VASP calculations to a file.
+#        # TODO: Only write the failed structures that are unique to this iteration to the file.
+##        writeFailedVasp(failedFile, vstructFailed, iteration, atoms)
+#        
+#        # Check the lowest 100 hundred structs from VASP against the lowest 100 structs from UNCLE
+#        # for each atom.  If they match, then that atom has converged and we remove it from the 
+#        # lists.
+#        removeAtoms = []
+#        removeGss = []
+#        removeVasp = []
+#        for i in xrange(len(vStructsFinished)):
+#            atomLength = len(vStructsFinished[i])
+#            if atomLength >= 100:
+#                if equals(vStructsFinished[i][:100], gssStructs[i][:100]):
+#                    startFromExisting.remove(startFromExisting[i])#??? This should only be used during first interation anyway? 
+#                    removeAtoms.append(atoms[i])
+#                    removeGss.append(gssStructs[i])
+#                    removeVasp.append(vStructsFinished[i])
+#            elif atomLength != 0:
+#                # If there are not yet 100 structs that have converged in VASP, just check however
+#                # many have finished.  If there are no structures in the list, it is the first
+#                # iteration starting from an existing structures.in.start file so we need to go 
+#                # through another iteration before checking convergence.                
+#                if equals(vStructsFinished[i][:atomLength], gssStructs[i][:atomLength]):
+#                    removeAtoms.append(atoms[i])
+#                    removeGss.append(gssStructs[i])
+#                    removeVasp.append(vStructsFinished[i])
+#        
+#        for i in xrange(len(removeAtoms)):
+#            atoms.remove(removeAtoms[i])
+#        for i in xrange(len(removeGss)):
+#            gssStructs.remove(removeGss[i])
+#        for i in xrange(len(removeVasp)):
+#            vStructsFinished.remove(removeVasp[i])
+#        
+#        # If all of the atoms have converged, exit the loop.  Else, keep going.
+#        if natoms > 0:
+#            changed = True
                     
-        if not changed:
-            subprocess.call(['echo','\n----------------- The loop has converged! ---------------'])
+        natoms = len(atoms)
+        if natoms == 0:
+            subprocess.call(['echo','\n----------------- All atoms have converged! ---------------'])
             break
 
         # Add the the number of structures specified by growNum with the lowest formation energy 
         # that have not been through VASP calculations (converged or failed) to the newStructs 
-        # list for each remaining atom.
-        newStructs = []
-        added = zeros(len(atoms))
-        for i in xrange(len(gssStructs)):
-            atomStructs = []
-            for j in xrange(len(gssStructs[i])):
-                if added[i] >= growNum:
-                    break
-                elif not contains(gssStructs[i][j], vStructsFinished[i]):
-                    atomStructs.append(str(gssStructs[i][j]))
-                    added[i] += 1
-            newStructs.append(atomStructs)
+#        # list for each remaining atom.
+#        newStructs = []
+#        added = zeros(natoms)
+#        for i in xrange(len(gssStructs)):
+#            atomStructs = []
+#            for j in xrange(len(gssStructs[i])):
+#                if added[i] >= growNum:
+#                    break
+#                elif not contains(gssStructs[i][j], vStructsFinished[i]):
+#                    atomStructs.append(str(gssStructs[i][j]))
+#                    added[i] += 1
+#            newStructs.append(atomStructs)
         
         # Print the new GSS structures to a file.
-        writeLowestGSS(lowestGssFile, newStructs, iteration, atoms)
+#        writeLowestGSS(lowestGssFile, newStructs, iteration, atoms)
         
-        # Set holdoutStructs to the vStructsFinished that were used in the last iteration of the loop.
-        if len(vStructsFinished) > 100:
-            holdoutStructs = deepcopy(vStructsFinished[:100])
+        # Set holdoutStructs for the next iteration to the 100 (or less)  highest priority structures used in the new calculation
+        if len(newStructsPrior) > 100:
+            holdoutStructs = deepcopy(newStructsPrior[:100])
         else:
-            holdoutStructs = deepcopy(vStructsFinished[:len(vStructsFinished)])
+            holdoutStructs = deepcopy(newStructsPrior[:len(newStructsPrior)])
 
         # Keep track of which iteration we're on.
         iteration += 1
         
-        if iteration == 4:
-            break
+#        if iteration == 4:
+#            break
     
     uncleOutput.close()
-    lowestStructsFile.close()
-    lowestGssFile.close()
+#    lowestStructsFile.close()
+#    lowestGssFile.close()
     # Should do some analysis after the loop has finished as well. """
 
     subprocess.call(['echo','\n---------- PROGRAM ENDED ----------\n'])
