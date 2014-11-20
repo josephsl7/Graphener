@@ -34,7 +34,7 @@ class JobManager:
                                                         # job id" error because the job is no
         return True                                     # longer on the supercomputer.    
     
-    def reportLowStats(self, jobStructList):
+    def reportLowStats(self, vstructsCurrent):
         """ Displays the percentage of structures that converged during the low-precision VASP
             calculations.  Also displays the number of structures that converged and the number
             of structures that didn't. """
@@ -44,7 +44,7 @@ class JobManager:
             converged = 0
             atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                for structure in jobStructList[i]:
+                for structure in vstructsCurrent[i]:
                     structureDir = atomDir + '/' + structure
                     if os.path.isdir(structureDir):
                         if self.FinishCheck(structureDir) and self.convergeCheck(structureDir, 400):
@@ -101,7 +101,7 @@ class JobManager:
         except:
             return 9999
 
-    def reportDOSStats(self, jobStructList):
+    def reportDOSStats(self, vstructsCurrent):
         """ Reports the percentage of structures that converged during the Density of States VASP
             calculations.  Also reports the number of structures that converged and the number
             that didn't. """
@@ -111,7 +111,7 @@ class JobManager:
             converged = 0
             atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                for struct in jobStructList[i]:
+                for struct in vstructsCurrent[i]:
                     structDir = atomDir + '/' + struct
                     if os.path.isdir(structDir):
                         dosDir = structDir + '/DOS'
@@ -131,7 +131,7 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged]) 
 
 
-    def reportNormalStats(self, jobStructList):
+    def reportNormalStats(self, vstructsCurrent):
         """ Reports the percentage of structures that converged during normal-precision VASP
             calculations.  Also reports the number of structures that converged and the number
             that didn't. """
@@ -141,7 +141,7 @@ class JobManager:
             converged = 0
             atomDir = os.getcwd() + '/' + self.atoms[i]
             if os.path.isdir(atomDir):
-                for struct in jobStructList[i]:
+                for struct in vstructsCurrent[i]:
                     structDir = atomDir + '/' + struct
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
@@ -160,38 +160,39 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures converged.' % converged])
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
-    def runDOSJobs(self, jobStructList):
+    def runDOSJobs(self, vstructsCurrent):
         """ Starts the Density of States VASP calculations for all of the structures in 
-            'jobStructList' and waits for all of the jobs to finish. It checks on the jobs every ten 
+            'vstructsCurrent' and waits for all of the jobs to finish. It checks on the jobs every ten 
             minutes. """
         subprocess.call(['echo','\nStarting DOS run. . .\n'])
-        self.vaspRunner.run(3, jobStructList)   
+        self.vaspRunner.run(3, vstructsCurrent)   
         s = scheduler(time.time, time.sleep)    
         finished = False
         start_time = time.time()
         event_time = start_time
         while not finished:
-            event_time += 600
+            event_time += 60 #seconds
             s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())   
-        self.reportDOSStats(jobStructList)
+        self.reportDOSStats(vstructsCurrent)
 
     def runHexMono(self):    
         subprocess.call(['echo','\nPreparing and running hexagonal metal monolayers directories\n']) #bch   
         self.vaspRunner.makeRunHexMono()  
             
-    def runLowJobs(self, jobStructList):
-        """ Starts the low-precision VASP calculations for all of the structures in 'jobStructList'
+    def runLowJobs(self, vstructsCurrent):
+        print 'vstructsCurrent in runlow',vstructsCurrent
+        """ Starts the low-precision VASP calculations for all of the structures in 'vstructsCurrent'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nPreparing directories for VASP. . .\n'])
-        self.vaspRunner.prepareForVasp(jobStructList)
+        self.vaspRunner.prepareForVasp(vstructsCurrent)
     
         s = scheduler(time.time, time.sleep)
-    
+        
         subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
-        self.vaspRunner.run(1, jobStructList)
-    
+        self.vaspRunner.run(1, vstructsCurrent)
+        
         finished = False
         start_time = time.time()
         event_time = start_time
@@ -201,14 +202,14 @@ class JobManager:
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
     
-        self.reportLowStats(jobStructList)
+        self.reportLowStats(vstructsCurrent)
     
-    def runNormalJobs(self, jobStructList):
-        """ Starts the normal-precision VASP calculations for all of the structures in 'jobStructList'
+    def runNormalJobs(self, vstructsCurrent):
+        """ Starts the normal-precision VASP calculations for all of the structures in 'vstructsCurrent'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
-        print 'jobStructList', jobStructList
-        self.vaspRunner.run(2, jobStructList)
+        print 'vstructsCurrent', vstructsCurrent
+        self.vaspRunner.run(2, vstructsCurrent)
         
         s = scheduler(time.time, time.sleep)
     
@@ -223,7 +224,7 @@ class JobManager:
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
     
-        self.reportNormalStats(jobStructList)
+        self.reportNormalStats(vstructsCurrent)
         print 'done with runNormalJobs'
 
     def runSingleAtoms(self):  

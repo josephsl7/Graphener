@@ -4,7 +4,7 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 from numpy import zeros, mod, count_nonzero #bch
-import os, subprocess
+import os, subprocess, sys
 from random import random
 
 
@@ -243,7 +243,7 @@ class MakeUncleFiles:
                 else: #need both structures.in and .holdout                   
                     outfile = open(atomDir + '/fits/structures.in', 'w')                                   
                     outfile.write(self.header)                
-                    if len(self.newlyFinished[i]) != 0: self.vaspToVdata(i)                
+                    if len(self.newlyFinished[i]) > 0: self.vaspToVdata(i)                
                     for structure in self.newlyFinished[i]:
                         self.writePOSCAR(structure,outfile)
                     outfile.close                                    
@@ -259,7 +259,7 @@ class MakeUncleFiles:
                 self.vFE2PlotFiles(i) #record vasp formation/binding energies and write to files for plotting in gss
         return self.newlyFinished, self.newlyFailed, vdata
                     
-    def readfile(self,filepath): #bch
+    def readfile(self,filepath): 
         file1 = open(filepath,'r')
         lines = file1.readlines()
         file1.close()
@@ -404,8 +404,6 @@ class MakeUncleFiles:
             files by adding only the structures that VASP finished to the member
             newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
             failed VASP calculations to the member 'failedList'. """   
-        self.newlyFinished = []
-        self.newlyFailed = []
         lastDir = os.getcwd()
         
         for i in xrange(len(self.atoms)):
@@ -462,10 +460,8 @@ class MakeUncleFiles:
                             else:
                                 failed.append(fullPath)
                         else:
-                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + fullPath])
-       
-                self.newlyFailed[i].append(failed) #for atom i
-                
+                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + fullPath])       
+                self.newlyFailed[i].append(failed) #for atom i                
                 conclist.sort()                
                 for i in xrange(len(conclist)):
                     atomStructs.append(conclist[i][1]) 
@@ -502,7 +498,7 @@ class MakeUncleFiles:
         vaspFEfile = open('vaspFE.out','w')  
         vaspBEfile = open('vaspBE.out','w')  
         vaspHFEfile = open('vaspHFE.out','w')  
-        nfinished = count_nonzero(self.vdata[:]['struct'])
+        nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = 0 #creating for all finished structs
         for i in range(nfinished):
             struct = self.vdata[iatom,istruct]['struct']
@@ -515,7 +511,8 @@ class MakeUncleFiles:
             formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
             self.vdata[iatom,istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))#bch            
-            bindEnergy = structEnergy - (nH*eIsolatedH + nmetal*self.singleE[iatom] + ncarbon*energyGraphene/2)/ natoms #2 atoms in graphene 
+#            if i < 10: print structEnergy ,nH,eIsolatedH , nmetal,self.singleE[iatom] , ncarbon*energyGraphene/2.0, natoms
+            bindEnergy = structEnergy - (nH*eIsolatedH + nmetal*self.singleE[iatom] + ncarbon*energyGraphene/2.0)/ float(natoms) #2 atoms in graphene 
             self.vdata[iatom,istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))#bch  
             hexFormationEnergy = structEnergy - energyGraphene/2  - (conc * self.hexE[iatom] + (1.0 - conc) * eH2)
@@ -526,7 +523,6 @@ class MakeUncleFiles:
         vaspBEfile.close()#bch
         vaspHFEfile.close()#bch                 
         os.chdir(lastDir)
-
     
     def vaspToVdata(self, iatom):
         """ Record the newly finished structures into vdata, and sorts the 

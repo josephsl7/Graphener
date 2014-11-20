@@ -80,6 +80,7 @@ class Enumerator:
             training structures for each atom is determined by the TRAINING_STRUCTS setting in 
             settings.in. """
         lastDir = os.getcwd()
+        iidStructs = [[]*len(self.atoms)]
         # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
         #        takes about an hour per atom for vol 1-8.)
         if iteration == 1: #initialize enumpast/.  Compute iid structures once, and copy to all atom folders that need them
@@ -94,21 +95,29 @@ class Enumerator:
                     subprocess.call(['cp','training_set_structures.dat',vsDir])
                     os.chdir(lastDir)                           
         else: # later iterations: must get separate iid structures for each atom         
+            
             for atom in self.atoms:
                 atomDir = lastDir + '/' + atom
-    #            try:
+                try:
                 #Look for the past_structs.dat file in enumpast/ folder. If there's not, make an empty one for that atom.
-                os.chdir(atomDir + '/enumpast')
-                subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
-                subprocess.call(['ln','-s','../../enum/struct_enum.out'])
-                subprocess.call(['ln','-s','../../enum/lat.in']) 
-                subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
-                subprocess.call(['ln','-s','../../enum/clusters.out'])                          
-                subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
-                os.chdir(lastDir)
-#            except:
-#                subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
-
+                    os.chdir(atomDir + '/enumpast')
+                    subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
+                    subprocess.call(['ln','-s','../../enum/struct_enum.out'])
+                    subprocess.call(['ln','-s','../../enum/lat.in']) 
+                    subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
+                    subprocess.call(['ln','-s','../../enum/clusters.out'])                          
+                    subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
+                    os.chdir(lastDir)
+                except:
+                    subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
+        #get the iidStructs from training_set_structures.dat for each atom
+        for i,atom in enumerate(self.atoms):
+            atomDir = lastDir + '/' + atom
+            lines = self.readfile(atomDir + '/enumpast/training_set_structures.dat')
+            iidStructs[i] = [line.strip().split()[1] for line in lines]
+            
+        return iidStructs
+    
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an
             i.i.d. set of training structures. """

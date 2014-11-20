@@ -3,8 +3,9 @@ Created on Aug 29, 2014
 
 @author: eswens13
 '''
-import os, subprocess
+import os, subprocess, sys
 from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median
+from copy import deepcopy
 
 class GSS:
     """ This class performs the UNCLE ground state search for the lowest formation energy
@@ -68,54 +69,70 @@ class GSS:
 #            
 #        return allStructs
     
-    def getGssInfo(self,iteration):  #bch
+    def getGssInfo(self,iteration,vstructsFailed):   
+        '''Get structure,Uncle formation energy, concentration into gssInfo.
+        Write out gssFailedVasp.out, which lists structures and their model formation energy so they 
+        can be identified on the gss plot as a different color'''
         lastDir = os.getcwd()
         dir = lastDir
         self.getNcs() #number at each concentration
         numberCs = len(self.Ncs)
         Ntot = sum(self.Ncs) #total number of structures              
-        print 'Number of concentrations:' ,numberCs 
+        subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)]) 
               
-        self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('energy', float), ('prior', float)])
+        self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('FE', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom in range(len(self.atoms)):
             atomDir = dir + '/' + self.atoms[iatom] + '/gss'
-            gss_info = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('energy', float)]) #columns:  struct, concentration, energy
+            gfvfile = open(atomDir + '/gssFailedVasp.out','w')
+            gssInfo = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('FE', float)]) #columns:  struct, concentration, energy
             lines = self.readfile(atomDir + '/gss_' + str(iteration) + '.out')
             for i,line in enumerate(lines[2:]):
                 struct = line.strip().split()[0]
                 conc = float(line.strip().split()[2]) #metal concentration
                 formEnergy = float(line.strip().split()[7])                
-                gss_info[i-2]['struct'] = struct
-                gss_info[i-2]['conc'] = conc
-                gss_info[i-2]['energy'] = formEnergy
-            gss_info = sort(gss_info, order=['conc','energy']) #sorts low to high
-            emin = amin(gss_info[:]['energy'])
-            emed = median(gss_info[:]['energy'])
+                gssInfo[i-2]['struct'] = struct
+                gssInfo[i-2]['conc'] = conc
+                gssInfo[i-2]['FE'] = formEnergy
+                if struct in vstructsFailed: gfvfile.write('{:10d}{:10.6f}\n'.format(struct,formEnergy))
+            gfvfile.close()            
+            gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
+            emin = amin(gssInfo[:]['FE'])
+            emed = median(gssInfo[:]['FE'])
             width_percent = 0.01   #weight the bottom % strongly
             iplace = 0
             for ic,Nc in enumerate(self.Ncs):
                 imin = iplace #place of lowest energy for this concentration
-                eminc = gss_info[imin]['energy'] #lowest energy for this concentration
+                eminc = gssInfo[imin]['FE'] #lowest energy for this concentration
                 width = ceil(width_percent*Nc) + 2*width_percent*Nc*max(0,(emed-eminc)/(emed-emin)) #last term favors the lowest energy structures globally.  Is zero when eminc is at or above the median energy for this atom
                 for n in range(Nc):
                     istr = iplace+n
-                    self.priorities[iatom,istr]['struct'] = gss_info[istr]['struct']
-                    en = gss_info[istr]['energy']
-                    self.priorities[iatom,istr]['energy'] = en
+                    self.priorities[iatom,istr]['struct'] = gssInfo[istr]['struct']
+                    energy = gssInfo[istr]['FE']
+                    self.priorities[iatom,istr]['FE'] = energy
                     self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width) 
                 iplace += Nc
-            self.priorities = sort(self.priorities, order=['prior'])[:,::-1] #::-1 sorts reverse the structures ordering, which was sorted low to high 
-            priorfile = open(atomDir+'/priorities_{}.out'.format(iteration),'w')
+#            self.priorities = sort(self.priorities, order=['prior']) # sorted low to high 
+            #Note:  if I do the sort above, the sort works in the sense that when I print the elements,
+            # they are sorted.  BUT, when I write them to a file they are all zero!  Some memory/pointer problem? 
+            # so I will use the work-around with linux sort the written file, then read them back in 
+            priorfile = open(atomDir+'/temp','w')
             priorfile.write('structure,priority,concentration,FEnergy\n')
             for i in range(Ntot):
                 priorfile.write('{:10s}{:10.6f}{:8.4f}{:10.6f}\n'.format( \
                     self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
-                       gss_info[i]['conc'],gss_info[i]['energy']))               
+                       gssInfo[i]['conc'],gssInfo[i]['FE']))               
             priorfile.close()
             os.chdir(atomDir)
-#            os.system('sort -g -r -k 2 priorities.out > priorities_sorted.out') #puts highest priorites at top
-#            print sort(self.priorities[iatom,:], order = ['prior'] )
+            print 'sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)
+            os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
+            lines = self.readfile(atomDir+'/priorities_{}.out'.format(iteration))
+            for i, line in enumerate(lines[:-1]): #skip last line which is header
+                data = line.strip().split()
+                self.priorities[iatom,i]['struct'] = data[0]
+                self.priorities[iatom,i]['prior'] = data[1]
+                self.priorities[iatom,i]['FE'] = data[3]
+            os.chdir(lastDir)                  
         os.chdir(lastDir)
         return self.priorities                
             
@@ -250,6 +267,7 @@ class GSS:
             if os.path.isdir(gssDir):
                 subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
+                subprocess.call(['rm','gss.out'])
                 subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
                 os.chdir(lastDir)              
 
