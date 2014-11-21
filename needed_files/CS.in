@@ -1,0 +1,67 @@
+# This file is to be used as input to the new Compressive sensing algorithm implemented in uncle. (opts 14 and 15)
+#  Options 14 and 15 are different methods for implementing compressive sensing.  Option 14 is slower and,
+# from what I have seen, is no more accurate than option 15.  ( There may be a good argument for not having
+# option 14 in UNCLE at all.)
+#
+#  Input files needed for compressive sensing:
+#                 - lat.in
+#                 - clusters.out ( Don't try and guess a priori which clusters are important.  Enumerate lots
+#                                  of clusters and let the compressive sensing machinery determine which ones 
+#                                  are important )
+#                 - structures.holdout : This set of data is used to validate the fit and should probably not
+#                                         overlap with the data in structures.in or structures.groundstates.
+#                 - structures.in  :  The algorithm will select N subsets each of size M from this data set,
+#                                     construct a fit, and then compute the energies of all the structures in
+#                                     structures.holdout.  The rms error over this set is recorded.
+#                 - structures.groundstates : Occasionally you may want to enforce that some data points are always
+#                                             included as fitting data.  Any structures found in this file will always
+#					       be included. ( Note:  You'll want to make sure that the total number of data
+#                                                                 points in structures.in + structures.groundstates is equal to M.
+#  								  You'll also want no overlap between these two files)					    
+#                 - CS.in : This file
+#
+#
+#   Output files generated from this routine:
+#
+#              - Js.out:  This file contains the Js from each individual fit.  For each fit there is a line specifying the 
+#                         value of mu/sigma2 and a line with all the Js found by the fit.
+#              - results.out : This file contains a one line summary for each fit made: It includes information such as
+#                              rms values over fitting and holdout sets, l-1 and l-0 norm of the solution.
+#              - rms_vs_musigma.out :  This file is the results file averaged over all subsets for a given value of mu/sigma2
+#              - J_vs_musigma.out : This file is the Js.out file averaged over all subsets for a given value of mu/sigma2. (Use
+#                                                           option 16 to generate a J.1.out file from this file)
+#              - fitting_errors.out : Contains a detailed list of the fitting structures' energies, both predicted and actual,
+#                                                  for each fit made.
+#              - prediction_errors.out : Contains a detailed list of the prediction structures' energies, both prediced and actual,
+#                                                  for each fit made.
+#
+#
+#
+#
+# How do you want to generate your final J.out file? 
+#              - 'S'  I'm just going to do a single fit using a random set of fitting structures and
+#                      I want the Js from that fit.  Truncation is done using the cutoff parameter supplied below.
+#                                                   (Note: If you choose to loop over many fitting sets then the J.1.out file
+#                                                    will be overwritten at each iteration)
+#              - 'R'  I want to do many fits and average over all my solutions.  Truncation is done using the cutoff parameter
+#                              supplied below
+#              - 'T'  I want to (i) do many fits, (ii) Analyze the results to see which terms are statistically significant,
+#                     (iii) truncate my expansion and (iv) refit using simple least squares.  A final truncation is done using
+#                                    the cutoff provided below.
+R
+# Use reweighted l_1 norm routine? (Y - yes, N - no)
+N
+# Do you want to loop over values of sigma^2 or just use the hard-coded value('Y'- loop over values, 'N'- use hard-coded value (only for BCS (option 15) )  )
+N
+# Range of mu(UNCLE option 14)/ sigma (UNCLE option 15) values to consider (mu_i/sigma_i, mu_f/sigma_f)
+0.001 1
+#Deltamu/DeltaSigma(UNCLE option 14)/Deltasigma (UNCLE option 15) ( * + -)
+* 1.2
+# Number of fitting structures (M) from structures.in
+15   #e.g. 400
+# Number of structure subsets (N) chosen randomly, each with M structures
+5   #e.g. 10-50
+# Js cutoff ( Used when writing a J.1.out file and when determining which Js are statistically significant).  With current values, in meV:
+0.001
+# Penalty function to use for the reweighting scheme; possible choices are logsum, logsig, arctan, quarti, hexics
+arctan

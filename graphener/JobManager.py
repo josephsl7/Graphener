@@ -182,7 +182,6 @@ class JobManager:
         self.vaspRunner.makeRunHexMono()  
             
     def runLowJobs(self, vstructsCurrent):
-        print 'vstructsCurrent in runlow',vstructsCurrent
         """ Starts the low-precision VASP calculations for all of the structures in 'vstructsCurrent'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nPreparing directories for VASP. . .\n'])
@@ -197,7 +196,7 @@ class JobManager:
         start_time = time.time()
         event_time = start_time
         while not finished:
-            event_time += 600
+            event_time += 60
             s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
@@ -219,7 +218,7 @@ class JobManager:
         print 'job ids'
         print self.vaspRunner.getCurrentJobIds()
         while not finished or len(self.vaspRunner.getCurrentJobIds())==0:
-            event_time += 600
+            event_time += 60
             s.enterabs(event_time, 1,self.reportFinshed(self.vaspRunner.getCurrentJobIds())) #bch: was self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
             finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())

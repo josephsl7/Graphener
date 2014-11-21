@@ -48,13 +48,13 @@ class RunVasp:
     def fillDirectories(self, vstructsCurrent):
         """ Fills all the directories in 'vstructsCurrent' with the needed files for VASP to run, namely
             POSCAR, POTCAR, KPOINTS, INCAR, a SLURM job file, and the VASP executable file. """
-        for i in xrange(len(self.atoms)):
+        for iatom,atom in enumerate(self.atoms):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + self.atoms[i]
+            atomDir = lastDir + '/' + atom
             
             os.chdir(atomDir)
             structures = []
-            for item in vstructsCurrent[i]:
+            for item in vstructsCurrent[iatom]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -68,7 +68,7 @@ class RunVasp:
                 if poscarLines[0].split()[1] == 'H':
                     subprocess.call(['cp','CH_POTCAR',structureDir + '/POTCAR'])
                 elif poscarLines[0].split()[1] == 'M':
-                    subprocess.call(['cp','C' + self.atoms[i] + '_POTCAR',structureDir + '/POTCAR'])
+                    subprocess.call(['cp','C' + atom + '_POTCAR',structureDir + '/POTCAR'])
                 else:
                     subprocess.call(['cp','POTCAR',structureDir])            
             os.chdir(lastDir)
@@ -117,11 +117,11 @@ class RunVasp:
             run and populates it with the files from the normal-precision run. Copies the normal
             CONTCAR to the DOS POSCAR. """  
         topDir = os.getcwd()
-        for i in xrange(len(self.atoms)):
-            elementDir = topDir + '/' + self.atoms[i]
+        for iatom,atom in enumerate(self.atoms):
+            elementDir = topDir + '/' + atom
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in vstructsCurrent[i]:
+                for structure in vstructsCurrent[iatom]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
@@ -134,7 +134,7 @@ class RunVasp:
                                              'normal/POSCAR','normal/POTCAR','normal/REPORT',
                                              'normal/vasprun.xml','normal/XDATCAR','DOS'])
                             self.makeDOS_INCAR()
-                            self.makeDOSJobFile(self.atoms[i]+structure) #bch 
+                            self.makeDOSJobFile(atom+structure) #bch 
                             subprocess.call(['cp','DOS/CONTCAR','DOS/POSCAR'])
                             os.chdir(elementDir)
             else:
@@ -173,7 +173,7 @@ class RunVasp:
         jobFile = open('DOS/job','w')
         
         jobFile.write("#!/bin/bash\n\n")
-        jobFile.write("#SBATCH --time=0:05:00\n")
+        jobFile.write("#SBATCH --time=0:00:30\n")
         jobFile.write("#SBATCH --ntasks=16\n")
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
         jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")
@@ -192,7 +192,7 @@ class RunVasp:
             name = direc #bch (which atom)
             jobFile = open(direc + '/job','w')   
             jobFile.write("#!/bin/bash\n\n")
-            jobFile.write("#SBATCH --time=00:05:00\n")
+            jobFile.write("#SBATCH --time=00:00:30\n")
             jobFile.write("#SBATCH --ntasks=16\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")              
@@ -245,11 +245,11 @@ class RunVasp:
 
     def makeNormalDirectories(self, vstructsCurrent):
         topDir = os.getcwd()
-        for i in xrange(len(self.atoms)):
-            elementDir = topDir + '/' + self.atoms[i]
+        for iatom,atom in enumerate(self.atoms):
+            elementDir = topDir + '/' + atom
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in vstructsCurrent[i]:
+                for structure in vstructsCurrent[iatom]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir) and self.finishCheck(structDir) and self.convergeCheck(structDir, 400):
                         os.chdir(structDir)
@@ -503,12 +503,12 @@ class RunVasp:
         topDir = os.getcwd()
         self.clearCurrentJobIds()
         
-        for i in xrange(len(self.atoms)):
-            elementDir = topDir + '/' + self.atoms[i]
+        for iatom,atom in enumerate(self.atoms):
+            elementDir = topDir + '/' + atom
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
                 
-                for structure in vstructsCurrent[i]:
+                for structure in vstructsCurrent[iatom]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         os.chdir(structDir)
@@ -534,14 +534,14 @@ class RunVasp:
         """ Submits all the VASP jobs for structures in 'vstructsCurrent' to the supercomputer for 
             low-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
-        for i in xrange(len(self.atoms)):
+        for iatom,atom in enumerate(self.atoms):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + self.atoms[i]
+            atomDir = lastDir + '/' + atom
             
             os.chdir(atomDir)
             
             structures = []
-            for item in vstructsCurrent[i]:
+            for item in vstructsCurrent[iatom]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -561,14 +561,14 @@ class RunVasp:
             normal-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         
-        for i in xrange(len(self.atoms)):
+        for iatom,atom in enumerate(self.atoms):
             lastDir = os.getcwd()
-            atomDir = lastDir + '/' + self.atoms[i]
+            atomDir = lastDir + '/' + atom
             
             os.chdir(atomDir)
             
             structures = []
-            for item in vstructsCurrent[i]:
+            for item in vstructsCurrent[iatom]:
                 if os.path.isdir(item + '/normal'):
                     structures.append(item)
             

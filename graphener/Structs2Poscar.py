@@ -36,11 +36,9 @@ class structs2Poscar:
             the information for that structure. """
         for name in glob('enum/vasp.0*'):
             structNum = str(self.retrieveStructNum(name))
-            self.changeToPoscar(name)
-            print self.s2pStructList            
+            self.changeToPoscar(name)           
             for i in xrange(len(self.s2pStructList)):
                 if self.contains(structNum, self.s2pStructList[i]):
-                    print i, len(self.s2pStructList), self.atoms
                     structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
                     if os.path.isdir(structDir):
                         subprocess.call('rm -r ' + structDir + '/*', shell=True)

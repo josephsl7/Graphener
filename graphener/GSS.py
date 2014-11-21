@@ -78,7 +78,7 @@ class GSS:
         self.getNcs() #number at each concentration
         numberCs = len(self.Ncs)
         Ntot = sum(self.Ncs) #total number of structures              
-        subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)]) 
+        if iteration>0: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)]) 
               
         self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('FE', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
@@ -94,7 +94,7 @@ class GSS:
                 gssInfo[i-2]['struct'] = struct
                 gssInfo[i-2]['conc'] = conc
                 gssInfo[i-2]['FE'] = formEnergy
-                if struct in vstructsFailed: gfvfile.write('{:10d}{:10.6f}\n'.format(struct,formEnergy))
+                if struct in vstructsFailed[iatom]: gfvfile.write('{:10d}{:10.6f}\n'.format(struct,formEnergy))
             gfvfile.close()            
             gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
             emin = amin(gssInfo[:]['FE'])
@@ -124,7 +124,6 @@ class GSS:
                        gssInfo[i]['conc'],gssInfo[i]['FE']))               
             priorfile.close()
             os.chdir(atomDir)
-            print 'sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)
             os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
             lines = self.readfile(atomDir+'/priorities_{}.out'.format(iteration))
             for i, line in enumerate(lines[:-1]): #skip last line which is header
@@ -136,7 +135,7 @@ class GSS:
         os.chdir(lastDir)
         return self.priorities                
             
-    def getNcs(self): #bch
+    def getNcs(self,iterations): #bch
         '''Find the number of structures at each concentration''' 
         lastDir = os.getcwd()
         dir = os.getcwd() + '/' + self.atoms[0] + '/gss/'
@@ -145,13 +144,13 @@ class GSS:
         lines = self.readfile('tempout');os.system('rm tempout')         
         conc_old = 1.0 #starts with highest concentration first 
         Nc = 0  
-        print 'Concentrations and number of structures'
+        if iteration>0: print 'Concentrations and number of structures'
         for line in lines[2:]:
             conc = float(line.strip().split()[1])
             if conc == conc_old:
                 Nc += 1
             else: 
-                print '{:8.3f}{:10d}'.format(conc_old,Nc)
+                if iteration>0: print '{:8.3f}{:10d}'.format(conc_old,Nc)
                 self.Ncs.append(Nc) #for the previous concentration           
                 Nc = 1
                 conc_old = conc
@@ -267,7 +266,7 @@ class GSS:
             if os.path.isdir(gssDir):
                 subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                 os.chdir(gssDir)
-                subprocess.call(['rm','gss.out'])
+                if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
                 subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
                 os.chdir(lastDir)              
 

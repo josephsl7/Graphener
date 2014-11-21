@@ -36,7 +36,7 @@ class Fitter:
             subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/clusters.out',fitsDir])
             
-            infile = open(self.neededFilesDir + 'CS.in','r')
+            infile = open(self.neededFilesDir + '/CS.in','r')
             inlines = [line for line in infile]
             infile.close()
             # TODO:  This doesn't work right now unless it's a negative number in settings.in
@@ -68,8 +68,8 @@ class Fitter:
                     subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                     subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                     subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
-                    subprocess.call(['mv','structures.in', 'structures.in_' + str(iteration)])
-                    subprocess.call(['mv','structures.holdout', 'structures.holdout_' + str(iteration)])
+                    subprocess.call(['cp','structures.in', 'structures.in_' + str(iteration)]) #leave the file to be appended to
+                    subprocess.call(['cp','structures.holdout', 'structures.holdout_' + str(iteration)]) #leave the file in case a
                     os.chdir(lastDir)
 
 
