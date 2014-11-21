@@ -74,32 +74,7 @@ class MakeUncleFiles:
                 'Do nothing...'
             else:
                 atomDir = lastDir + '/' + atom
-                os.chdir(atomDir)
-#                pureHdir = os.getcwd() + '/1'
-#                pureMdir = os.getcwd() + '/3'
-#            
-#                if os.path.exists(pureHdir):
-#                    self.setAtomCounts(pureHdir)
-#                    self.setEnergy(pureHdir)
-#                    self.pureHenergy = float(self.energy)
-#                else:
-#                    etest = self.getPureEnergyFromExisting('H')
-#                    if etest != 999999:
-#                        self.pureHenergy = etest
-#                    else:
-#                        subprocess.call(['echo', '\nERROR:  The pure H structure is not part of structures.start for ' + atom + '.\n'])
-#            
-#                if os.path.exists(pureMdir):
-#                    self.setAtomCounts(pureMdir)
-#                    self.setEnergy(pureMdir)
-#                    self.pureMenergy = float(self.energy)
-#                else:
-#                    etest = self.getPureEnergyFromExisting('M')
-#                    if etest != 999999:
-#                        self.pureMenergy = etest
-#                    else:
-#                        subprocess.call(['echo', '\nERROR:  The pure M structure is not part of structures.start for ' + atom + '.\n'])
-#            
+                os.chdir(atomDir)        
                 conclist = []
                 finished = []
                 failed = []

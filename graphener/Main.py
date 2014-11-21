@@ -53,9 +53,8 @@ def equals(alist, blist):
 def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
      and put the POSCARs in their corresponding directories. Run VASP'''
-    extractor.setStructsFromTraining(iteration, vstructsAll)
 #    vstructsCurrent = extractor.getStructList()
-    extractor.extract()
+    extractor.extract(vstructsCurrent)
     subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
     toPoscar = Structs2Poscar.structs2Poscar(atoms, vstructsCurrent)
     toPoscar.convertOutputsToPoscar()
@@ -110,20 +109,10 @@ def joinLists(list1,list2):
     for i in range(len(list1)):
         list3.append(list1[i]+list2[i])
     return list3
-#
-#def multiDelete(list_, *args):
-#    print 'args',args
-#    indexes = sorted(list(args), reverse=True)
-#    for index in indexes:
-#        print 'index',index
-#        del list_[index]
-#    return list_
 
 def multiDelete(list_, args):
-    print 'args',args
     indexes = sorted(args, reverse=True)
     for index in indexes:
-        print 'index',index
         del list_[index]
     return list_
 
@@ -409,11 +398,11 @@ if __name__ == '__main__':
                 finalDir = []
             else: #at least one atom needs calculations
                 vstructsCurrent = enumerator.chooseTrainingStructures(iteration,startFromExisting)
-                extractor.setStructsFromTraining(iteration, vtructsAll)
+                vstructsCurrent = extractor.checkPureInCurrent(iteration,vstructsCurrent)
                 finalDir = extractToVasp(iteration,runTypes,atomsvstructsAll,vstructsCurrent)
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsCurrent = newStructsPrior  #from previous iteration 
-            extractor.setStructsFromGSS(vstructsCurrent)
+#            extractor.setStructsFromGSS(vstructsCurrent)
             finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent)
         elif iteration > 1 and PriorOrIID == 'i':
             vstructsCurrent = enumerator.chooseTrainingStructures(iteration,startFromExisting)
@@ -424,9 +413,7 @@ if __name__ == '__main__':
         # Create structures.in and structures.holdout files for each atom.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir) 
         [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent,vdata) 
-        #update the vstructs lists and past_structs files
-        print 'newlyFinished',newlyFinished 
-        
+        #update the vstructs lists and past_structs files       
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
         vstructsAll = joinLists(vstructsFinished,vstructsFailed)
