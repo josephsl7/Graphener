@@ -49,6 +49,7 @@ def equals(alist, blist):
         return False
     else:
         return True
+
 def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
      and put the POSCARs in their corresponding directories. Run VASP'''
@@ -102,9 +103,25 @@ def getDiffE(priority, energiesLast, atoms):
         ediffL1[iatom] = sqrt(sum(abs(ediff[iatom,:]) * priority[iatom,:]['prior']/priorsum))
     return ediffL1
 
-def multiDelete(list_, *args):
+def joinLists(list1,list2):
+    '''Joins lists of the [[sublist1],[sublist2],[sublist3]].  List1 and 2 must have the
+    same length, but can different length sublists'''
+    list3=[]
+    for i in range(len(list1)):
+        list3.append(list1[i]+list2[i])
+    return list3
+#
+#def multiDelete(list_, *args):
+#    print 'args',args
+#    indexes = sorted(list(args), reverse=True)
+#    for index in indexes:
+#        print 'index',index
+#        del list_[index]
+#    return list_
+
+def multiDelete(list_, args):
     print 'args',args
-    indexes = sorted(list(args), reverse=True)
+    indexes = sorted(args, reverse=True)
     for index in indexes:
         print 'index',index
         del list_[index]
@@ -358,6 +375,7 @@ if __name__ == '__main__':
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
 
+
     if not os.path.isdir('single_atoms'):
         manager1 = JobManager.JobManager(atoms)
         manager1.runSingleAtoms()
@@ -407,9 +425,11 @@ if __name__ == '__main__':
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir) 
         [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent,vdata) 
         #update the vstructs lists and past_structs files
-        vstructsFinished += newlyFinished
-        vstructsFailed += newlyFailed   
-        vstructsAll = vstructsFinished + newlyFailed  
+        print 'newlyFinished',newlyFinished 
+        
+        vstructsFinished = joinLists(vstructsFinished,newlyFinished)
+        vstructsFailed = joinLists(vstructsFailed,newlyFailed)
+        vstructsAll = joinLists(vstructsFinished,vstructsFailed)
         os.chdir(maindir) #FIX this...shouldn't need it.  
         pastStructsUpdate(vstructsCurrent,atoms)
         
@@ -435,7 +455,7 @@ if __name__ == '__main__':
         diffe = getDiffE(priorities,energiesLast,atoms)
         energiesLast = priorities[:,:]['FE'] #to be used next iteration
         # Determine which atoms need to continue
-        diffMax = 0.10 # 100 meV convergence criterion
+        diffMax = 0.05 # 100 meV convergence criterion
         print 'Weighted energy changes'
         atomnumbers = range(natoms)
         rmAtoms = []
@@ -461,13 +481,14 @@ if __name__ == '__main__':
 #        vstructsFinished = vstructsFinished2
 #        vstructsFailed = vstructsFailed2
 #        energiesLast = energiesLast2
+
         if len(rmAtoms)>0:
             vstructsFinished = multiDelete(vstructsFinished,rmAtoms)
             vstructsFailed = multiDelete(vstructsFailed,rmAtoms)
             vstructsAll = multiDelete(vstructsAll,rmAtoms)
             vdata = delete(vdata,rmAtoms,axis=0)        
             energiesLast = delete(priorities,rmAtoms,axis=0)['FE'] #    priorities[ikeep,:]['FE']
-        
+            
 #        print vdata.shape
 #        print 'vdata0';print vdata[0,:]['struct'][:100]
 #        vdata2 = deepcopy(vdata[atomnumbers[0],:]) #get this started

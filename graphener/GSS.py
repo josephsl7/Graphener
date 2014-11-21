@@ -75,11 +75,10 @@ class GSS:
         can be identified on the gss plot as a different color'''
         lastDir = os.getcwd()
         dir = lastDir
-        self.getNcs() #number at each concentration
+        self.getNcs(iteration) #number at each concentration
         numberCs = len(self.Ncs)
         Ntot = sum(self.Ncs) #total number of structures              
-        if iteration>0: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)]) 
-              
+        if iteration>0: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)])     
         self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('FE', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom in range(len(self.atoms)):
@@ -94,7 +93,8 @@ class GSS:
                 gssInfo[i-2]['struct'] = struct
                 gssInfo[i-2]['conc'] = conc
                 gssInfo[i-2]['FE'] = formEnergy
-                if struct in vstructsFailed[iatom]: gfvfile.write('{:10d}{:10.6f}\n'.format(struct,formEnergy))
+                if struct in vstructsFailed[iatom]: 
+                    gfvfile.write('{:10s}{:10.6f}\n'.format(struct,formEnergy))
             gfvfile.close()            
             gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
             emin = amin(gssInfo[:]['FE'])
@@ -135,7 +135,7 @@ class GSS:
         os.chdir(lastDir)
         return self.priorities                
             
-    def getNcs(self,iterations): #bch
+    def getNcs(self,iteration): #bch
         '''Find the number of structures at each concentration''' 
         lastDir = os.getcwd()
         dir = os.getcwd() + '/' + self.atoms[0] + '/gss/'

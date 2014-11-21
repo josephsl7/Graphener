@@ -57,6 +57,77 @@ class MakeUncleFiles:
         self.hexE = [] 
         self.vdata = []
 
+    def analyzeNewVasp(self,vstructsCurrent):
+        """ Initializes the list of structures to add to the structures.in and structures.holdout
+            files by adding only the structures that VASP finished to the member
+            newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
+            failed VASP calculations to the member 'failedList'. """   
+        lastDir = os.getcwd()
+        self.newlyFinished = [[]*len(self.atoms)]
+        self.newlyFailed = [[]*len(self.atoms)]
+        
+        for iatom, atom in enumerate(self.atoms):
+            # If it is the first iteration and we are starting from an existing structures.start
+            # file, we just append an empty list to the newlyFinished and the failedList.  Else, 
+            # proceed as normal.
+            if self.iteration == 1 and self.startFromExisting[iatom]:
+                'Do nothing...'
+            else:
+                atomDir = lastDir + '/' + atom
+                os.chdir(atomDir)
+#                pureHdir = os.getcwd() + '/1'
+#                pureMdir = os.getcwd() + '/3'
+#            
+#                if os.path.exists(pureHdir):
+#                    self.setAtomCounts(pureHdir)
+#                    self.setEnergy(pureHdir)
+#                    self.pureHenergy = float(self.energy)
+#                else:
+#                    etest = self.getPureEnergyFromExisting('H')
+#                    if etest != 999999:
+#                        self.pureHenergy = etest
+#                    else:
+#                        subprocess.call(['echo', '\nERROR:  The pure H structure is not part of structures.start for ' + atom + '.\n'])
+#            
+#                if os.path.exists(pureMdir):
+#                    self.setAtomCounts(pureMdir)
+#                    self.setEnergy(pureMdir)
+#                    self.pureMenergy = float(self.energy)
+#                else:
+#                    etest = self.getPureEnergyFromExisting('M')
+#                    if etest != 999999:
+#                        self.pureMenergy = etest
+#                    else:
+#                        subprocess.call(['echo', '\nERROR:  The pure M structure is not part of structures.start for ' + atom + '.\n'])
+#            
+                conclist = []
+                finished = []
+                failed = []
+                for i, struct in enumerate(vstructsCurrent[iatom]):
+                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(dirList2), 'structures in', atom  
+#                    fullPath = os.path.abspath(struct)
+                    if os.path.isdir(struct):
+                        if os.path.isdir(self.finalDir):
+                            if self.FinishCheck(struct + self.finalDir) and self.convergeCheck(struct + self.finaldir, self.getNSW(struct + self.finaldir)): #finaldir                           
+                               # Check for concentration
+                                self.setAtomCounts(struct)                            
+                                concentration = 0.0
+                                if self.atomCounts[0] == 0:
+                                    concentration = 1.0
+                                else:
+                                    concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))                           
+                                conclist.append([concentration, struct])
+                            else:
+                                failed.append(struct)
+                        else:
+                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + struct]) 
+                self.newlyFailed[iatom] = failed #for atom i                
+                conclist.sort()                
+                for i in xrange(len(conclist)):
+                    finished.append(conclist[i][1]) 
+                self.newlyFinished[iatom]= finished #sorted by concentration, for atomi
+                os.chdir(lastDir)
+
     def contains(self, struct, alist):
         """ Returns True if the list 'alist' contains the structure 'struct', False otherwise. """
         if len(alist) <= 0:
@@ -135,6 +206,30 @@ class MakeUncleFiles:
         else: 
             energy = 0.0
         return energy
+
+    def getPureEs(self,iatom):
+        lastDir = os.getcwd()
+        dir = lastDir + '/' + self.atoms[iatom]
+        os.chdir(dir)
+        pureHdir =  '/1'
+        pureMdir =  '/3'
+        
+        if os.path.exists(pureHdir):
+            self.setAtomCounts(pureHdir)
+            self.setEnergy(pureHdir)
+            self.pureHenergy = float(self.energy)
+        else:
+            self.pureHenergy = self.getPureEnergyFromExisting('H', dir+'/enumpast/structures.start') 
+        if os.path.exists(pureMdir):        
+            self.setAtomCounts(pureMdir)
+            self.setEnergy(pureMdir)
+            self.pureMenergy = float(self.energy)
+        else:
+            self.pureMenergy = self.getPureEnergyFromExisting('M', dir+'/enumpast/structures.start') 
+#                    if etest != 999999:
+#                        self.pureMenergy = etest
+#                    else:
+# 
 
     def getPureEnergyFromExisting(self, label, path):
         """ This method is used to extract the energy of the pure structures when they are in the
@@ -409,78 +504,6 @@ class MakeUncleFiles:
         else:
             self.vec3z = vec3comps[2]
 
-    def analyzeNewVasp(self,vstructsCurrent):
-        """ Initializes the list of structures to add to the structures.in and structures.holdout
-            files by adding only the structures that VASP finished to the member
-            newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
-            failed VASP calculations to the member 'failedList'. """   
-        lastDir = os.getcwd()
-        self.newlyFinished = [[]*len(self.atoms)]
-        self.newlyFailed = [[]*len(self.atoms)]
-        
-        for iatom, atom in enumerate(self.atoms):
-            # If it is the first iteration and we are starting from an existing structures.start
-            # file, we just append an empty list to the newlyFinished and the failedList.  Else, 
-            # proceed as normal.
-            if self.iteration == 1 and self.startFromExisting[iatom]:
-                'Do nothing...'
-            else:
-                atomDir = lastDir + '/' + atom
-                os.chdir(atomDir)
-#                pureHdir = os.getcwd() + '/1'
-#                pureMdir = os.getcwd() + '/3'
-#            
-#                if os.path.exists(pureHdir):
-#                    self.setAtomCounts(pureHdir)
-#                    self.setEnergy(pureHdir)
-#                    self.pureHenergy = float(self.energy)
-#                else:
-#                    etest = self.getPureEnergyFromExisting('H')
-#                    if etest != 999999:
-#                        self.pureHenergy = etest
-#                    else:
-#                        subprocess.call(['echo', '\nERROR:  The pure H structure is not part of structures.start for ' + atom + '.\n'])
-#            
-#                if os.path.exists(pureMdir):
-#                    self.setAtomCounts(pureMdir)
-#                    self.setEnergy(pureMdir)
-#                    self.pureMenergy = float(self.energy)
-#                else:
-#                    etest = self.getPureEnergyFromExisting('M')
-#                    if etest != 999999:
-#                        self.pureMenergy = etest
-#                    else:
-#                        subprocess.call(['echo', '\nERROR:  The pure M structure is not part of structures.start for ' + atom + '.\n'])
-#            
-                conclist = []
-                finished = []
-                failed = []
-                for i, struct in enumerate(vstructsCurrent[iatom]):
-                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(dirList2), 'structures in', atom  
-#                    fullPath = os.path.abspath(struct)
-                    if os.path.isdir(struct):
-                        if os.path.isdir(self.finalDir):
-                            if self.FinishCheck(struct + self.finalDir) and self.convergeCheck(struct + self.finaldir, self.getNSW(struct + self.finaldir)): #finaldir                           
-                               # Check for concentration
-                                self.setAtomCounts(struct)                            
-                                concentration = 0.0
-                                if self.atomCounts[0] == 0:
-                                    concentration = 1.0
-                                else:
-                                    concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))                           
-                                conclist.append([concentration, struct])
-                            else:
-                                failed.append(struct)
-                        else:
-                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + struct]) 
-                self.newlyFailed[iatom] = failed #for atom i                
-                conclist.sort()                
-                for i in xrange(len(conclist)):
-                    finished.append(conclist[i][1]) 
-                self.newlyFinished[iatom]= finished #sorted by concentration, for atomi
-                os.chdir(lastDir)
-
-
     def singleAtomsEnergies(self,dir1): 
         self.singleE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
         subprocess.call(['echo', '\nReading single atom energies\n'])
@@ -534,26 +557,6 @@ class MakeUncleFiles:
         vaspBEfile.close()
         vaspHFEfile.close()                
 #        os.chdir(lastDir)
-    
-    def getPureEs(self,iatom):
-        lastDir = os.getcwd()
-        dir = lastDir + '/' + self.atoms[iatom]
-        os.chdir(dir)
-        pureHdir =  '/1'
-        pureMdir =  '/3'
-        
-        if os.path.exists(pureHdir):
-            self.setAtomCounts(pureHdir)
-            self.setEnergy(pureHdir)
-            self.pureHenergy = float(self.energy)
-        else:
-            self.pureHenergy = self.getPureEnergyFromExisting('H', dir+'/enumpast/structures.start') 
-        if os.path.exists(pureMdir):        
-            self.setAtomCounts(pureMdir)
-            self.setEnergy(pureMdir)
-            self.pureMenergy = float(self.energy)
-        else:
-            self.pureMenergy = self.getPureEnergyFromExisting('M', dir+'/enumpast/structures.start') 
     
     def vaspToVdata(self, iatom):
         """ Record the newly finished structures into vdata, and 
