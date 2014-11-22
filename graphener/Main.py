@@ -87,7 +87,7 @@ def getFromPriorities(priorities, N, vstructsAll, natoms):
         sublist = []
         while nNew < N:
             struct = str(priorities[iatom,istruct]['struct'])
-            if not struct in vstructsAll:
+            if not struct in vstructsAll[iatom]:
                 sublist.append(struct)
                 nNew += 1
             istruct += 1

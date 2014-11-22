@@ -193,7 +193,7 @@ class RunVasp:
             jobFile = open(direc + '/job','w')   
             jobFile.write("#!/bin/bash\n\n")
             jobFile.write("#SBATCH --time=00:00:05\n")
-#            jobFile.write("#SBATCH --time=01:30:30\n")
+#            jobFile.write("#SBATCH --time=01:20:30\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")              
             jobFile.write("#SBATCH --mail-type=FAIL\n")

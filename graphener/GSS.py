@@ -164,19 +164,19 @@ class GSS:
         for atom in self.atoms:
             atomDir = os.getcwd() + '/' + atom
             if os.path.isdir(atomDir):
-                self.fitsDir = atomDir + '/fits/'
-                gssDir = atomDir + '/gss/'
+                self.fitsDir = atomDir + '/fits'
+                gssDir = atomDir + '/gss'
                 if not os.path.exists(gssDir):
                     subprocess.call(['mkdir',gssDir])
-                subprocess.call(['cp',self.enumFolder + 'struct_enum.out', gssDir])
-                subprocess.call(['cp',self.enumFolder + 'lat.in', gssDir])
-                subprocess.call(['cp',self.fitsDir + 'J.1.out', gssDir])
+                subprocess.call(['cp',self.enumFolder + '/struct_enum.out', gssDir])
+                subprocess.call(['cp',self.enumFolder + '/lat.in', gssDir])
+                subprocess.call(['cp',self.fitsDir + '/J.1.out', gssDir])
                 
-                infile = open(self.neededFilesDir + 'groundstatesearch.in','r')
+                infile = open(self.neededFilesDir + '/groundstatesearch.in','r')
                 inlines = [line for line in infile]
                 infile.close()
                 
-                outfile = open(gssDir + 'groundstatesearch.in','w')
+                outfile = open(gssDir + '/groundstatesearch.in','w')
                 for i in xrange(len(inlines)):
                     if i == 4:
                         outfile.write(str(self.volRange[0]) + " " + str(self.volRange[1]) + "\n")
@@ -184,11 +184,11 @@ class GSS:
                         outfile.write(inlines[i])
                 outfile.close()
                 
-                infile = open(self.neededFilesDir + 'gss_plot.gp','r')
+                infile = open(self.neededFilesDir + '/gss_plot.gp','r')
                 inlines = [line for line in infile]
                 infile.close()
                 
-                outfile = open(gssDir + 'gss_plot.gp','w')
+                outfile = open(gssDir + '/gss_plot.gp','w')
                 for i in xrange(len(inlines)):
                     if i == 3:
                         outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
@@ -200,11 +200,23 @@ class GSS:
                         outfile.write(inlines[i])
                 outfile.close()
                 
+
+    def makePlots(self, iteration):
+        """ Creates the plots of the predicted energies of all the structures that have been 
+            enumerated. Adds the iteration number onto the end of the filenames for the plots and
+            the lists. """
+        lastDir = os.getcwd() 
+        for atom in self.atoms:
+            subprocess.call(['echo', '\nMaking plots for ' + atom + '. . .\n'])
+            gssDir = os.getcwd() + '/' + atom + '/gss'
+            os.chdir(gssDir)                                   
+            subprocess.call(['mv', '../vaspFE.out', '.'])
+            subprocess.call(['mv', '../vaspBE.out', '.'])
+            subprocess.call(['mv', '../vaspHFE.out', '.']) 
+            if os.path.isdir(gssDir):           
                 #Binding energy
-                infile = open(self.neededFilesDir + 'BE_plot.gp','r')
-                inlines = [line for line in infile]
-                infile.close()
-                outfile = open(gssDir + 'BE_plot.gp','w')
+                inlines = self.readfile(self.neededFilesDir + '/BE_plot.gp')
+                outfile = open(gssDir + '/BE_plot.gp','w')
                 for i in xrange(len(inlines)):
                     if i == 3:
                         outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
@@ -215,14 +227,12 @@ class GSS:
                     else:
                         outfile.write(inlines[i])
                 outfile.close()
-
+        
                 #Hexagonal formation energy    
                 data = self.readfile(gssDir+'/vaspHFE.out')
                 ydata = [float(line.strip().split()[1]) for line in data]
                 ymax = min(amax(ydata),1.0) #don't let yrange get over 1 eV
-                infile = open(self.neededFilesDir + 'HFE_plot.gp','r')
-                inlines = [line for line in infile]
-                infile.close()
+                inlines = self.readfile(self.neededFilesDir + '/HFE_plot.gp')
                 outfile = open(gssDir + '/HFE_plot.gp','w')
                 for i in xrange(len(inlines)):
                     if i == 3:
@@ -237,20 +247,7 @@ class GSS:
                     else:
                         outfile.write(inlines[i])
                 outfile.close()
-
-    def makePlots(self, iteration):
-        """ Creates the plots of the predicted energies of all the structures that have been 
-            enumerated. Adds the iteration number onto the end of the filenames for the plots and
-            the lists. """
-        lastDir = os.getcwd()
-        for atom in self.atoms:
-            gssDir = os.getcwd() + '/' + atom + '/gss/'
-            if os.path.isdir(gssDir):
-                subprocess.call(['echo', '\nMaking plots for ' + atom + '. . .\n'])
-                os.chdir(gssDir)                                   
-                subprocess.call(['mv', '../vaspFE.out', '.'])
-                subprocess.call(['mv', '../vaspBE.out', '.'])
-                subprocess.call(['mv', '../vaspHFE.out', '.'])  
+                
                 subprocess.call(['gnuplot', 'gss_plot.gp'])
                 subprocess.call(['gnuplot', 'BE_plot.gp'])
                 subprocess.call(['gnuplot', 'HFE_plot.gp'])

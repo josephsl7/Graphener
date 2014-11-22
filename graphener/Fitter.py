@@ -37,6 +37,7 @@ class Fitter:
             subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/clusters.out',fitsDir])
+            subprocess.call(['cp',atomDir + '/structures.start',fitsDir+'/structures.in'])
             
             infile = open(self.neededFilesDir + '/CS.in','r')
             inlines = [line for line in infile]

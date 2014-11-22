@@ -307,8 +307,8 @@ class MakeUncleFiles:
                 self.reinitialize()              
                 if iteration == 1 and self.startFromExisting[iatom]: #need only structures.holdout
                     startfile = os.getcwd() + '/needed_files/structures.start.' + atom                     
-                    subprocess.call(['cp',startfile,atomDir + '/fits/structures.in'])
                     subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.start'])
+                    
                     self.getPureEs(iatom)
                 else: #need both structures.in and .holdout                   
                     self.getPureEs(iatom)
@@ -498,12 +498,11 @@ class MakeUncleFiles:
     def vFE2PlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 
         for plots.  vaspToVdata should be run first"""
-        
         # TODO:  We should probably figure out how to sort the structures in existing 
         #        structures.start files together with the structures we have calculated in VASP 
         #        during the loop.
-#        lastDir = os.getcwd()
-#        os.chdir(lastDir + '/' + self.atoms[iatom])
+        lastDir = os.getcwd()
+        os.chdir(lastDir + '/' + self.atoms[iatom])
         eIsolatedH = -1.115 
         eIsolatedC = -1.3179 
         eH2 = -6.7591696/2.0 
@@ -534,7 +533,7 @@ class MakeUncleFiles:
         vaspFEfile.close()
         vaspBEfile.close()
         vaspHFEfile.close()                
-#        os.chdir(lastDir)
+        os.chdir(lastDir)
     
     def vaspToVdata(self, iatom):
         """ Record the newly finished structures into vdata, and 
