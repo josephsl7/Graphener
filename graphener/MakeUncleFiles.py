@@ -83,7 +83,7 @@ class MakeUncleFiles:
 #                    fullPath = os.path.abspath(struct)
                     if os.path.isdir(struct):
                         if os.path.isdir(self.finalDir):
-                            if self.FinishCheck(struct + self.finalDir) and self.convergeCheck(struct + self.finaldir, self.getNSW(struct + self.finaldir)): #finaldir                           
+                            if self.FinishCheck(struct + self.finalDir) and self.convergeCheck(struct + self.finalDir, self.getNSW(struct + self.finalDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -283,7 +283,7 @@ class MakeUncleFiles:
         subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-            if self.FinishCheck(dir2) and self.convergeCheck(dir2, self.getNSW(dir2)): #finaldir
+            if self.FinishCheck(dir2) and self.convergeCheck(dir2, self.getNSW(dir2)): #finalDir
                 print'{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))
                 file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
                 self.hexE[iatom] = self.getEnergy(dir2) 
@@ -335,8 +335,10 @@ class MakeUncleFiles:
 #                        if self.contains(structure, self.newlyFinished[iatom]): self.writePOSCAR(structure, self.holdoutFile)
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
-
-                    subprocess.call(['cp','/needed_files/structures.holdout',atomDir + '/fits/'])
+                    print 'in mk'
+                    print os.getcwd()
+                    
+                    subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vFE2PlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
 
         return self.newlyFinished, self.newlyFailed, vdata

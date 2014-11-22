@@ -345,8 +345,8 @@ def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
 # -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
-    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'
-#    maindir = os.getcwd()
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'
+    maindir = os.getcwd()
     print 'Starting in ', maindir
     os.chdir(maindir)
 

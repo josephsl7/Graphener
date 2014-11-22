@@ -94,7 +94,7 @@ class GSS:
                 gssInfo[i-2]['conc'] = conc
                 gssInfo[i-2]['FE'] = formEnergy
                 if struct in vstructsFailed[iatom]: 
-                    gfvfile.write('{:10s}{:10.6f}{:10.6f}\n'.format(struct,conc,formEnergy))
+                    gfvfile.write('{:10s}{:12.8f}{:12.8f}\n'.format(struct,conc,formEnergy))
             gfvfile.close()            
             gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
             emin = amin(gssInfo[:]['FE'])
