@@ -78,7 +78,7 @@ class GSS:
         self.getNcs(iteration) #number at each concentration
         numberCs = len(self.Ncs)
         Ntot = sum(self.Ncs) #total number of structures              
-        if iteration>0: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)])     
+        if iteration==1: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)])     
         self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('FE', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom in range(len(self.atoms)):
@@ -94,12 +94,12 @@ class GSS:
                 gssInfo[i-2]['conc'] = conc
                 gssInfo[i-2]['FE'] = formEnergy
                 if struct in vstructsFailed[iatom]: 
-                    gfvfile.write('{:10s}{:10.6f}\n'.format(struct,formEnergy))
+                    gfvfile.write('{:10s}{:10.6f}{:10.6f}\n'.format(struct,conc,formEnergy))
             gfvfile.close()            
             gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
             emin = amin(gssInfo[:]['FE'])
             emed = median(gssInfo[:]['FE'])
-            width_percent = 0.01   #weight the bottom % strongly
+            width_percent = 0.001   #weight the bottom % strongly
             iplace = 0
             for ic,Nc in enumerate(self.Ncs):
                 imin = iplace #place of lowest energy for this concentration
@@ -144,13 +144,13 @@ class GSS:
         lines = self.readfile('tempout');os.system('rm tempout')         
         conc_old = 1.0 #starts with highest concentration first 
         Nc = 0  
-        if iteration>0: print 'Concentrations and number of structures'
+        if iteration==1: print 'Concentrations and number of structures'
         for line in lines[2:]:
             conc = float(line.strip().split()[1])
             if conc == conc_old:
                 Nc += 1
             else: 
-                if iteration>0: print '{:8.3f}{:10d}'.format(conc_old,Nc)
+                if iteration==1: print '{:8.3f}{:10d}'.format(conc_old,Nc)
                 self.Ncs.append(Nc) #for the previous concentration           
                 Nc = 1
                 conc_old = conc
@@ -217,13 +217,13 @@ class GSS:
                 outfile.close()
 
                 #Hexagonal formation energy    
-                data = self.readfile(atomDir+'/vaspHFE.out')
+                data = self.readfile(gssDir+'/vaspHFE.out')
                 ydata = [float(line.strip().split()[1]) for line in data]
                 ymax = min(amax(ydata),1.0) #don't let yrange get over 1 eV
                 infile = open(self.neededFilesDir + 'HFE_plot.gp','r')
                 inlines = [line for line in infile]
                 infile.close()
-                outfile = open(gssDir + 'HFE_plot.gp','w')
+                outfile = open(gssDir + '/HFE_plot.gp','w')
                 for i in xrange(len(inlines)):
                     if i == 3:
                         outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch

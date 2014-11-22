@@ -204,8 +204,8 @@ class MakeUncleFiles:
 #                    if etest != 999999:
 #                        self.pureMenergy = etest
 #                    else:
-# 
-
+        os.chdir(lastDir)
+        
     def getPureEnergyFromExisting(self, label, path):
         """ This method is used to extract the energy of the pure structures when they are in the
             structures.start file and hence will not be calculated. If the pure structure is not
@@ -238,27 +238,27 @@ class MakeUncleFiles:
         proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
         return int(proc.communicate()[0].split('=')[-1])   
 
-    def writeHoldoutFromIn(self, atomDir):
-        '''Writes structures.holdout for the first iteration, for a given atom
-        If starting from existing struct calculations, takes up to N structs in the top of the 
-        structures.in file.  Useful when starting from existing structs.  In this case, 
-        they should be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
- 
-        nmax = 100
-        infile = open(atomDir + '/fits/structures.in', 'r')
-        holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
-
-        count = 0
-        for line in infile:
-            if list(line.strip().split()[0])[:2] == ['#', '-']:
-                if count >= nmax:
-                    break
-                count += 1
-
-            holdoutFile.write(line)
-
-        infile.close()
-        holdoutFile.close()
+#    def writeHoldoutFromIn(self, atomDir):
+#        '''Writes structures.holdout for the first iteration, for a given atom
+#        If starting from existing struct calculations, takes up to N structs in the top of the 
+#        structures.in file.  Useful when starting from existing structs.  In this case, 
+#        they should be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
+# 
+#        nmax = 100
+#        infile = open(atomDir + '/structures.in', 'r')
+#        holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
+#
+#        count = 0
+#        for line in infile:
+#            if list(line.strip().split()[0])[:2] == ['#', '-']:
+#                if count >= nmax:
+#                    break
+#                count += 1
+#
+#            holdoutFile.write(line)
+#
+#        infile.close()
+#        holdoutFile.close()
 
     def getSteps(self, folder):
         """ Returns the number of ionic relaxation steps that VASP performed, as an integer. """
@@ -294,10 +294,12 @@ class MakeUncleFiles:
     def makeUncleFiles(self, iteration, holdoutStructs,vstructsCurrent,vdata):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
+
         self.vdata = vdata
         self.singleAtomsEnergies(os.getcwd())   
         self.hexMonolayerEnergies(os.getcwd())    
         self.analyzeNewVasp(vstructsCurrent)
+
         for iatom,atom in enumerate(self.atoms):
             atomDir = os.getcwd() + '/' + atom
             if os.path.isdir(atomDir):
@@ -308,7 +310,6 @@ class MakeUncleFiles:
                     subprocess.call(['cp',startfile,atomDir + '/fits/structures.in'])
                     subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.start'])
                     self.getPureEs(iatom)
-                    self.writeHoldoutFromIn(atomDir)                      
                 else: #need both structures.in and .holdout                   
                     self.getPureEs(iatom)
                     if len(self.newlyFinished[iatom]) > 0: self.vaspToVdata(iatom)
@@ -334,8 +335,10 @@ class MakeUncleFiles:
 #                        if self.contains(structure, self.newlyFinished[iatom]): self.writePOSCAR(structure, self.holdoutFile)
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
-                    subprocess.call(['cp','/needed_files/holdount.in',atomDir + '/fits/'])
+
+                    subprocess.call(['cp','/needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vFE2PlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
+
         return self.newlyFinished, self.newlyFailed, vdata
                     
     def readfile(self,filepath): 
@@ -607,13 +610,7 @@ class MakeUncleFiles:
             file. """
         self.outfile.write("#Energy:\n")
         self.outfile.write(str(self.energy) + "\n")    
-
-#    def writeHeader(self,index):
-#        """ Writes the headers of the structures.in and structures.holdout files. """
-#        if not self.startFromExisting[index]:
-#            self.infile.write(self.header)
-#        self.holdoutFile.write(self.header)
-       
+      
     def writeIDString(self):
         """ Writes the ID string of the current structure to either the structures.in or 
             structures.holdout file. """

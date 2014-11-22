@@ -23,6 +23,8 @@ class Fitter:
         self.neededFilesDir = os.getcwd() + '/needed_files/'
         self.uncleExec = os.getcwd() + '/needed_files/uncle.x'
         self.uncleOut = uncleOutput
+        self.header = "peratom\nnoweights\nposcar\n"
+
         
     def makeFitDirectories(self):
         """ Creates the 'fits' directories for each atom and populates the directories with the 
@@ -72,7 +74,30 @@ class Fitter:
                     subprocess.call(['cp','structures.holdout', 'structures.holdout_' + str(iteration)]) #leave the file in case a
                     os.chdir(lastDir)
 
-
+    def holdoutFromIn(self, atoms,startFromExisting):
+        '''Writes structures.holdout for the first iteration, for a given atom
+        If starting from existing struct calculations, takes up to N structs in the top of the 
+        structures.in file.  Useful when starting from existing structs.  In this case, 
+        they should be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
+     
+        nmax = 100
+        for iatom, atom in enumerate(atoms):
+            if startFromExisting[iatom]:
+                atomDir = os.getcwd() + '/' + atom
+                
+                infile = open(atomDir + '/fits/structures.in', 'r')
+                holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
+#                holdoutFile.write(self.header) #bch why are 2 headers being written if I uncomment this?
+                count = 0
+                for line in infile:
+                    if list(line.strip().split()[0])[:2] == ['#', '-']:
+                        if count >= nmax:
+                            break
+                        count += 1    
+                    holdoutFile.write(line)
+    
+            infile.close()
+            holdoutFile.close()
 
 
 

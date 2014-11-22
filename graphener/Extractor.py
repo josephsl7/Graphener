@@ -92,9 +92,9 @@ class Extractor:
         uniqueSet = set()
         
         # Only extract the union of all the sets of structures.  (No duplicates)
-        for i in xrange(1,len(vstructsCurrent)):
-            uniqueSet = uniqueSet.union(vstructsCurrent[i])
         
+        for i in xrange(len(vstructsCurrent)):
+            uniqueSet = uniqueSet.union(vstructsCurrent[i])
         for struct in uniqueSet:
             subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut)
         
