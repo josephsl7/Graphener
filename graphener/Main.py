@@ -4,8 +4,6 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 
-#notes for Eric:
-
 import os, subprocess,sys,re
 from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete
@@ -345,8 +343,8 @@ def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
 # -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'
-    maindir = os.getcwd()
+    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'
+#    maindir = os.getcwd()
     print 'Starting in ', maindir
     os.chdir(maindir)
 
@@ -375,12 +373,13 @@ if __name__ == '__main__':
         manager1 = JobManager.JobManager(atoms)
         manager1.runHexMono()
     
-    createEnumPastDir(atoms)
     
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, ntrainStructs, uncleOutput)
     enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
+
+    createEnumPastDir(atoms)
     
     converged = False
     iteration = 1
@@ -416,6 +415,7 @@ if __name__ == '__main__':
 
         # Create structures.in and structures.holdout files for each atom.
         os.chdir(maindir) #FIX this...shouldn't need it.
+ 
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir) 
         [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent,vdata) 
         #update the vstructs lists and past_structs files       

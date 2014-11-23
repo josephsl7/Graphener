@@ -63,6 +63,7 @@ class MakeUncleFiles:
             newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
             failed VASP calculations to the member 'failedList'. """   
         lastDir = os.getcwd()
+        print 'lastDir', lastDir
         self.newlyFinished = [[]*len(self.atoms)]
         self.newlyFailed = [[]*len(self.atoms)]
         
@@ -70,6 +71,7 @@ class MakeUncleFiles:
             # If it is the first iteration and we are starting from an existing structures.start
             # file, we just append an empty list to the newlyFinished and the failedList.  Else, 
             # proceed as normal.
+#            print 'SETTING ITERATION';    self.iteration = 2
             if self.iteration == 1 and self.startFromExisting[iatom]:
                 'Do nothing...'
             else:
@@ -79,11 +81,14 @@ class MakeUncleFiles:
                 finished = []
                 failed = []
                 for i, struct in enumerate(vstructsCurrent[iatom]):
-                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(dirList2), 'structures in', atom  
+#                    print 'struct',struct
+                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(vstructsCurrent[iatom]), 'structures in', atom  
 #                    fullPath = os.path.abspath(struct)
-                    if os.path.isdir(struct):
-                        if os.path.isdir(self.finalDir):
-                            if self.FinishCheck(struct + self.finalDir) and self.convergeCheck(struct + self.finalDir, self.getNSW(struct + self.finalDir)): #finalDir                           
+                    if os.path.isdir(atomDir + '/' + struct):
+                        vaspDir = atomDir + '/' + struct + self.finalDir
+                        if os.path.isdir(vaspDir):
+                            
+                            if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -101,6 +106,7 @@ class MakeUncleFiles:
                 for i in xrange(len(conclist)):
                     finished.append(conclist[i][1]) 
                 self.newlyFinished[iatom]= finished #sorted by concentration, for atomi
+#                print 'self.newlyFinished[iatom]',self.newlyFinished[iatom]
                 os.chdir(lastDir)
 
     def contains(self, struct, alist):
@@ -335,13 +341,10 @@ class MakeUncleFiles:
 #                        if self.contains(structure, self.newlyFinished[iatom]): self.writePOSCAR(structure, self.holdoutFile)
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
-                    print 'in mk'
-                    print os.getcwd()
-                    
                     subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vFE2PlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
 
-        return self.newlyFinished, self.newlyFailed, vdata
+        return self.newlyFinished, self.newlyFailed, self.vdata
                     
     def readfile(self,filepath): 
         file1 = open(filepath,'r')
@@ -558,7 +561,7 @@ class MakeUncleFiles:
         
         formEnergyList = []
         sortedStructs = []
-        nfinished = count_nonzero(vdata[iatom,:]['struct'])
+        nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = nfinished #starting position for vdata array
         for struct in self.newlyFinished[iatom]:
             self.setAtomCounts(struct) #reads in atom numbers
