@@ -52,24 +52,33 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
      and put the POSCARs in their corresponding directories. Run VASP'''
 #    vstructsCurrent = extractor.getStructList()
-    
+
     extractor.extract(vstructsCurrent)
-    subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
-    toPoscar = Structs2Poscar.structs2Poscar(atoms, vstructsCurrent)
-    toPoscar.convertOutputsToPoscar()
+    if len(vstructsCurrent)>0:
+        subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
+        toPoscar = Structs2Poscar.structs2Poscar(atoms, vstructsCurrent)
+        toPoscar.convertOutputsToPoscar()
     # Start VASP jobs and wait until they all complete or time out.
-    manager2 = JobManager.JobManager(atoms)
+            # Start VASP jobs and wait until they all complete or time out.
+        manager2 = JobManager.JobManager(atoms)
+        if runTypes ==['low']:
+    #        print'block manager2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11'
+            manager2.runLowJobs(vstructsCurrent)
+        elif runTypes ==['low','normal']:
+            manager2.runLowJobs(vstructsCurrent)
+            manager2.runNormalJobs(vstructsCurrent)          
+        elif runTypes ==['low','normal','dos']:
+            manager2.runLowJobs(vstructsCurrent)
+            manager2.runNormalJobs(vstructsCurrent)
+            manager2.runDOSJobs(vstructsCurrent) 
+        else:
+            print 'Your RUN_TYPES is ', runTypes
+            sys.exit('The only supported RUN_TYPES are "low", "low normal" and "low normal DOS"') 
     if runTypes ==['low']:
-        manager2.runLowJobs(vstructsCurrent)
         finalDir = '/'
     elif runTypes ==['low','normal']:
-        manager2.runLowJobs(vstructsCurrent)
-        manager2.runNormalJobs(vstructsCurrent) 
         finalDir = '/normal'          
     elif runTypes ==['low','normal','dos']:
-        manager2.runLowJobs(vstructsCurrent)
-        manager2.runNormalJobs(vstructsCurrent)
-        manager2.runDOSJobs(vstructsCurrent) 
         finalDir = '/DOS' 
     else:
         print 'Your RUN_TYPES is ', runTypes
@@ -78,7 +87,7 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
 
 def getFromPriorities(priorities, N, vstructsAll, natoms):
     '''take N structures new to vasp of highest priority'''
-    newstructs = [[]*natoms]
+    newstructs = [[]]*natoms
     nNew = 0 
     istruct = 0 
     for iatom in range(natoms):
@@ -354,14 +363,14 @@ if __name__ == '__main__':
     [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, ntrainStructs, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     natoms = len(atoms)
-    vstructsAll = [[]*natoms] #every structure vasp has attempted before this iteration, a list for each atom
-    vstructsFinished = [[]*natoms] #every structure vasp has finished before this iteration, a list for each atom
-    vstructsFailed = [[]*natoms] #every structure vasp has failed before this iteration, a list for each atom
-    vstructsCurrent = [[]*natoms] #the structures vasp has attempted or will attempt this iteration, a list for each atom   
-    newlyFinished = [[]*natoms]
-    newlyFailed = [[]*natoms]
-    newStructsPrior = [[]*natoms]  #structures from previous iteration with highest priority for vasp calculation
-    holdoutStructs = [[]*natoms]
+    vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
+    vstructsFinished = [[]]*natoms #every structure vasp has finished before this iteration, a list for each atom
+    vstructsFailed = [[]]*natoms #every structure vasp has failed before this iteration, a list for each atom
+    vstructsCurrent = [[]]*natoms #the structures vasp has attempted or will attempt this iteration, a list for each atom   
+    newlyFinished = [[]]*natoms
+    newlyFailed = [[]]*natoms
+    newStructsPrior = [[]]*natoms  #structures from previous iteration with highest priority for vasp calculation
+    holdoutStructs = [[]]*natoms
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
 
@@ -395,13 +404,10 @@ if __name__ == '__main__':
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startFromExisting)
         if iteration == 1:
-            if startFromExisting.count(False) == 0: #all start from existing
-                vstructsFinished,vdata = parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata,)
-                finalDir = ''
-            else: #at least one atom needs calculations
-                vstructsCurrent = enumerator.chooseTrainingStructures(iteration,startFromExisting)
-                vstructsCurrent = extractor.checkPureInCurrent(iteration,vstructsCurrent)
-                finalDir = extractToVasp(iteration,runTypes,atomsvstructsAll,vstructsCurrent)
+            vstructsFinished,vdata = parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata,)
+            vstructsCurrent = enumerator.chooseTrainingStructures(iteration,startFromExisting)
+            vstructsCurrent = extractor.checkPureInCurrent(iteration,vstructsCurrent)
+            finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent)
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsCurrent = newStructsPrior  #from previous iteration 
 #            extractor.setStructsFromGSS(vstructsCurrent)
@@ -460,12 +466,17 @@ if __name__ == '__main__':
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)
+            elif len(newlyFinished[i]) == 0 and len(vstructsCurrent[i] > 0):
+                print 'Atom has only failed structures:', atom,'has been stopped.'
+                atoms.remove(atom)
+                atomnumbers.remove(iatom)
+                rmAtoms.append(iatom)                
         natoms = len(atoms) #could be lower now
         #Keep only info on atoms that are continuing, so atom indices are right
 #        del vstructsFinished[rmAtoms]
-#        vstructsFinished2 = [[]*natoms]
-#        vstructsFailed2 = [[]*natoms]
-#        vstructsAll2 = [[]*natoms]
+#        vstructsFinished2 = [[]]*natoms
+#        vstructsFailed2 = [[]]*natoms
+#        vstructsAll2 = [[]]*natoms
 #        energiesLast2 = zeros((natoms,ntot),dtype=float) 
 #        for i,ikeep in enumerate(atomnumbers):  
 #            vstructsFinished2[i] = vstructsFinished[ikeep]

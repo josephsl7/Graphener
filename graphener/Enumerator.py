@@ -80,23 +80,25 @@ class Enumerator:
             training structures for each atom is determined by the TRAINING_STRUCTS setting in 
             settings.in. """
         lastDir = os.getcwd()
-        iidStructs = [[]*len(self.atoms)]
+        iidStructs = [[]]*len(self.atoms)
         # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
         #        takes about an hour per atom for vol 1-8.)
         if iteration == 1: #initialize enumpast/.  Compute iid structures once, and copy to all atom folders that need them
-            if startFromExisting.count(False)>0:
+            if startFromExisting.count(False)>0: #at least one atoms need iid structures
                 subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
                 os.chdir('enum')
                 subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
-            for i,atom in enumerate(self.atoms):
-                if not startFromExisting[i]:
+                lines = self.readfile('training_set_structures.dat')
+                iidList = [line.strip().split()[1] for line in lines]                    
+            for iatom,atom in enumerate(self.atoms):
+                if not startFromExisting[iatom]:
                     subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
                     vsDir = lastDir + '/' + atom + '/enumpast'
                     subprocess.call(['cp','training_set_structures.dat',vsDir])
-                    os.chdir(lastDir)                           
+                    #get the iidStructs from training_set_structures.dat for each atom
+                    iidStructs[iatom] = iidList                                        
         else: # later iterations: must get separate iid structures for each atom         
-            
-            for atom in self.atoms:
+             for iatom,atom in enumerate(self.atoms):
                 atomDir = lastDir + '/' + atom
                 try:
                 #Look for the past_structs.dat file in enumpast/ folder. If there's not, make an empty one for that atom.
@@ -108,14 +110,14 @@ class Enumerator:
                     subprocess.call(['ln','-s','../../enum/clusters.out'])                          
                     subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
                     os.chdir(lastDir)
+                    #get the iidStructs from training_set_structures.dat for each atom
+                    lines = self.readfile(atomDir + '/enumpast/training_set_structures.dat')
+                    iidStructs[iatom] = [line.strip().split()[1] for line in lines] 
                 except:
                     subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
-        #get the iidStructs from training_set_structures.dat for each atom
-        for i,atom in enumerate(self.atoms):
-            atomDir = lastDir + '/' + atom
-            lines = self.readfile(atomDir + '/enumpast/training_set_structures.dat')
-            iidStructs[i] = [line.strip().split()[1] for line in lines]
-            
+
+
+        os.chdir(lastDir)       
         return iidStructs
     
     def enumerate(self):

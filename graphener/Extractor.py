@@ -39,9 +39,9 @@ class Extractor:
 #                # structures in the fit on the first iteration because they are used to calculate
 #                # formation energies for everything else.
 #                if iterNum == 1:
-            if not self.contains('1', vstructsCurrent[i]):
+            if not self.contains('1', vstructsCurrent[iatom]):
                 vstructsCurrent[iatom].append ('1')
-            if not self.contains('3', vstructsCurrent[i]):
+            if not self.contains('3', vstructsCurrent[iatom]):
                 vstructsCurrent[iatom].append ('3')
         return vstructsCurrent
 #                # Append the newly chosen structures to past_structs.dat so they don't get chosen again

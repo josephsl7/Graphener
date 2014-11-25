@@ -18,8 +18,8 @@ class MakeUncleFiles:
         self.iteration = iteration
         self.finalDir = finalDir   
         
-        self.newlyFinished = [[]*len(atoms)]  #list of structures, not paths
-        self.newlyFailed = [[]*len(atoms)]
+        self.newlyFinished = [[]]*len(atoms) #list of structures, not paths
+        self.newlyFailed = [[]]*len(atoms)
         self.pureHenergy = 0.0
         self.pureMenergy = 0.0
         
@@ -63,9 +63,8 @@ class MakeUncleFiles:
             newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
             failed VASP calculations to the member 'failedList'. """   
         lastDir = os.getcwd()
-        print 'lastDir', lastDir
-        self.newlyFinished = [[]*len(self.atoms)]
-        self.newlyFailed = [[]*len(self.atoms)]
+        self.newlyFinished = [[]]*len(self.atoms)
+        self.newlyFailed = [[]]*len(self.atoms)
         
         for iatom, atom in enumerate(self.atoms):
             # If it is the first iteration and we are starting from an existing structures.start
@@ -286,11 +285,11 @@ class MakeUncleFiles:
     def hexMonolayerEnergies(self,dir1): 
         file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
         self.hexE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
-        subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
+        if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
             if self.FinishCheck(dir2) and self.convergeCheck(dir2, self.getNSW(dir2)): #finalDir
-                print'{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))
+                if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
                 file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
                 self.hexE[iatom] = self.getEnergy(dir2) 
             else:
@@ -302,8 +301,8 @@ class MakeUncleFiles:
             for each metal atom. """
 
         self.vdata = vdata
-        self.singleAtomsEnergies(os.getcwd())   
-        self.hexMonolayerEnergies(os.getcwd())    
+        self.singleAtomsEnergies(os.getcwd(),iteration)   
+        self.hexMonolayerEnergies(os.getcwd(),iteration)    
         self.analyzeNewVasp(vstructsCurrent)
 
         for iatom,atom in enumerate(self.atoms):
@@ -326,7 +325,7 @@ class MakeUncleFiles:
                         outfile = open(structsInPath, 'w')                                   
                         outfile.write(self.header)                                                       
                     for structure in self.newlyFinished[iatom]:
-                        self.writePOSCAR(structure,outfile)
+                        self.writePOSCAR(atomDir + '/' + structure,outfile)
                     outfile.close                                    
                     
                     #Fix below:  it's possible that none of the structures in holdoutStructs
@@ -487,14 +486,14 @@ class MakeUncleFiles:
         else:
             self.vec3z = vec3comps[2]
 
-    def singleAtomsEnergies(self,dir1): 
+    def singleAtomsEnergies(self,dir1,iteration): 
         self.singleE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
-        subprocess.call(['echo', '\nReading single atom energies\n'])
+        if iteration == 1: subprocess.call(['echo', '\nReading single atom energies\n'])
         file = open(dir1 +'/single_atoms/single_atom_energies','w')
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/single_atoms'+'/'+atom
             if self.electronicConvergeFinish(dir2): 
-                print 'Energy of {} atom: {:8.4f} \n'.format(atom,self.getEnergy(dir2))
+                if iteration == 1: subprocess.call(['echo', 'Energy of {} atom: {:8.4f} \n'.format(atom,self.getEnergy(dir2))])
                 file.write('{} atom: {:12.8f} \n'.format(atom,self.getEnergy(dir2)))
                 self.singleE[iatom] = self.getEnergy(dir2)
         file.close()  
@@ -578,7 +577,7 @@ class MakeUncleFiles:
                 conc = float(float(self.atomCounts[1])/natoms)
             self.vdata[iatom,istruct]['conc'] = conc                       
             formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
-            formEnergyList.append([formationEnergy, structDir])
+            formEnergyList.append([formationEnergy, struct])
             istruct += 1                                
         formEnergyList.sort()       
         for pair in formEnergyList:
