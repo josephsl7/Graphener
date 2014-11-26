@@ -86,7 +86,8 @@ class MakeUncleFiles:
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
                         if os.path.isdir(vaspDir):
-                            
+                            print  'FInishcheck', atom, struct,self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir))
+                     
                             if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
@@ -191,8 +192,8 @@ class MakeUncleFiles:
         lastDir = os.getcwd()
         dir = lastDir + '/' + self.atoms[iatom]
         os.chdir(dir)
-        pureHdir =  '/1'
-        pureMdir =  '/3'
+        pureHdir =  dir + '/1'
+        pureMdir =  dir + '/3'
         
         if os.path.exists(pureHdir):
             self.setAtomCounts(pureHdir)
@@ -282,7 +283,7 @@ class MakeUncleFiles:
         except:
             return 9999 
            
-    def hexMonolayerEnergies(self,dir1): 
+    def hexMonolayerEnergies(self,dir1,iteration): 
         file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
         self.hexE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
         if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
@@ -312,20 +313,22 @@ class MakeUncleFiles:
                 self.reinitialize()              
                 if iteration == 1 and self.startFromExisting[iatom]: #need only structures.holdout
                     startfile = os.getcwd() + '/needed_files/structures.start.' + atom                     
-                    subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.start'])
-                    
+                    subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.in'])
                     self.getPureEs(iatom)
                 else: #need both structures.in and .holdout                   
                     self.getPureEs(iatom)
                     if len(self.newlyFinished[iatom]) > 0: self.vaspToVdata(iatom)
-                    structsInPath = atomDir + '/fits/structures.in'
-                    if os.path.exists(structsInPath):
-                        outfile = open(structsInPath, 'a')
+                    structsDotInPath = atomDir + '/enumpast/structures.in'
+                    if os.path.exists(structsDotInPath):
+                        outfile = open(structsDotInPath, 'a')
                     else:
-                        outfile = open(structsInPath, 'w')                                   
-                        outfile.write(self.header)                                                       
+                        outfile = open(structsDotInPath, 'w')                                   
+                        outfile.write(self.header); outfile.flush()
+                        
+                        print len(self.readfile(structsDotInPath))
                     for structure in self.newlyFinished[iatom]:
                         self.writePOSCAR(atomDir + '/' + structure,outfile)
+
                     outfile.close                                    
                     
                     #Fix below:  it's possible that none of the structures in holdoutStructs
@@ -342,7 +345,7 @@ class MakeUncleFiles:
                     # Replace below when fix above is done: Just using a default holdout
                     subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vFE2PlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
-
+        
         return self.newlyFinished, self.newlyFailed, self.vdata
                     
     def readfile(self,filepath): 
@@ -643,17 +646,13 @@ class MakeUncleFiles:
         
         # Make sure the pure structures go in structures.in
         if self.idString.split()[0] == 'PURE':
-            self.outfile = outfile
-        
-        self.writeDashedLine()
-        self.writeIDString()
-        self.writeLatticeVecs()
-        self.writeAtomCounts()
-        self.writeAtomPositions()
-        self.writeEnergy()
-
-
-
+            self.outfile = outfile       
+        self.writeDashedLine(); outfile.flush()       
+        self.writeIDString(); outfile.flush()        
+        self.writeLatticeVecs(); outfile.flush()     
+        self.writeAtomCounts(); outfile.flush()     
+        self.writeAtomPositions(); outfile.flush()     
+        self.writeEnergy(); outfile.flush()     
 
 
 

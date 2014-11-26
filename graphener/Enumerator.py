@@ -91,6 +91,7 @@ class Enumerator:
                 lines = self.readfile('training_set_structures.dat')
                 iidList = [line.strip().split()[1] for line in lines]                    
             for iatom,atom in enumerate(self.atoms):
+
                 if not startFromExisting[iatom]:
                     subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
                     vsDir = lastDir + '/' + atom + '/enumpast'

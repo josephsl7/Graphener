@@ -62,7 +62,7 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
             # Start VASP jobs and wait until they all complete or time out.
         manager2 = JobManager.JobManager(atoms)
         if runTypes ==['low']:
-    #        print'block manager2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11'
+#            print'block manager2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11'
             manager2.runLowJobs(vstructsCurrent)
         elif runTypes ==['low','normal']:
             manager2.runLowJobs(vstructsCurrent)
@@ -374,14 +374,12 @@ if __name__ == '__main__':
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
 
-
     if not os.path.isdir('single_atoms'):
         manager1 = JobManager.JobManager(atoms)
         manager1.runSingleAtoms()
     if not os.path.isdir('hex_monolayer_refs'):
         manager1 = JobManager.JobManager(atoms)
         manager1.runHexMono()
-    
     
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, ntrainStructs, uncleOutput)
     enumerator.enumerate()
@@ -417,14 +415,16 @@ if __name__ == '__main__':
             finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent)
 #        else:
 #            finalDir = '' #starting exclusivelmy from structures.start
-        
 
         # Create structures.in and structures.holdout files for each atom.
         os.chdir(maindir) #FIX this...shouldn't need it.
- 
+#        print "vstructsCurrent = [['1','3','558'],['1','3','104']]"
+#        vstructsCurrent = [['1','3','104'],['1','3','558']]
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir) 
         [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent,vdata) 
         #update the vstructs lists and past_structs files       
+        print '[newlyFinished, newlyFailed]'
+        print newlyFinished;print newlyFailed
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
         vstructsAll = joinLists(vstructsFinished,vstructsFailed)

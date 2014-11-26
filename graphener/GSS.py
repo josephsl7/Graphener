@@ -171,11 +171,8 @@ class GSS:
                 subprocess.call(['cp',self.enumFolder + '/struct_enum.out', gssDir])
                 subprocess.call(['cp',self.enumFolder + '/lat.in', gssDir])
                 subprocess.call(['cp',self.fitsDir + '/J.1.out', gssDir])
-                
-                infile = open(self.neededFilesDir + '/groundstatesearch.in','r')
-                inlines = [line for line in infile]
-                infile.close()
-                
+           
+                inlines = self.readfile(self.neededFilesDir + '/groundstatesearch.in')              
                 outfile = open(gssDir + '/groundstatesearch.in','w')
                 for i in xrange(len(inlines)):
                     if i == 4:
@@ -184,10 +181,7 @@ class GSS:
                         outfile.write(inlines[i])
                 outfile.close()
                 
-                infile = open(self.neededFilesDir + '/gss_plot.gp','r')
-                inlines = [line for line in infile]
-                infile.close()
-                
+                inlines = self.readfile(self.neededFilesDir + '/gss_plot.gp')
                 outfile = open(gssDir + '/gss_plot.gp','w')
                 for i in xrange(len(inlines)):
                     if i == 3:
