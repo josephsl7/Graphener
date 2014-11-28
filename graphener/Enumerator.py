@@ -15,7 +15,7 @@ class Enumerator:
         the struct_enum.out file that is produced. The methods in this class are only needed for 
         the first iteration of the main convergence loop. """
   
-    def __init__(self, atoms, volRange, clusterNums, niid, uncleOutput, clusterNums):
+    def __init__(self, atoms, volRange, clusterNums, niid, uncleOutput):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
@@ -49,11 +49,12 @@ class Enumerator:
         
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        if sum(self.clustersNum)<400:
+        if sum(self.clusterNums)<=1500: #1500 assumes you are running Main with 16G. 
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
-            clusterjob = ClustersBuild()
-            clusterjob.buildClusters()
+            subprocess.call(['echo','BLOCKING CLUSTER JOB'])
+#            clusterjob = ClustersBuild.ClusterJob()
+#            clusterjob.buildClusters()
         
         os.chdir(lastDir)
 

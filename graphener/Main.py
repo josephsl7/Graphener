@@ -235,14 +235,17 @@ def readSettingsFile():
                 clusterNums.append(int(parts[i]))
 
         elif line.split()[0] == 'START_FROM_EXISTING:': #read from a structures.start and fit these.  Needs to come after the ATOMS list in the settings lin
-            if line.split()[1].lower() == 'n': #"No" or "None" means no atoms will start from existing calcs.
+            if line.split()[1][0].lower() == 'n': #"No" or "None" means no atoms will start from existing calcs.
                startFromExisting = [False]*len(atoms) 
-            elif line.split()[1].lower() == 'a': #"All" 
+            elif line.split()[1][0].lower() == 'a': #"All" 
                startFromExisting = [True]*len(atoms)
             else:
                 try:  
                     parselist = re.search(':(.+?)#', line).group(1).lower().split()[:len(atoms)] #take only enough to match number of atoms, as it might be an old list
                     startFromExisting = [True if i == 't' else False for i in parselist]
+                    if len(startFromExisting) < len(atoms): 
+                        subprocess.call(['echo','START_FROM_EXISTING length is too short for the number of atoms! Stopping'])
+                        sys.exit('Stop')
                 except AttributeError:
                     print "Can't parse START_STRUCTS T's and F's.  Defaulting to no start structs." 
                     startFromExisting = [False]*len(atoms)               
@@ -356,11 +359,18 @@ def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
           
 if __name__ == '__main__':
     maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = os.getcwd()
-    print 'Starting in ', maindir
-    os.chdir(maindir)
-
+    subprocess.call(['echo','Starting in ' + maindir])
     
+    os.chdir(maindir)
+    pathMax = maindir + '/needed_files/diffMax'
+    if os.path.exists(pathMax):
+        diffMax = float(readfile(pathMax)[0].strip()) 
+        subprocess.call(['echo','\nConvergence criterium diffMax read from file: '+str(diffMax)])
+    else:
+        subprocess.call(['echo','\nMissing diffMax file with the convergence criterium diffMax in eV. Stopping'])
+        sys.exit('Stop')
     seed()
     maxvstructs = 20000 #maximum number of structures for each atom
     [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel] = readSettingsFile()
@@ -426,8 +436,8 @@ if __name__ == '__main__':
         #update the vstructs lists and past_structs files       
         print '[newlyFinished, newlyFailed]'
         print newlyFinished;print newlyFailed
-        for iatom, atom in enumerate(atoms):
-            print atom, 'vstructsFinished in Main0', vstructsFinished[iatom]
+#        for iatom, atom in enumerate(atoms):
+#            print atom, 'vstructsFinished in Main0', vstructsFinished[iatom]
 
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
@@ -435,8 +445,8 @@ if __name__ == '__main__':
         os.chdir(maindir) #FIX this...shouldn't need it.  
         pastStructsUpdate(vstructsCurrent,atoms)
 
-        for iatom, atom in enumerate(atoms):
-            print atom, 'vstructsFinished in Main1', vstructsFinished[iatom]
+#        for iatom, atom in enumerate(atoms):
+#            print atom, 'vstructsFinished in Main1', vstructsFinished[iatom]
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
@@ -465,7 +475,8 @@ if __name__ == '__main__':
         energiesLast = sort(priorities,order = ['struct'])['FE'] #to be used next iteration
         print 'energiesLast', energiesLast
         # Determine which atoms need to continue
-        diffMax = 0.001 # 100 meV convergence criterion
+#        diffMax = 0.01 # 10 meV convergence criterion
+        diffMax = float(readfile('/needed_files/diffMax')[0].strip()) #read from file called 'diffMax', so we can experiment with it during a long run
         print 'Weighted energy changes'
         atomnumbers = range(natoms)
         rmAtoms = []

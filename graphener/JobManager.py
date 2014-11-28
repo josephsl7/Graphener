@@ -196,7 +196,7 @@ class JobManager:
         start_time = time.time()
         event_time = start_time
         while not finished:
-            event_time += 20
+            event_time += 5
             s.enterabs(event_time, 1, self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
             finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
