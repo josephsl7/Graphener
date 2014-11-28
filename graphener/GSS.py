@@ -14,7 +14,7 @@ class GSS:
         structures to add into the model. We also keep track of the list and the plots of the list
         from iteration to iteration. """
 
-    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, uncleOutput):
+    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
@@ -22,6 +22,7 @@ class GSS:
         self.plotTitle = plotTitle
         self.xlabel = xlabel
         self.ylabel = ylabel
+        self.vstructsFinished = vstructsFinished
         
         self.enumFolder = os.getcwd() + '/enum/'
         self.fitsDir = None
@@ -81,57 +82,58 @@ class GSS:
         if iteration==1: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)])     
         self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('FE', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
-        for iatom in range(len(self.atoms)):
-            atomDir = dir + '/' + self.atoms[iatom] + '/gss'
-            gfvfile = open(atomDir + '/gssFailedVasp.out','w')
-            gssInfo = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('FE', float)]) #columns:  struct, concentration, energy
-            lines = self.readfile(atomDir + '/gss_' + str(iteration) + '.out')
-            for i,line in enumerate(lines[2:]):
-                struct = line.strip().split()[0]
-                conc = float(line.strip().split()[2]) #metal concentration
-                formEnergy = float(line.strip().split()[7])                
-                gssInfo[i-2]['struct'] = struct
-                gssInfo[i-2]['conc'] = conc
-                gssInfo[i-2]['FE'] = formEnergy
-                if struct in vstructsFailed[iatom]: 
-                    gfvfile.write('{:10s}{:12.8f}{:12.8f}\n'.format(struct,conc,formEnergy))
-            gfvfile.close()            
-            gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
-            emin = amin(gssInfo[:]['FE'])
-            emed = median(gssInfo[:]['FE'])
-            width_percent = 0.001   #weight the bottom % strongly
-            iplace = 0
-            for ic,Nc in enumerate(self.Ncs):
-                imin = iplace #place of lowest energy for this concentration
-                eminc = gssInfo[imin]['FE'] #lowest energy for this concentration
-                width = ceil(width_percent*Nc) + 2*width_percent*Nc*max(0,(emed-eminc)/(emed-emin)) #last term favors the lowest energy structures globally.  Is zero when eminc is at or above the median energy for this atom
-                for n in range(Nc):
-                    istr = iplace+n
-                    self.priorities[iatom,istr]['struct'] = gssInfo[istr]['struct']
-                    energy = gssInfo[istr]['FE']
-                    self.priorities[iatom,istr]['FE'] = energy
-                    self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width) 
-                iplace += Nc
-#            self.priorities = sort(self.priorities, order=['prior']) # sorted low to high 
-            #Note:  if I do the sort above, the sort works in the sense that when I print the elements,
-            # they are sorted.  BUT, when I write them to a file they are all zero!  Some memory/pointer problem? 
-            # so I will use the work-around with linux sort the written file, then read them back in 
-            priorfile = open(atomDir+'/temp','w')
-            priorfile.write('structure,priority,concentration,FEnergy\n')
-            for i in range(Ntot):
-                priorfile.write('{:10s}{:10.6f}{:8.4f}{:10.6f}\n'.format( \
-                    self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
-                       gssInfo[i]['conc'],gssInfo[i]['FE']))               
-            priorfile.close()
-            os.chdir(atomDir)
-            os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
-            lines = self.readfile(atomDir+'/priorities_{}.out'.format(iteration))
-            for i, line in enumerate(lines[:-1]): #skip last line which is header
-                data = line.strip().split()
-                self.priorities[iatom,i]['struct'] = data[0]
-                self.priorities[iatom,i]['prior'] = data[1]
-                self.priorities[iatom,i]['FE'] = data[3]
-            os.chdir(lastDir)                  
+        for iatom, atom in enumerate(self.atoms):
+            if len(self.vstructsFinished[iatom]) > 1:
+                atomDir = dir + '/' + self.atoms[iatom] + '/gss'
+                gfvfile = open(atomDir + '/gssFailedVasp.out','w')
+                gssInfo = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('FE', float)]) #columns:  struct, concentration, energy
+                lines = self.readfile(atomDir + '/gss_' + str(iteration) + '.out')
+                for i,line in enumerate(lines[2:]):
+                    struct = line.strip().split()[0]
+                    conc = float(line.strip().split()[2]) #metal concentration
+                    formEnergy = float(line.strip().split()[7])                
+                    gssInfo[i-2]['struct'] = struct
+                    gssInfo[i-2]['conc'] = conc
+                    gssInfo[i-2]['FE'] = formEnergy
+                    if struct in vstructsFailed[iatom]: 
+                        gfvfile.write('{:10s}{:12.8f}{:12.8f}\n'.format(struct,conc,formEnergy))
+                gfvfile.close()            
+                gssInfo = sort(gssInfo, order=['conc','FE']) #sorts low to high
+                emin = amin(gssInfo[:]['FE'])
+                emed = median(gssInfo[:]['FE'])
+                width_percent = 0.001   #weight the bottom % strongly
+                iplace = 0
+                for ic,Nc in enumerate(self.Ncs):
+                    imin = iplace #place of lowest energy for this concentration
+                    eminc = gssInfo[imin]['FE'] #lowest energy for this concentration
+                    width = ceil(width_percent*Nc) + 2*width_percent*Nc*max(0,(emed-eminc)/(emed-emin)) #last term favors the lowest energy structures globally.  Is zero when eminc is at or above the median energy for this atom
+                    for n in range(Nc):
+                        istr = iplace+n
+                        self.priorities[iatom,istr]['struct'] = gssInfo[istr]['struct']
+                        energy = gssInfo[istr]['FE']
+                        self.priorities[iatom,istr]['FE'] = energy
+                        self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width) 
+                    iplace += Nc
+    #            self.priorities = sort(self.priorities, order=['prior']) # sorted low to high 
+                #Note:  if I do the sort above, the sort works in the sense that when I print the elements,
+                # they are sorted.  BUT, when I write them to a file they are all zero!  Some memory/pointer problem? 
+                # so I will use the work-around with linux sort the written file, then read them back in 
+                priorfile = open(atomDir+'/temp','w')
+                priorfile.write('structure,priority,concentration,FEnergy\n')
+                for i in range(Ntot):
+                    priorfile.write('{:10s}{:10.6f}{:8.4f}{:10.6f}\n'.format( \
+                        self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
+                           gssInfo[i]['conc'],gssInfo[i]['FE']))               
+                priorfile.close()
+                os.chdir(atomDir)
+                os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
+                lines = self.readfile(atomDir+'/priorities_{}.out'.format(iteration))
+                for i, line in enumerate(lines[:-1]): #skip last line which is header
+                    data = line.strip().split()
+                    self.priorities[iatom,i]['struct'] = data[0]
+                    self.priorities[iatom,i]['prior'] = data[1]
+                    self.priorities[iatom,i]['FE'] = data[3]
+                os.chdir(lastDir)                  
         os.chdir(lastDir)
         return self.priorities                
             
@@ -200,66 +202,68 @@ class GSS:
             enumerated. Adds the iteration number onto the end of the filenames for the plots and
             the lists. """
         lastDir = os.getcwd() 
-        for atom in self.atoms:
-            subprocess.call(['echo', '\nMaking plots for ' + atom + '. . .\n'])
-            gssDir = os.getcwd() + '/' + atom + '/gss'
-            os.chdir(gssDir)                                   
-            subprocess.call(['mv', '../vaspFE.out', '.'])
-            subprocess.call(['mv', '../vaspBE.out', '.'])
-            subprocess.call(['mv', '../vaspHFE.out', '.']) 
-            if os.path.isdir(gssDir):           
-                #Binding energy
-                inlines = self.readfile(self.neededFilesDir + '/BE_plot.gp')
-                outfile = open(gssDir + '/BE_plot.gp','w')
-                for i in xrange(len(inlines)):
-                    if i == 3:
-                        outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
-                    elif i == 4:
-                        outfile.write("set ylabel \"" + self.ylabel + "\"\n")
-                    elif i == 5:
-                        outfile.write("set title \"" + 'Binding energy vs graphene'+ " (" + atom + ")\"\n")
-                    else:
-                        outfile.write(inlines[i])
-                outfile.close()
-        
-                #Hexagonal formation energy    
-                data = self.readfile(gssDir+'/vaspHFE.out')
-                ydata = [float(line.strip().split()[1]) for line in data]
-                ymax = min(amax(ydata),1.0) #don't let yrange get over 1 eV
-                inlines = self.readfile(self.neededFilesDir + '/HFE_plot.gp')
-                outfile = open(gssDir + '/HFE_plot.gp','w')
-                for i in xrange(len(inlines)):
-                    if i == 3:
-                        outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
-                    elif i == 4:
-                        outfile.write("set ylabel \"" + self.ylabel + "\"\n")
-                    elif i == 5:
-                        outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atom + ")\"\n")
-                    elif 'plot "' in inlines[i]:         
-                        outfile.write('set yrange [:{}]\n'.format(ymax))
-                        outfile.write(inlines[i])
-                    else:
-                        outfile.write(inlines[i])
-                outfile.close()
+        for iatom, atom in enumerate(self.atoms):
+            if len(self.vstructsFinished[iatom]) > 1:
+                subprocess.call(['echo', '\nMaking plots for ' + atom + '. . .\n'])
+                gssDir = os.getcwd() + '/' + atom + '/gss'
+                os.chdir(gssDir)                                   
+                subprocess.call(['mv', '../vaspFE.out', '.'])
+                subprocess.call(['mv', '../vaspBE.out', '.'])
+                subprocess.call(['mv', '../vaspHFE.out', '.']) 
+                if os.path.isdir(gssDir):           
+                    #Binding energy
+                    inlines = self.readfile(self.neededFilesDir + '/BE_plot.gp')
+                    outfile = open(gssDir + '/BE_plot.gp','w')
+                    for i in xrange(len(inlines)):
+                        if i == 3:
+                            outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
+                        elif i == 4:
+                            outfile.write("set ylabel \"" + self.ylabel + "\"\n")
+                        elif i == 5:
+                            outfile.write("set title \"" + 'Binding energy vs graphene'+ " (" + atom + ")\"\n")
+                        else:
+                            outfile.write(inlines[i])
+                    outfile.close()
+            
+                    #Hexagonal formation energy    
+                    data = self.readfile(gssDir+'/vaspHFE.out')
+                    ydata = [float(line.strip().split()[1]) for line in data]
+                    ymax = min(amax(ydata),1.0) #don't let yrange get over 1 eV
+                    inlines = self.readfile(self.neededFilesDir + '/HFE_plot.gp')
+                    outfile = open(gssDir + '/HFE_plot.gp','w')
+                    for i in xrange(len(inlines)):
+                        if i == 3:
+                            outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
+                        elif i == 4:
+                            outfile.write("set ylabel \"" + self.ylabel + "\"\n")
+                        elif i == 5:
+                            outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atom + ")\"\n")
+                        elif 'plot "' in inlines[i]:         
+                            outfile.write('set yrange [:{}]\n'.format(ymax))
+                            outfile.write(inlines[i])
+                        else:
+                            outfile.write(inlines[i])
+                    outfile.close()
                 
-                subprocess.call(['gnuplot', 'gss_plot.gp'])
-                subprocess.call(['gnuplot', 'BE_plot.gp'])
-                subprocess.call(['gnuplot', 'HFE_plot.gp'])
-                subprocess.call(['mv','gss.out','gss_' + str(iteration) + '.out'])
-                subprocess.call(['mv','gss.pdf','gss_' + str(iteration) + '.pdf'])
-                os.chdir(lastDir)
+                    subprocess.call(['gnuplot', 'gss_plot.gp'])
+                    subprocess.call(['gnuplot', 'BE_plot.gp'])
+                    subprocess.call(['gnuplot', 'HFE_plot.gp'])
+                    subprocess.call(['mv','gss.out','gss_' + str(iteration) + '.out'])
+                    subprocess.call(['mv','gss.pdf','gss_' + str(iteration) + '.pdf'])
+                    os.chdir(lastDir)
     
     def performGroundStateSearch(self, iteration):
         """ Performs the ground state search with the current fit from UNCLE. """
         lastDir = os.getcwd()
-        for atom in self.atoms:
-            gssDir = os.getcwd() + '/' + atom + '/gss/'
-            if os.path.isdir(gssDir):
-                subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
-                os.chdir(gssDir)
-                if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
-                subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
-                os.chdir(lastDir)              
+        for iatom, atom in enumerate(self.atoms):
+            if len(self.vstructsFinished[iatom]) > 1:
+                gssDir = os.getcwd() + '/' + atom + '/gss/'
+                if os.path.isdir(gssDir):
+                    subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
+                    os.chdir(gssDir)
+                    if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
+                    subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
+                    os.chdir(lastDir)              
 
     def readfile(self,filepath): #bch
         file1 = open(filepath,'r')

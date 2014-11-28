@@ -20,28 +20,14 @@ class Extractor:
         self.exStructList = []
         self.startFromExisting = startFromExisting
 
-    def checkPureInCurrent(self, iterNum, vstructsCurrent):  #OK
-        """ This checks that the pure elements are in the list to calculate.
+    def checkPureInCurrent(self, iterNum, vstructsCurrent, vstructsFinish):  #OK
+        """ This checks that the pure elements are in the list to calculate or in the finished structures
         Only called on the first iteration for the firs """
 #        self.exStructList = []
         for iatom in xrange(len(self.atoms)):
-#            if self.startFromExisting[i] and iterNum == 1:
-#                self.exStructList.append([])
-#            else:
-##                trainStructs = []
-##                trainFile = open(self.atoms[i] + '/enumpast/training_set_structures.dat','r')
-##                for line in trainFile:
-##                    trainStructs.append(line.strip().split()[1])
-##                trainFile.close()
-#            
-#                # Make sure the pure structures are in the first iteration's training structures list
-#                # if they are not in the atom's past_structs.dat file.  We want to get the pure
-#                # structures in the fit on the first iteration because they are used to calculate
-#                # formation energies for everything else.
-#                if iterNum == 1:
-            if not self.contains('1', vstructsCurrent[iatom]):
+            if not self.contains('1', vstructsCurrent[iatom]+vstructsFinish[iatom]):
                 vstructsCurrent[iatom].append ('1')
-            if not self.contains('3', vstructsCurrent[iatom]):
+            if not self.contains('3', vstructsCurrent[iatom]+vstructsFinish[iatom]):
                 vstructsCurrent[iatom].append ('3')
         return vstructsCurrent
 #                # Append the newly chosen structures to past_structs.dat so they don't get chosen again

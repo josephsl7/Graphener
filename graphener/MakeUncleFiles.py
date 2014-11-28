@@ -70,7 +70,6 @@ class MakeUncleFiles:
             # If it is the first iteration and we are starting from an existing structures.start
             # file, we just append an empty list to the newlyFinished and the failedList.  Else, 
             # proceed as normal.
-#            print 'SETTING ITERATION';    self.iteration = 2
             if self.iteration == 1 and self.startFromExisting[iatom]:
                 'Do nothing...'
             else:
@@ -86,9 +85,7 @@ class MakeUncleFiles:
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
                         if os.path.isdir(vaspDir):
-                            print  'FInishcheck', atom, struct,self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir))
-                     
-                            if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
+                           if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -97,14 +94,13 @@ class MakeUncleFiles:
                                 else:
                                     concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))                           
                                 conclist.append([concentration, struct])
-                            else:
+                           else:
                                 failed.append(struct)
                         else:
                             subprocess.call(['echo', '\nERROR: directory does not exist: ' + struct]) 
                 self.newlyFailed[iatom] = failed #for atom i                
                 conclist.sort()                
-                for i in xrange(len(conclist)):
-                    finished.append(conclist[i][1]) 
+                for i in xrange(len(conclist)): finished.append(conclist[i][1]) 
                 self.newlyFinished[iatom]= finished #sorted by concentration, for atomi
 #                print 'self.newlyFinished[iatom]',self.newlyFinished[iatom]
                 os.chdir(lastDir)
@@ -200,19 +196,19 @@ class MakeUncleFiles:
             self.setEnergy(pureHdir)
             self.pureHenergy = float(self.energy)
         else:
-            self.pureHenergy = self.getPureEnergyFromExisting('H', dir+'/enumpast/structures.start') 
+            self.pureHenergy = self.getPureEnergyExisting('H', dir+'/structures.start') 
         if os.path.exists(pureMdir):        
             self.setAtomCounts(pureMdir)
             self.setEnergy(pureMdir)
             self.pureMenergy = float(self.energy)
         else:
-            self.pureMenergy = self.getPureEnergyFromExisting('M', dir+'/enumpast/structures.start') 
+            self.pureMenergy = self.getPureEnergyExisting('M', dir+'/structures.start') 
 #                    if etest != 999999:
 #                        self.pureMenergy = etest
 #                    else:
         os.chdir(lastDir)
         
-    def getPureEnergyFromExisting(self, label, path):
+    def getPureEnergyExisting(self, label, path):
         """ This method is used to extract the energy of the pure structures when they are in the
             structures.start file and hence will not be calculated. If the pure structure is not
             in the structures.start file, return 999999. """
@@ -324,8 +320,6 @@ class MakeUncleFiles:
                     else:
                         outfile = open(structsDotInPath, 'w')                                   
                         outfile.write(self.header); outfile.flush()
-                        
-                        print len(self.readfile(structsDotInPath))
                     for structure in self.newlyFinished[iatom]:
                         self.writePOSCAR(atomDir + '/' + structure,outfile)
 

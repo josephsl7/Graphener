@@ -56,13 +56,14 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
     extractor.extract(vstructsCurrent)
     if len(vstructsCurrent)>0:
         subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
+#        print 'BLOCKING toPoscar, .convert'
         toPoscar = Structs2Poscar.structs2Poscar(atoms, vstructsCurrent)
         toPoscar.convertOutputsToPoscar()
     # Start VASP jobs and wait until they all complete or time out.
             # Start VASP jobs and wait until they all complete or time out.
         manager2 = JobManager.JobManager(atoms)
         if runTypes ==['low']:
-#            print'block manager2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11'
+#            print 'BLOCKING RUN MANAGER'
             manager2.runLowJobs(vstructsCurrent)
         elif runTypes ==['low','normal']:
             manager2.runLowJobs(vstructsCurrent)
@@ -85,12 +86,14 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent):
         sys.exit('The only supported RUN_TYPES are "low", "low normal" and "low normal DOS"')   
     return finalDir
 
-def getFromPriorities(priorities, N, vstructsAll, natoms):
+def getFromPriorities(priorities, N, vstructsAll, atoms):
     '''take N structures new to vasp of highest priority'''
+    natoms = len(atoms)
     newstructs = [[]]*natoms
-    nNew = 0 
-    istruct = 0 
+    print 'newstructs0',newstructs
     for iatom in range(natoms):
+        nNew = 0 
+        istruct = 0 
         sublist = []
         while nNew < N:
             struct = str(priorities[iatom,istruct]['struct'])
@@ -99,6 +102,7 @@ def getFromPriorities(priorities, N, vstructsAll, natoms):
                 nNew += 1
             istruct += 1
         newstructs[iatom] = sublist
+        print atom, 'newstructs[iatom]',newstructs[iatom]
     return newstructs
             
 def getDiffE(priority, energiesLast, atoms):
@@ -132,13 +136,14 @@ def parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata):
     graphene str #: (structure number) FE = 0.545, Concentration = .473
     or, for a pure structure:
     PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
-    
+
+    lastDir = os.getcwd()    
     istruct = 0
-    startList = []
-    lastDir = os.getcwd()
+    startList = [[]]*len(atoms)
+
     for iatom,atom in enumerate(atoms):
+        subList = []
         if startFromExisting[iatom]:  
-            subList = []
             startFile = lastDir + '/needed_files/structures.start.' + atoms[iatom]
             subprocess.call(['cp',startFile, lastDir + '/' + atom + '/structures.start'])       
             if os.path.exists(startFile):      
@@ -166,10 +171,8 @@ def parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata):
                             istruct += 1                  
                 outfile.close()
             else: 
-                subprocess.call(['echo',"ERROR: structures.start."+ atoms[iatom] + ' is missing from needed_files/'])       
-        startList.append(subList)
-        
-        
+                subprocess.call(['echo',"ERROR: structures.start."+ atom + ' is missing from needed_files/'])       
+        startList[iatom] = subList    
     os.chdir(lastDir)
     return startList, vdata
   
@@ -204,7 +207,7 @@ def readSettingsFile():
 #    startFromExisting = []
     runTypes = ['low']
     PriorOrIID = 'p'
-    ntrainStructs = 0
+    niid = 0
     mfitStructs = 0
     nfitSubsets = 0
     priorNum = 0
@@ -253,8 +256,8 @@ def readSettingsFile():
             except AttributeError:
                 print "Can't parse RUN_TYPES. Defaulting to LOW precision runs only."             
 
-        elif line.split()[0] == 'N_TRAINING_STRUCTS:':
-            ntrainStructs = int(line.split()[1])
+        elif line.split()[0] == 'N_IID:':
+            niid = int(line.split()[1])
           
         elif line.split()[0] == 'M_FITTING_STRUCTS:':
             mfitStructs = int(line.split()[1])
@@ -274,7 +277,7 @@ def readSettingsFile():
         elif line.split()[0] == 'YLAB:':
             ylabel = line.split('\'')[1]
     
-    return [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, ntrainStructs, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel]
+    return [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel]
 
 def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
     try:
@@ -360,7 +363,7 @@ if __name__ == '__main__':
     
     seed()
     maxvstructs = 20000 #maximum number of structures for each atom
-    [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, ntrainStructs, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel] = readSettingsFile()
+    [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
@@ -381,7 +384,7 @@ if __name__ == '__main__':
         manager1 = JobManager.JobManager(atoms)
         manager1.runHexMono()
     
-    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, ntrainStructs, uncleOutput)
+    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
     enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
@@ -398,13 +401,13 @@ if __name__ == '__main__':
         subprocess.call(['echo','\t\tIteration ' + str(iteration)])
         subprocess.call(['echo','========================================================\n'])
         #since atoms may have changed, have to reinitialize this
-        enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, ntrainStructs, uncleOutput) 
+        enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput) 
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startFromExisting)
         if iteration == 1:
             vstructsFinished,vdata = parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata,)
             vstructsCurrent = enumerator.chooseTrainingStructures(iteration,startFromExisting)
-            vstructsCurrent = extractor.checkPureInCurrent(iteration,vstructsCurrent)
+            vstructsCurrent = extractor.checkPureInCurrent(iteration,vstructsCurrent,vstructsFinished)
             finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent)
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsCurrent = newStructsPrior  #from previous iteration 
@@ -413,23 +416,27 @@ if __name__ == '__main__':
         elif iteration > 1 and PriorOrIID == 'i':
             vstructsCurrent = enumerator.chooseTrainingStructures(iteration,startFromExisting)
             finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsCurrent)
-#        else:
-#            finalDir = '' #starting exclusivelmy from structures.start
 
         # Create structures.in and structures.holdout files for each atom.
         os.chdir(maindir) #FIX this...shouldn't need it.
-#        print "vstructsCurrent = [['1','3','558'],['1','3','104']]"
-#        vstructsCurrent = [['1','3','104'],['1','3','558']]
+#        print "vstructsCurrent IS SET FOR ITERATION 1"
+#        if iteration == 1: vstructsCurrent = [[],['1','3','435']]
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir) 
         [newlyFinished, newlyFailed, vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsCurrent,vdata) 
         #update the vstructs lists and past_structs files       
         print '[newlyFinished, newlyFailed]'
         print newlyFinished;print newlyFailed
+        for iatom, atom in enumerate(atoms):
+            print atom, 'vstructsFinished in Main0', vstructsFinished[iatom]
+
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
         vstructsAll = joinLists(vstructsFinished,vstructsFailed)
         os.chdir(maindir) #FIX this...shouldn't need it.  
         pastStructsUpdate(vstructsCurrent,atoms)
+
+        for iatom, atom in enumerate(atoms):
+            print atom, 'vstructsFinished in Main1', vstructsFinished[iatom]
         
         # Get all the structs that have been through VASP calculations for each atom. These
         # should be sorted by formation energy during the work done by makeUncleFiles()
@@ -445,15 +452,18 @@ if __name__ == '__main__':
         fitter.fitVASPData(iteration)
     
         # Perform a ground state search on the fit for each atom.    
-        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, uncleOutput)
+        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput)
         gss.makeGSSDirectories()
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
+        #I have to have everything in a fixed order,  to use energiesLast
         #get the priority of each structure in each atom
         priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
+
         #test weighted energy difference since last iteration
         diffe = getDiffE(priorities,energiesLast,atoms)
-        energiesLast = priorities[:,:]['FE'] #to be used next iteration
+        energiesLast = sort(priorities,order = ['struct'])['FE'] #to be used next iteration
+        print 'energiesLast', energiesLast
         # Determine which atoms need to continue
         diffMax = 0.001 # 100 meV convergence criterion
         print 'Weighted energy changes'
@@ -466,7 +476,8 @@ if __name__ == '__main__':
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)
-            elif len(newlyFinished[i]) == 0 and len(vstructsCurrent[i] > 0):
+                print 'new atoms',atoms
+            elif len(newlyFinished[iatom]) == 0 and len(vstructsCurrent[iatom]) > 0:
                 print 'Atom has only failed structures:', atom,'has been stopped.'
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
@@ -493,7 +504,7 @@ if __name__ == '__main__':
             vstructsAll = multiDelete(vstructsAll,rmAtoms)
             vdata = delete(vdata,rmAtoms,axis=0)        
             energiesLast = delete(priorities,rmAtoms,axis=0)['FE'] #    priorities[ikeep,:]['FE']
-            
+
 #        print vdata.shape
 #        print 'vdata0';print vdata[0,:]['struct'][:100]
 #        vdata2 = deepcopy(vdata[atomnumbers[0],:]) #get this started
@@ -506,8 +517,10 @@ if __name__ == '__main__':
 #        print 'vdata';print vdata[0,:]['struct'][:100]
 
 
-        newStructsPrior = getFromPriorities(priorities, priorNum, vstructsAll,natoms)
-
+        newStructsPrior = getFromPriorities(priorities, priorNum, vstructsAll,atoms)
+        print  'newStructsPrior', newStructsPrior
+        print 'newStructsPrior Ti', newStructsPrior[0][:5]
+        print 'newStructsPrior Mn', newStructsPrior[1][:5]
         if natoms == 0:
             subprocess.call(['echo','\n----------------- All atoms have converged! ---------------'])
             converged = True

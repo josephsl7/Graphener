@@ -14,13 +14,13 @@ class Enumerator:
         the struct_enum.out file that is produced. The methods in this class are only needed for 
         the first iteration of the main convergence loop. """
   
-    def __init__(self, atoms, volRange, clusterNums, ntrainStructs, uncleOutput):
+    def __init__(self, atoms, volRange, clusterNums, niid, uncleOutput):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
         
         self.clusterNums = clusterNums
-        self.ntrainStructs = ntrainStructs
+        self.niid = niid
         
         self.uncleExec = os.path.abspath('needed_files/uncle.x')
         self.enumFile = os.path.abspath('enum/struct_enum.out')
@@ -87,7 +87,7 @@ class Enumerator:
             if startFromExisting.count(False)>0: #at least one atoms need iid structures
                 subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
                 os.chdir('enum')
-                subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
+                subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
                 lines = self.readfile('training_set_structures.dat')
                 iidList = [line.strip().split()[1] for line in lines]                    
             for iatom,atom in enumerate(self.atoms):
@@ -109,7 +109,7 @@ class Enumerator:
                     subprocess.call(['ln','-s','../../enum/lat.in']) 
                     subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
                     subprocess.call(['ln','-s','../../enum/clusters.out'])                          
-                    subprocess.call([self.uncleExec, '42', str(self.ntrainStructs)], stdout=self.uncleOut)
+                    subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
                     os.chdir(lastDir)
                     #get the iidStructs from training_set_structures.dat for each atom
                     lines = self.readfile(atomDir + '/enumpast/training_set_structures.dat')
