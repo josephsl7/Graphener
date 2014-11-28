@@ -57,7 +57,7 @@ class MakeUncleFiles:
         self.hexE = [] 
         self.vdata = []
 
-    def analyzeNewVasp(self,vstructsCurrent):
+    def analyzeNewVasp(self,vstructsToStart):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
             files by adding only the structures that VASP finished to the member
             newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
@@ -78,9 +78,9 @@ class MakeUncleFiles:
                 conclist = []
                 finished = []
                 failed = []
-                for i, struct in enumerate(vstructsCurrent[iatom]):
+                for i, struct in enumerate(vstructsToStart[iatom]):
 #                    print 'struct',struct
-                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(vstructsCurrent[iatom]), 'structures in', atom  
+                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(vstructsToStart[iatom]), 'structures in', atom  
 #                    fullPath = os.path.abspath(struct)
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
@@ -293,14 +293,14 @@ class MakeUncleFiles:
                 file.write('{} monolayer not converged \n'.format(atom))
         os.chdir(dir1)  
 
-    def makeUncleFiles(self, iteration, holdoutStructs,vstructsCurrent,vdata):
+    def makeUncleFiles(self, iteration, holdoutStructs,vstructsToStart,vdata):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
 
         self.vdata = vdata
         self.singleAtomsEnergies(os.getcwd(),iteration)   
         self.hexMonolayerEnergies(os.getcwd(),iteration)    
-        self.analyzeNewVasp(vstructsCurrent)
+        self.analyzeNewVasp(vstructsToStart)
 
         for iatom,atom in enumerate(self.atoms):
             atomDir = os.getcwd() + '/' + atom

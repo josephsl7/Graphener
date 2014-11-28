@@ -45,8 +45,8 @@ class RunVasp:
         for direc in dirList:
             subprocess.call(['cp','-P','/fslhome/bch/bin/vasp533',direc + '/vasp533']) #bch
 
-    def fillDirectories(self, vstructsCurrent):
-        """ Fills all the directories in 'vstructsCurrent' with the needed files for VASP to run, namely
+    def fillDirectories(self, vstructsToStart):
+        """ Fills all the directories in 'vstructsToStart' with the needed files for VASP to run, namely
             POSCAR, POTCAR, KPOINTS, INCAR, a SLURM job file, and the VASP executable file. """
         for iatom,atom in enumerate(self.atoms):
             lastDir = os.getcwd()
@@ -54,7 +54,7 @@ class RunVasp:
             
             os.chdir(atomDir)
             structures = []
-            for item in vstructsCurrent[iatom]:
+            for item in vstructsToStart[iatom]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -112,7 +112,7 @@ class RunVasp:
         else:
             return False    
 
-    def makeDOSDirectories(self, vstructsCurrent):
+    def makeDOSDirectories(self, vstructsToStart):
         """ After the normal-precision relaxation, creates a directory for the Density of States
             run and populates it with the files from the normal-precision run. Copies the normal
             CONTCAR to the DOS POSCAR. """  
@@ -121,7 +121,7 @@ class RunVasp:
             elementDir = topDir + '/' + atom
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in vstructsCurrent[iatom]:
+                for structure in vstructsToStart[iatom]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
@@ -192,8 +192,8 @@ class RunVasp:
             name = direc #bch (which atom)
             jobFile = open(direc + '/job','w')   
             jobFile.write("#!/bin/bash\n\n")
-            jobFile.write("#SBATCH --time=06:00:00\n")
-#            jobFile.write("#SBATCH --time=00:30:30\n")
+#            jobFile.write("#SBATCH --time=06:00:00\n")
+            jobFile.write("#SBATCH --time=00:00:30\n")
             jobFile.write("#SBATCH --ntasks=16\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")              
@@ -244,13 +244,13 @@ class RunVasp:
             incar.write("LCHARG=.TRUE.\n")    
             incar.close()
 
-    def makeNormalDirectories(self, vstructsCurrent):
+    def makeNormalDirectories(self, vstructsToStart):
         topDir = os.getcwd()
         for iatom,atom in enumerate(self.atoms):
             elementDir = topDir + '/' + atom
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
-                for structure in vstructsCurrent[iatom]:
+                for structure in vstructsToStart[iatom]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir) and self.finishCheck(structDir) and self.convergeCheck(structDir, 400):
                         os.chdir(structDir)
@@ -471,7 +471,7 @@ class RunVasp:
             os.chdir('../')      
         os.chdir(topDir)      
     
-    def prepareForVasp(self, vstructsCurrent):
+    def prepareForVasp(self, vstructsToStart):
         """ Makes all of the files that could be copied to a first, low-precision VASP run for any 
             given structure.  This includes concatenating the POTCARS for the pure and non-pure
             cases. """
@@ -481,25 +481,25 @@ class RunVasp:
         self.makeKPOINTS(6, 6)
         self.makeJobFiles()
         self.copyVaspExec()
-        self.fillDirectories(vstructsCurrent)
+        self.fillDirectories(vstructsToStart)
             
-    def run(self, runNum, vstructsCurrent):
+    def run(self, runNum, vstructsToStart):
         """ Starts the VASP runs (specified by 'runNum') for each of the structures in
-            'vstructsCurrent'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
+            'vstructsToStart'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
             normal-precision run, runNum = 3 starts a DOS run. """
         if runNum == 1:
-            self.startJobs(vstructsCurrent)
+            self.startJobs(vstructsToStart)
     
         elif runNum == 2:
-            self.makeNormalDirectories(vstructsCurrent)
-            self.startNormalJobs(vstructsCurrent)
+            self.makeNormalDirectories(vstructsToStart)
+            self.startNormalJobs(vstructsToStart)
            
         elif runNum == 3:
-            self.makeDOSDirectories(vstructsCurrent)
-            self.startDOSJobs(vstructsCurrent)
+            self.makeDOSDirectories(vstructsToStart)
+            self.startDOSJobs(vstructsToStart)
 
-    def startDOSJobs(self, vstructsCurrent):
-        """ Submits all the VASP jobs for structures in 'vstructsCurrent' to the supercomputer for 
+    def startDOSJobs(self, vstructsToStart):
+        """ Submits all the VASP jobs for structures in 'vstructsToStart' to the supercomputer for 
             Density of States calculations. Records their SLURM job IDs. """
         topDir = os.getcwd()
         self.clearCurrentJobIds()
@@ -509,7 +509,7 @@ class RunVasp:
             if os.path.isdir(elementDir):
                 os.chdir(elementDir)
                 
-                for structure in vstructsCurrent[iatom]:
+                for structure in vstructsToStart[iatom]:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         os.chdir(structDir)
@@ -530,8 +530,8 @@ class RunVasp:
             
             os.chdir(topDir)
 
-    def startJobs(self, vstructsCurrent):
-        """ Submits all the VASP jobs for structures in 'vstructsCurrent' to the supercomputer for 
+    def startJobs(self, vstructsToStart):
+        """ Submits all the VASP jobs for structures in 'vstructsToStart' to the supercomputer for 
             low-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         for iatom,atom in enumerate(self.atoms):
@@ -541,7 +541,7 @@ class RunVasp:
             os.chdir(atomDir)
             
             structures = []
-            for item in vstructsCurrent[iatom]:
+            for item in vstructsToStart[iatom]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -556,8 +556,8 @@ class RunVasp:
             
             os.chdir(lastDir)
 
-    def startNormalJobs(self, vstructsCurrent):
-        """ Submits all the VASP jobs for structures in 'vstructsCurrent' to the supercomputer for 
+    def startNormalJobs(self, vstructsToStart):
+        """ Submits all the VASP jobs for structures in 'vstructsToStart' to the supercomputer for 
             normal-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         
@@ -568,7 +568,7 @@ class RunVasp:
             os.chdir(atomDir)
             
             structures = []
-            for item in vstructsCurrent[iatom]:
+            for item in vstructsToStart[iatom]:
                 if os.path.isdir(item + '/normal'):
                     structures.append(item)
             

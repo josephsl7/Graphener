@@ -20,16 +20,16 @@ class Extractor:
         self.exStructList = []
         self.startFromExisting = startFromExisting
 
-    def checkPureInCurrent(self, iterNum, vstructsCurrent, vstructsFinish):  #OK
+    def checkPureInCurrent(self, iterNum, vstructsToStart, vstructsFinish):  #OK
         """ This checks that the pure elements are in the list to calculate or in the finished structures
         Only called on the first iteration for the firs """
 #        self.exStructList = []
         for iatom in xrange(len(self.atoms)):
-            if not self.contains('1', vstructsCurrent[iatom]+vstructsFinish[iatom]):
-                vstructsCurrent[iatom].append ('1')
-            if not self.contains('3', vstructsCurrent[iatom]+vstructsFinish[iatom]):
-                vstructsCurrent[iatom].append ('3')
-        return vstructsCurrent
+            if not self.contains('1', vstructsToStart[iatom]+vstructsFinish[iatom]):
+                vstructsToStart[iatom].append ('1')
+            if not self.contains('3', vstructsToStart[iatom]+vstructsFinish[iatom]):
+                vstructsToStart[iatom].append ('3')
+        return vstructsToStart
 #                # Append the newly chosen structures to past_structs.dat so they don't get chosen again
 #                pastFile = open(self.atoms[i] + '/enumpast/past_structs.dat','a')
 #                for struct in trainStructs:
@@ -66,7 +66,7 @@ class Extractor:
 #        
 #        return structs
           
-    def extract(self,vstructsCurrent):
+    def extract(self,vstructsToStart):
         """ This method uses the makestr.x executable from the enumlib in UNCLE to 
             create the pseudo-POSCAR files for each structure in self.exStructList. These files are 
             generally called something like "vasp.000241" indicating the structure number in 
@@ -79,8 +79,8 @@ class Extractor:
         
         # Only extract the union of all the sets of structures.  (No duplicates)
         
-        for i in xrange(len(vstructsCurrent)):
-            uniqueSet = uniqueSet.union(vstructsCurrent[i])
+        for i in xrange(len(vstructsToStart)):
+            uniqueSet = uniqueSet.union(vstructsToStart[i])
         for struct in uniqueSet:
             subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut)
         

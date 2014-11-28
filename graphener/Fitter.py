@@ -55,10 +55,9 @@ class Fitter:
                         os.chdir(fitsDir)
 #                        proc15 = subprocess.Popen([self.uncleExec, '15'])
 #                        proc15.wait()
-                        os.system('uncle 15')
-#                        subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut) #not waiting long enough for large cluster numbers
+#                        os.system('uncle 15')
+                        subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut) #not waiting long enough for large cluster numbers
 #                        subprocess.call(['echo','uncle 15 exit status: ' + str(subprocess.check_call([self.uncleExec, '15']))]) #not waiting long enough for large cluster numbers
-                        sys.exit('stop')
                         subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
