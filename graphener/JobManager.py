@@ -21,7 +21,7 @@ class JobManager:
         self.atoms = atoms
         self.vaspRunner = RunVasp.RunVasp(self.atoms)
     
-    def reportFinshed(self, jobIds):
+    def reportFinished(self, jobIds):
         """ Returns true if all the jobs with IDs given in 'jobIds' have finished VASP
             calculations, false otherwise. """
         devnull = open(os.devnull, 'w')
@@ -172,9 +172,9 @@ class JobManager:
         event_time = start_time
         while not finished:
             event_time += 60 #seconds
-            s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
+            s.enterabs(event_time, 1, self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
-            finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())   
+            finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())   
         self.reportDOSStats(vstructsCurrent)
 
     def runHexMono(self):    
@@ -197,9 +197,9 @@ class JobManager:
         event_time = start_time
         while not finished:
             event_time += 20
-            s.enterabs(event_time, 1, self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
+            s.enterabs(event_time, 1, self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
-            finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
+            finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
         self.reportLowStats(vstructsCurrent)
     
@@ -219,9 +219,9 @@ class JobManager:
         print self.vaspRunner.getCurrentJobIds()
         while not finished or len(self.vaspRunner.getCurrentJobIds())==0:
             event_time += 60
-            s.enterabs(event_time, 1,self.reportFinshed(self.vaspRunner.getCurrentJobIds())) #bch: was self.reportFinshed, ([self.vaspRunner.getCurrentJobIds()]))
+            s.enterabs(event_time, 1,self.reportFinished(self.vaspRunner.getCurrentJobIds())) #bch: was self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
-            finished = self.reportFinshed(self.vaspRunner.getCurrentJobIds())
+            finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
         self.reportNormalStats(vstructsCurrent)
         print 'done with runNormalJobs'

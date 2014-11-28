@@ -530,7 +530,6 @@ class RunVasp:
             
             os.chdir(topDir)
 
-
     def startJobs(self, vstructsCurrent):
         """ Submits all the VASP jobs for structures in 'vstructsCurrent' to the supercomputer for 
             low-precision relaxation and records their job IDs. """

@@ -4,6 +4,7 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 import os, subprocess
+import ClustersBuild
 
 
 class Enumerator:
@@ -14,7 +15,7 @@ class Enumerator:
         the struct_enum.out file that is produced. The methods in this class are only needed for 
         the first iteration of the main convergence loop. """
   
-    def __init__(self, atoms, volRange, clusterNums, niid, uncleOutput):
+    def __init__(self, atoms, volRange, clusterNums, niid, uncleOutput, clusterNums):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
@@ -26,6 +27,7 @@ class Enumerator:
         self.enumFile = os.path.abspath('enum/struct_enum.out')
         self.enumExec = os.path.abspath('needed_files/enum.x')
         self.uncleOut = uncleOutput
+        self.clusterNums = clusterNums
 
     def buildClusters(self):
         """ Uses UNCLE to build the number of each n-body clusters specified in the settings.in
@@ -47,8 +49,11 @@ class Enumerator:
         
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        
-        subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
+        if sum(self.clustersNum)<400:
+            subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
+        else:
+            clusterjob = ClustersBuild()
+            clusterjob.buildClusters()
         
         os.chdir(lastDir)
 
@@ -132,9 +137,9 @@ class Enumerator:
         infile.close()
         
         structFile = open('enum/struct_enum.in','w')
-        npoints = int(inlines[6].split()[0]) #bch
+        npoints = int(inlines[6].split()[0])  
         for i in xrange(len(inlines)):
-            if i == 7 + npoints:#bch
+            if i == 7 + npoints: 
                 structFile.write(str(self.volRange[0]) + " " + str(self.volRange[1]) + " ")
                 structFile.write("# Starting and ending cell sizes for search\n")
             else:
@@ -148,7 +153,7 @@ class Enumerator:
         
         os.chdir(lastDir)
         
-        self.changeEnumFile()
+        self.changeEnumFile() #writes 'bulk' in place of surface
         
         subprocess.call(['echo','\nGenerating clusters. . .\n'])
         self.buildClusters()

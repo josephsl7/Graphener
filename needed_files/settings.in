@@ -1,13 +1,13 @@
-ATOMS: Ti_sv # Mn_pv  # Metal atoms to combine with C and H
+ATOMS: Ti_sv Mn_pv  # Metal atoms to combine with C and H
 VOL_RANGE: 8  # Maximum cell size.
-CLUSTER_NUMS: 300 300 300 300 300 0 0 0 0 0 0  # Pairs, triplets, 4-bodies, etc.
+CLUSTER_NUMS: 10 10 0 0 0 0 0 0 0 0 0  # Pairs, triplets, 4-bodies, etc.
 RUN_TYPES: Low  # 'low normal DOS' is the largest list possible
 START_FROM_EXISTING: T F # Look for existing structures.in.start files. List a T F for each atom, "All" or "None" ("no"
 PRIORITY/IID: P  # Add structures to the model using Priority from gss (P) or training structures (IID).
-N_TRAINING_STRUCTS: 20  # Number of structures to extract from the enumeration
+N_IID: 15  # Number of structures to extract from the enumeration
+PRIOR_NUM: 15  # Number of structs to add to the pool from priority per iteration
 M_FITTING_STRUCTS: -100  # Number of structures going in the structures.in file
 N_STRUCT_SUBSETS: 10  # Number of sets of size FITTING_STRUCTS to perform fits with.
-PRIOR_NUM: 100  # Number of structs to add to the pool from priority per iteration
 PLOT_TITLE: ''Ground State Search'  # Title of gss plots
 XLAB:  'Concentration (Metal concentration x)' # x-label of gss plots
 YLAB:  'Energy (eV)'  # y-label of gss plots
