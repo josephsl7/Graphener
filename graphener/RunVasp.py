@@ -192,15 +192,15 @@ class RunVasp:
             name = direc #bch (which atom)
             jobFile = open(direc + '/job','w')   
             jobFile.write("#!/bin/bash\n\n")
-#            jobFile.write("#SBATCH --time=06:00:00\n")
-            jobFile.write("#SBATCH --time=00:00:30\n")
+            jobFile.write("#SBATCH --time=06:00:00\n")
+#            jobFile.write("#SBATCH --time=00:00:30\n")
             jobFile.write("#SBATCH --ntasks=16\n")
             jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
             jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")              
             jobFile.write("#SBATCH --mail-type=FAIL\n")
             jobFile.write("#SBATCH --mail-type=END\n") 
-            jobFile.write("#SBATCH --job-name=%s\n" % name) #bch  adds atom name.  Later we add structure name                    
-            jobFile.write("\nmpiexec vasp533 > vasp.out\n")    
+            jobFile.write("#SBATCH --job-name=%s\n\n" % name) #bch  adds atom name.  Later we add structure name                    
+            jobFile.write("mpiexec vasp533 > vasp.out\n")    
             jobFile.close()
 
     def makeKPOINTS(self, num1, num2):

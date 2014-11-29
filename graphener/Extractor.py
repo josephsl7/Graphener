@@ -9,7 +9,7 @@ class Extractor:
     """ This class is responsible for creating "pseudo-POSCAR" files for each structure in the
         set of structures that we want to run through VASP calculations.  It does this by 
         "extracting" the information about the structure from struct_enum.out using the makestr.x
-        routine from the enumlib library in UNCLE.  The Structs2Poscar class will then take this 
+        routine from the enumlib library in UNCLE.  The StructsToPoscar class will then take this 
         set of pseudo-POSCARs and prepare them for VASP calculations. """
 
     def __init__(self, atoms, uncleOutput, startFromExisting):

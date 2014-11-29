@@ -190,7 +190,7 @@ class JobManager:
         s = scheduler(time.time, time.sleep)
         
         subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
-        self.vaspRunner.run(1, vstructsToRun)
+        self.vaspRunner.run(1, vstructsToRun,vstructsToRun)
         
         finished = False
         start_time = time.time()

@@ -338,7 +338,7 @@ class MakeUncleFiles:
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
                     subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
-                self.vFE2PlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
+                self.vFEToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
         
         return self.newlyFinished, self.newlyFailed, self.vdata
                     
@@ -496,7 +496,7 @@ class MakeUncleFiles:
         file.close()  
         os.chdir(dir1) 
 
-    def vFE2PlotFiles(self, iatom):
+    def vFEToPlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 
         for plots.  vaspToVdata should be run first"""
         # TODO:  We should probably figure out how to sort the structures in existing 
