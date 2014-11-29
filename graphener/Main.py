@@ -286,27 +286,42 @@ def readSettingsFile():
     
     return [atoms, volRange, clusterNums, startFromExisting, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout]
 
-def rstrtTimeout(vstructsFailed,atoms):
+def searchTimeout(atoms):
     ''''''
-    print 'in rstsrtT'
+    print 'in searchTimeout'
     lastDir = os.getcwd()
     restartStructs = [[]]*len(atoms)
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom 
         os.chdir(atomDir)
-        slurmlist = []
-        for struct in vstructsFailed[iatom]:
-            structfiles = os.listdir(atomdir + '/' + struct)
+        sublist = []
+        dirlist = []
+        for item in os.listdir(atomDir): 
+            if os.path.isdir(item) and item[0].isdigit(): 
+                dirlist.append(item)
+        for struct in dirlist:
+            slurmlist = []
+            structDir = atomDir + '/' + struct
+            structfiles = os.listdir(structDir)
             for file in structfiles:
-                if 'slurm' in file:
+                filePath = structDir + '/' + file
+                if 'slurm' in file and os.stat(filePath).st_size > 0:
                     slurmlist.append(file)
             if len(slurmlist)>0:
-                os.chdir(atomdir + '/' + struct)
-                print struct, readfile(slurmlist.sort()[-1]).strip()[-1] 
-                if 'TIME LIMIT' in readfile(slurmlist.sort()[-1]).strip()[-1]:
-                    restartStructs.append(struct)
-                subprocess(['cp','CONTCAR','POSCAR'])
-                subprocess(['cp','CONTCAR','POSCAR'])
+                slurmlist.sort()
+                lastslurm = slurmlist[-1]
+                os.chdir(structDir)
+#                print struct, readfile(structDir + '/' + lastslurm)[-1] 
+                for line in readfile(structDir + '/' + lastslurm):
+                    if 'TIME LIMIT' in line: 
+                        sublist.append(struct)
+                        break
+        restartStructs[iatom] = sublist
+        print 'For {} found {} structures to restart'.format(atom,len(restartStructs[iatom]))
+                      
+    os.chdir(lastDir)
+    print 
+    sys.exit('stop')
     return restartStructs
                      
 
@@ -396,7 +411,7 @@ if __name__ == '__main__':
     pathMax = maindir + '/needed_files/diffMax'
     if os.path.exists(pathMax):
         diffMax = float(readfile(pathMax)[0].strip()) 
-        subprocess.call(['echo','\nConvergence criterium diffMax read from file: '+str(diffMax)])
+        subprocess.call(['echo','\ndiffMax read from file (convergence criterium): '+str(diffMax)])
     else:
         subprocess.call(['echo','\nMissing diffMax file with the convergence criterium diffMax in eV. Stopping'])
         sys.exit('Stop')
@@ -447,12 +462,13 @@ if __name__ == '__main__':
         if restartTimeout:
             '''
             1. search all atom folders for any runs that timed out
-            2. add to vstructsRestart, and remove any from vstructsFailed, 
+            2. add to vstructsRestart, and remove any from vstructsFailed.  
+            2.5 if not in paststructs.dat file, append.  If not in vstructsAll, append
             3. remove from vstructsFailed, add to vstructsRestart
             4. combine with vstructsToStart and send to startJobs 
             '''
-            restartStructs = rstrtTimeout(vstructsFailed,atoms)
-            print 'remove restartStructs from vstructsFailed !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111'
+            restartStructs = searchTimeout(atoms)
+            print 'restartStructs',restartStructs
 
         if iteration == 1:
             vstructsFinished,vdata = parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata,)
