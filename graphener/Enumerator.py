@@ -122,8 +122,6 @@ class Enumerator:
                     iidStructs[iatom] = [line.strip().split()[1] for line in lines] 
                 except:
                     subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
-
-
         os.chdir(lastDir)       
         return iidStructs
     

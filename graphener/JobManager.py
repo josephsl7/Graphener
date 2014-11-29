@@ -160,12 +160,12 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures converged.' % converged])
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
-    def runDOSJobs(self, vstructsToStart):
+    def runDOSJobs(self, vstructsToStart, vstructsToRun):
         """ Starts the Density of States VASP calculations for all of the structures in 
             'vstructsToStart' and waits for all of the jobs to finish. It checks on the jobs every ten 
             minutes. """
         subprocess.call(['echo','\nStarting DOS run. . .\n'])
-        self.vaspRunner.run(3, vstructsToStart)   
+        self.vaspRunner.run(3, vstructsToStart, vstructsToRun)   
         s = scheduler(time.time, time.sleep)    
         finished = False
         start_time = time.time()
@@ -175,13 +175,13 @@ class JobManager:
             s.enterabs(event_time, 1, self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
             s.run()
             finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())   
-        self.reportDOSStats(vstructsToStart)
+        self.reportDOSStats(vstructsToRun)
 
     def runHexMono(self):    
         subprocess.call(['echo','\nPreparing and running hexagonal metal monolayers directories\n']) #bch   
         self.vaspRunner.makeRunHexMono()  
             
-    def runLowJobs(self, vstructsToStart):
+    def runLowJobs(self, vstructsToStart,vstructsToRun):
         """ Starts the low-precision VASP calculations for all of the structures in 'vstructsToStart'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nPreparing directories for VASP. . .\n'])
@@ -190,7 +190,7 @@ class JobManager:
         s = scheduler(time.time, time.sleep)
         
         subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
-        self.vaspRunner.run(1, vstructsToStart)
+        self.vaspRunner.run(1, vstructsToRun)
         
         finished = False
         start_time = time.time()
@@ -201,14 +201,13 @@ class JobManager:
             s.run()
             finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
-        self.reportLowStats(vstructsToStart)
+        self.reportLowStats(vstructsToRun)
     
-    def runNormalJobs(self, vstructsToStart):
+    def runNormalJobs(self, vstructsToStart,vstructsToRun):
         """ Starts the normal-precision VASP calculations for all of the structures in 'vstructsToStart'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
-        print 'vstructsToStart', vstructsToStart
-        self.vaspRunner.run(2, vstructsToStart)
+        self.vaspRunner.run(2, vstructsToStart,vstructsToRun)
         
         s = scheduler(time.time, time.sleep)
     
@@ -223,7 +222,7 @@ class JobManager:
             s.run()
             finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
-        self.reportNormalStats(vstructsToStart)
+        self.reportNormalStats(vstructsToRun)
         print 'done with runNormalJobs'
 
     def runSingleAtoms(self):  

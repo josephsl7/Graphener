@@ -483,20 +483,20 @@ class RunVasp:
         self.copyVaspExec()
         self.fillDirectories(vstructsToStart)
             
-    def run(self, runNum, vstructsToStart):
+    def run(self, runNum, vstructsToStart,vstructsToRun):
         """ Starts the VASP runs (specified by 'runNum') for each of the structures in
-            'vstructsToStart'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
+            'vstructsToRun'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
             normal-precision run, runNum = 3 starts a DOS run. """
         if runNum == 1:
-            self.startJobs(vstructsToStart)
+            self.startJobs(vstructsToRun)
     
         elif runNum == 2:
-            self.makeNormalDirectories(vstructsToStart)
-            self.startNormalJobs(vstructsToStart)
+            self.makeNormalDirectories(vstructsToRun)
+            self.startNormalJobs(vstructsToRun)
            
         elif runNum == 3:
             self.makeDOSDirectories(vstructsToStart)
-            self.startDOSJobs(vstructsToStart)
+            self.startDOSJobs(vstructsToRun)
 
     def startDOSJobs(self, vstructsToStart):
         """ Submits all the VASP jobs for structures in 'vstructsToStart' to the supercomputer for 
@@ -530,8 +530,8 @@ class RunVasp:
             
             os.chdir(topDir)
 
-    def startJobs(self, vstructsToStart):
-        """ Submits all the VASP jobs for structures in 'vstructsToStart' to the supercomputer for 
+    def startJobs(self, vstructsToRun):
+        """ Submits all the VASP jobs for structures in 'vstructsToRun' to the supercomputer for 
             low-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         for iatom,atom in enumerate(self.atoms):
@@ -541,7 +541,7 @@ class RunVasp:
             os.chdir(atomDir)
             
             structures = []
-            for item in vstructsToStart[iatom]:
+            for item in vstructsToRun[iatom]:
                 if os.path.isdir(item):
                     structures.append(item)
             
@@ -556,8 +556,8 @@ class RunVasp:
             
             os.chdir(lastDir)
 
-    def startNormalJobs(self, vstructsToStart):
-        """ Submits all the VASP jobs for structures in 'vstructsToStart' to the supercomputer for 
+    def startNormalJobs(self, vstructsToRun):
+        """ Submits all the VASP jobs for structures in 'vstructsToRun' to the supercomputer for 
             normal-precision relaxation and records their job IDs. """
         self.clearCurrentJobIds()
         
@@ -568,7 +568,7 @@ class RunVasp:
             os.chdir(atomDir)
             
             structures = []
-            for item in vstructsToStart[iatom]:
+            for item in vstructsToRun[iatom]:
                 if os.path.isdir(item + '/normal'):
                     structures.append(item)
             
