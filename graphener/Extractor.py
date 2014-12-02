@@ -20,6 +20,7 @@ class Extractor:
         self.exStructList = []
         self.startFromExisting = startFromExisting
 
+
     def checkPureInCurrent(self, iterNum, vstructsToStart, vstructsFinish):  #OK
         """ This checks that the pure elements are in the list to calculate or in the finished structures
         Only called on the first iteration for the firs """
@@ -41,24 +42,7 @@ class Extractor:
                 return True
         
         return False
-    
-    def setStructsFromGSS(self, alist): # this flattens the list because the pseudo-POSCAR is not unique to an atom
-        """ Sets the list of structures that we want to run through VASP calculations.  The list 
-            being passed to this method (alist) will actually be a list of lists.  It will have a 
-            structure list for each atom that still has not finished the main convergence loop. """
-        self.exStructList = []
-        for atomStructs in alist:
-            self.exStructList.append(atomStructs)
-    
-#    def getexStructList(self): # this flattens the list because the pseudo-POSCAR is not unique to an atom 
-#        """ Returns the list of structures for each atom that has not finished the convergence
-#            loop. """
-#        structs = []
-#        for atomStructs in self.exStructList:
-#            structs.append(atomStructs)
-#        
-#        return structs
-          
+
     def extract(self,vstructsToStart):
         """ This method uses the makestr.x executable from the enumlib in UNCLE to 
             create the pseudo-POSCAR files for each structure in self.exStructList. These files are 
@@ -78,6 +62,25 @@ class Extractor:
             subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut)
         
         os.chdir(lastDir)
+    
+    def setStructsFromGSS(self, alist): # this flattens the list because the pseudo-POSCAR is not unique to an atom
+        """ Sets the list of structures that we want to run through VASP calculations.  The list 
+            being passed to this method (alist) will actually be a list of lists.  It will have a 
+            structure list for each atom that still has not finished the main convergence loop. """
+        self.exStructList = []
+        for atomStructs in alist:
+            self.exStructList.append(atomStructs)
+    
+#    def getexStructList(self): # this flattens the list because the pseudo-POSCAR is not unique to an atom 
+#        """ Returns the list of structures for each atom that has not finished the convergence
+#            loop. """
+#        structs = []
+#        for atomStructs in self.exStructList:
+#            structs.append(atomStructs)
+#        
+#        return structs
+          
+
         
 
         

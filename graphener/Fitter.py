@@ -68,7 +68,6 @@ class Fitter:
         for iatom in xrange(len(self.atoms)):
             atomDir = os.path.abspath(self.atoms[iatom])
             fitsDir = atomDir + '/fits'
-            print 'atomDir',atomDir, os.path.isdir(fitsDir)
             if os.path.isdir(fitsDir): #remove it...start clean because must have current files
                 subprocess.call(['rm','-r',fitsDir])
             subprocess.call(['mkdir',fitsDir])

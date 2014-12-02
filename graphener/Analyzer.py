@@ -136,9 +136,9 @@ class Analyzer:
         """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
         try:
             value = self.getSteps(folder)
-            return value < NSW #True/False
+            return value < NSW  
         except:
-            return False #True/False
+            return False  
     
     def getSteps(self, folder):
         '''number of steps in relaxation, as an integer'''
