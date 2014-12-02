@@ -87,7 +87,7 @@ class MakeUncleFiles:
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
                         if os.path.isdir(vaspDir):
-                            if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
+                            if self.finishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -143,7 +143,7 @@ class MakeUncleFiles:
         proc = subprocess.Popen(['grep','-i','NELM',dir+'/INCAR'],stdout=subprocess.PIPE)
         result =  proc.communicate()[0]
         NELM = int(result.split('=')[1].split()[0])
-        return self.elConvergeCheck(dir,NELM) and self.FinishCheck(dir)
+        return self.elConvergeCheck(dir,NELM) and self.finishCheck(dir)
             
     def energyDropCheck(self,dir):
         '''tests whether the energies have dropped in OSZICAR...rising energies are unphysical 
@@ -155,7 +155,7 @@ class MakeUncleFiles:
                 energies.append(float(line.split()[2]))
         return energies[-1] <= 0.99*energies[0] 
     
-    def FinishCheck(self, folder):
+    def finishCheck(self, folder):
         """ Tests whether VASP is done by finding "Voluntary" in last line of OUTCAR.  The input
             parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """   
         lastfolder = os.getcwd()
@@ -200,45 +200,45 @@ class MakeUncleFiles:
             self.setEnergy(pureHdir)
             self.pureHenergy = float(self.energy)
         else:
-            self.pureHenergy = self.getPureEnergyExisting('H', dir+'/structures.start') 
+            subprocess(['echo','Missing pure H energy folder'])
         if os.path.exists(pureMdir):        
             self.setAtomCounts(pureMdir)
             self.setEnergy(pureMdir)
             self.pureMenergy = float(self.energy)
         else:
-            self.pureMenergy = self.getPureEnergyExisting('M', dir+'/structures.start') 
+            subprocess(['echo','Missing pure M energy folder']) 
 #                    if etest != 999999:
 #                        self.pureMenergy = etest
 #                    else:
         os.chdir(lastDir)
         
-    def getPureEnergyExisting(self, label, path):
-        """ This method is used to extract the energy of the pure structures when they are in the
-            structures.start file and hence will not be calculated. If the pure structure is not
-            in the structures.start file, return 999999. """
-        lines = self.readfile(path)       
-        startLooking = False
-        if label == 'H':
-            for i in xrange(len(lines)):
-                lineParts = lines[i].strip().split()
-                if lineParts[0].lower() == 'pure' and lineParts[1].lower() == 'h':
-                    startLooking = True
-                
-                if startLooking:
-                    if lineParts[0] == '#Energy:':
-                        return float(lines[i + 1].strip())
-                        
-        elif label == 'M':
-            for i in xrange(len(lines)):
-                lineParts = lines[i].strip().split()
-                if lineParts[0].lower() == 'pure' and lineParts[1].lower() == 'm':
-                    startLooking = True
-                
-                if startLooking:
-                    if lineParts[0] == '#Energy:':
-                        return float(lines[i + 1].strip())
-        
-        return 999999
+#    def getPureEnergyExisting(self, label, path):
+#        """ This method is used to extract the energy of the pure structures when they are in the
+#            structures.start file and hence will not be calculated. If the pure structure is not
+#            in the structures.start file, return 999999. """
+#        lines = self.readfile(path)       
+#        startLooking = False
+#        if label == 'H':
+#            for i in xrange(len(lines)):
+#                lineParts = lines[i].strip().split()
+#                if lineParts[0].lower() == 'pure' and lineParts[1].lower() == 'h':
+#                    startLooking = True
+#                
+#                if startLooking:
+#                    if lineParts[0] == '#Energy:':
+#                        return float(lines[i + 1].strip())
+#                        
+#        elif label == 'M':
+#            for i in xrange(len(lines)):
+#                lineParts = lines[i].strip().split()
+#                if lineParts[0].lower() == 'pure' and lineParts[1].lower() == 'm':
+#                    startLooking = True
+#                
+#                if startLooking:
+#                    if lineParts[0] == '#Energy:':
+#                        return float(lines[i + 1].strip())
+#        
+#        return 999999
 
     def getNSW(self,dir): 
         proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
@@ -289,7 +289,7 @@ class MakeUncleFiles:
         if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-            if self.FinishCheck(dir2) and self.convergeCheck(dir2, self.getNSW(dir2)): #finalDir
+            if self.finishCheck(dir2) and self.convergeCheck(dir2, self.getNSW(dir2)): #finalDir
                 if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
                 file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
                 self.hexE[iatom] = self.getEnergy(dir2) 
@@ -338,7 +338,7 @@ class MakeUncleFiles:
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
                     subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
-                self.vFEToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
+                self.vdataToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
         
         return self.newlyFinished, self.newlyFailed,self.newlyToRestart, self.vdata
                     
@@ -513,12 +513,9 @@ class MakeUncleFiles:
                     return True
         return False        
 
-    def vFEToPlotFiles(self, iatom):
+    def vdataToPlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 
         for plots.  vaspToVdata should be run first"""
-        # TODO:  We should probably figure out how to sort the structures in existing 
-        #        structures.start files together with the structures we have calculated in VASP 
-        #        during the loop.
         lastDir = os.getcwd()
         os.chdir(lastDir + '/' + self.atoms[iatom])
         eIsolatedH = -1.115 

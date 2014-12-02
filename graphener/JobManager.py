@@ -47,7 +47,7 @@ class JobManager:
                 for structure in vstructsToStart[i]:
                     structureDir = atomDir + '/' + structure
                     if os.path.isdir(structureDir):
-                        if self.FinishCheck(structureDir) and self.convergeCheck(structureDir, 400):
+                        if self.finishCheck(structureDir) and self.convergeCheck(structureDir, 400):
                             total += 1
                             converged += 1
                         else:
@@ -62,7 +62,7 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures converged.' % converged])
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
                             
-    def FinishCheck(self, folder):
+    def finishCheck(self, folder):
         """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
             parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
             
@@ -116,7 +116,7 @@ class JobManager:
                     if os.path.isdir(structDir):
                         dosDir = structDir + '/DOS'
                         if os.path.isdir(dosDir):
-                            if self.FinishCheck(dosDir) and self.convergeCheck(dosDir, 2):
+                            if self.finishCheck(dosDir) and self.convergeCheck(dosDir, 2):
                                 total += 1
                                 converged += 1
                             else:
@@ -146,7 +146,7 @@ class JobManager:
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
                         if os.path.isdir(normalDir):
-                            if self.FinishCheck(normalDir) and self.convergeCheck(normalDir, 400):
+                            if self.finishCheck(normalDir) and self.convergeCheck(normalDir, 400):
                                 total += 1
                                 converged += 1
                             else:

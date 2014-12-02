@@ -49,7 +49,7 @@ class Analyzer:
             outfile.write(line)
     
         outfile.write("\n********** FINISH CHECK **********\n")
-        finished = self.FinishCheck(folder)
+        finished = self.finishCheck(folder)
         if finished:
             outfile.write("\nFinished\n")
         else:
@@ -122,7 +122,7 @@ class Analyzer:
         file1.close()
         return lines
 
-    def FinishCheck(self, folder):
+    def finishCheck(self, folder):
         """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
             parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
         lastfolder = os.getcwd()
