@@ -30,13 +30,6 @@ class Extractor:
             if not self.contains('3', vstructsToStart[iatom]+vstructsFinish[iatom]):
                 vstructsToStart[iatom].append ('3')
         return vstructsToStart
-#                # Append the newly chosen structures to past_structs.dat so they don't get chosen again
-#                pastFile = open(self.atoms[i] + '/enumpast/past_structs.dat','a')
-#                for struct in trainStructs:
-#                    pastFile.write(struct + '\n')
-#                pastFile.close()
-            
-#                self.exStructList.append(trainStructs)
 
     def contains(self, struct, alist):
         """ Returns True if 'alist' contains the item 'struct', False otherwise. """

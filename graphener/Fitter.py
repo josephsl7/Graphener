@@ -37,7 +37,7 @@ class Fitter:
         self.neededFilesDir = os.getcwd() + '/needed_files/'
         self.uncleExec = os.getcwd() + '/needed_files/uncle.x'
         self.uncleOut = uncleOutput
-        self.header = "peratom\nnoweights\nposcar\n"
+        #self.header = "peratom\nnoweights\nposcar\n"
         self.vstructsFinished = vstructsFinished
 
     def fitVASPData(self, iteration,):
@@ -53,11 +53,7 @@ class Fitter:
                     fitsDir = atomDir + '/fits'
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
-#                        proc15 = subprocess.Popen([self.uncleExec, '15'])
-#                        proc15.wait()
-#                        os.system('uncle 15')
                         subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut) #not waiting long enough for large cluster numbers
-#                        subprocess.call(['echo','uncle 15 exit status: ' + str(subprocess.check_call([self.uncleExec, '15']))]) #not waiting long enough for large cluster numbers
                         subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
@@ -73,17 +69,13 @@ class Fitter:
             atomDir = os.path.abspath(self.atoms[iatom])
             fitsDir = atomDir + '/fits'
             print 'atomDir',atomDir, os.path.isdir(fitsDir)
-            if not os.path.isdir(fitsDir):
-                subprocess.call(['mkdir',fitsDir])
+            if os.path.isdir(fitsDir): #remove it...start clean because must have current files
+                subprocess.call(['rm','-r',fitsDir])
+            subprocess.call(['mkdir',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/clusters.out',fitsDir])
-#            subprocess.call(['ln','-s',atomDir + '/enumpast/structures.in',fitsDir])
-            #Fix this: for some reason, cp to fits folder makes an empty structures.in, but mv does not! The cp below also makes an empty file
-#            subprocess.call(['cp',atomDir + '/enumpast/structures.in',atomDir + '/enumpast/structures.in_1'])
-#            subprocess.call(['cp',atomDir + '/enumpast/structures.in',atomDir + '/enumpast/structures.junk'])
-
-            subprocess.call(['cp',atomDir + '/enumpast/structures.in',fitsDir+'/structures.in'])
+            subprocess.call(['ln','-s',atomDir + '/enumpast/structures.in',fitsDir])
 
             infile = open(self.neededFilesDir + '/CS.in','r')
             inlines = [line for line in infile]

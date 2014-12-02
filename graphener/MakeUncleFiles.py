@@ -11,15 +11,17 @@ from random import random
 class MakeUncleFiles:
 
 
-    def __init__(self, atoms, startFromExisting, iteration,finalDir):
+    def __init__(self, atoms, startFromExisting, iteration,finalDir,restartTimeout):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.startFromExisting = startFromExisting
         self.iteration = iteration
         self.finalDir = finalDir   
+        self.restartTimeout = restartTimeout
         
-        self.newlyFinished = [[]]*len(atoms) #list of structures, not paths
-        self.newlyFailed = [[]]*len(atoms)
+        self.newlyFinished = [] #list of structures, not paths
+        self.newlyFailed = []
+        self.newlyToRestart = []
         self.pureHenergy = 0.0
         self.pureMenergy = 0.0
         
@@ -30,7 +32,7 @@ class MakeUncleFiles:
         self.inCount = 0.0
         self.holdoutCount = 0.0
         
-        self.header = "peratom\nnoweights\nposcar\n"
+        #self.header = "peratom\nnoweights\nposcar\n"
         self.idString = ""
         
         self.vec1x = 0.0
@@ -57,7 +59,7 @@ class MakeUncleFiles:
         self.hexE = [] 
         self.vdata = []
 
-    def analyzeNewVasp(self,vstructsToStart):
+    def analyzeNewVasp(self,vstructsToRun):
         """ Initializes the list of structures to add to the structures.in and structures.holdout
             files by adding only the structures that VASP finished to the member
             newlyFinished. Sorts the list by metal concentration (N_M / N_total). Adds the structures that
@@ -65,27 +67,27 @@ class MakeUncleFiles:
         lastDir = os.getcwd()
         self.newlyFinished = [[]]*len(self.atoms)
         self.newlyFailed = [[]]*len(self.atoms)
+        self.newlyToRestart = [[]]*len(self.atoms)
         
         for iatom, atom in enumerate(self.atoms):
             # If it is the first iteration and we are starting from an existing structures.start
             # file, we just append an empty list to the newlyFinished and the failedList.  Else, 
             # proceed as normal.
-            if self.iteration == 1 and self.startFromExisting[iatom]:
-                'Do nothing...'
-            else:
+            if len(vstructsToRun[iatom])>0:
                 atomDir = lastDir + '/' + atom
                 os.chdir(atomDir)        
                 conclist = []
                 finished = []
                 failed = []
-                for i, struct in enumerate(vstructsToStart[iatom]):
+                restart = []
+                for i, struct in enumerate(vstructsToRun[iatom]):
 #                    print 'struct',struct
-                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(vstructsToStart[iatom]), 'structures in', atom  
+                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(vstructsToRun[iatom]), 'structures in', atom  
 #                    fullPath = os.path.abspath(struct)
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
                         if os.path.isdir(vaspDir):
-                           if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
+                            if self.FinishCheck(vaspDir) and self.convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -94,7 +96,9 @@ class MakeUncleFiles:
                                 else:
                                     concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))                           
                                 conclist.append([concentration, struct])
-                           else:
+                            elif self.restartTimeout and self.timeoutCheck(vaspDir):
+                                restart.append(struct)
+                            else:
                                 failed.append(struct)
                         else:
                             subprocess.call(['echo', '\nERROR: directory does not exist: ' + struct]) 
@@ -293,14 +297,14 @@ class MakeUncleFiles:
                 file.write('{} monolayer not converged \n'.format(atom))
         os.chdir(dir1)  
 
-    def makeUncleFiles(self, iteration, holdoutStructs,vstructsToStart,vdata):
+    def makeUncleFiles(self, iteration, holdoutStructs,vstructsToRun,vdata):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
 
         self.vdata = vdata
         self.singleAtomsEnergies(os.getcwd(),iteration)   
         self.hexMonolayerEnergies(os.getcwd(),iteration)    
-        self.analyzeNewVasp(vstructsToStart)
+        self.analyzeNewVasp(vstructsToRun)
 
         for iatom,atom in enumerate(self.atoms):
             atomDir = os.getcwd() + '/' + atom
@@ -315,11 +319,7 @@ class MakeUncleFiles:
                     self.getPureEs(iatom)
                     if len(self.newlyFinished[iatom]) > 0: self.vaspToVdata(iatom)
                     structsDotInPath = atomDir + '/enumpast/structures.in'
-                    if os.path.exists(structsDotInPath):
-                        outfile = open(structsDotInPath, 'a')
-                    else:
-                        outfile = open(structsDotInPath, 'w')                                   
-                        outfile.write(self.header); outfile.flush()
+                    outfile = open(structsDotInPath, 'a')
                     for structure in self.newlyFinished[iatom]:
                         self.writePOSCAR(atomDir + '/' + structure,outfile)
 
@@ -340,7 +340,7 @@ class MakeUncleFiles:
                     subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vFEToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
         
-        return self.newlyFinished, self.newlyFailed, self.vdata
+        return self.newlyFinished, self.newlyFailed,self.newlyToRestart, self.vdata
                     
     def readfile(self,filepath): 
         file1 = open(filepath,'r')
@@ -357,7 +357,7 @@ class MakeUncleFiles:
         self.inCount = 0.0
         self.holdoutCount = 0.0
         
-        self.header = "peratom\nnoweights\nposcar\n"
+        #self.header = "peratom\nnoweights\nposcar\n"
         self.idString = ""
         
         self.vec1x = 0.0
@@ -495,6 +495,23 @@ class MakeUncleFiles:
                 self.singleE[iatom] = self.getEnergy(dir2)
         file.close()  
         os.chdir(dir1) 
+
+    def timeoutCheck(self,dir):
+        '''checks the latest slurm file for the words TIME LIMIT'''
+        slurmlist = []               
+        structfiles = os.listdir(structDir)
+        for file in structfiles:
+            filePath = structDir + '/' + file
+            if 'slurm' in file and os.stat(filePath).st_size > 0:
+                slurmlist.append(file)
+        if len(slurmlist)>0: #only use the last slurm
+            slurmlist.sort()
+            lastslurm = slurmlist[-1]
+            for line in readfile(structDir + '/' + lastslurm):
+                if 'TIME LIMIT' in line: 
+                    sublist.append(struct)
+                    return True
+        return False        
 
     def vFEToPlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 

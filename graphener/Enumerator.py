@@ -108,7 +108,6 @@ class Enumerator:
              for iatom,atom in enumerate(self.atoms):
                 atomDir = lastDir + '/' + atom
                 try:
-                #Look for the past_structs.dat file in enumpast/ folder. If there's not, make an empty one for that atom.
                     os.chdir(atomDir + '/enumpast')
                     subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
                     subprocess.call(['ln','-s','../../enum/struct_enum.out'])
