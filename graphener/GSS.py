@@ -145,17 +145,18 @@ class GSS:
         lines = self.readfile('tempout');os.system('rm tempout')         
         conc_old = 1.0 #starts with highest concentration first 
         Nc = 0  
-        if iteration==1: print 'Concentrations and number of structures'
+        if iteration==1: concfile = open(lastDir + '/concentrations.info' , 'w')
         for line in lines[2:]:
             conc = float(line.strip().split()[1])
             if conc == conc_old:
                 Nc += 1
             else: 
-                if iteration==1: print '{:8.3f}{:10d}'.format(conc_old,Nc)
+                if iteration==1: concfile.write('{:8.3f}{:10d}'.format(conc_old,Nc))
                 self.Ncs.append(Nc) #for the previous concentration           
                 Nc = 1
                 conc_old = conc
         self.Ncs.append(1) #for the pure H concentration
+        if iteration==1: concfile.close()
         os.chdir(lastDir)
                         
     def makeGSSDirectories(self):

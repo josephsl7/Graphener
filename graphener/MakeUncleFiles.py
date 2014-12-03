@@ -6,6 +6,7 @@ Created on Aug 29, 2014
 from numpy import zeros, mod, count_nonzero 
 import os, subprocess, sys
 from random import random
+from Main import timeoutCheck,slurmProblem
 
 
 class MakeUncleFiles:
@@ -80,9 +81,9 @@ class MakeUncleFiles:
                 finished = []
                 failed = []
                 restart = []
-                for i, struct in enumerate(vstructsToRun[iatom]):
+                for istruct, struct in enumerate(vstructsToRun[iatom]):
 #                    print 'struct',struct
-                    if mod(i+1,100) == 0: print 'Checking',i+1,'of',len(vstructsToRun[iatom]), 'structures in', atom  
+                    if mod(istruct+1,100) == 0: subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(vstructsToRun[iatom]),atom)])
 #                    fullPath = os.path.abspath(struct)
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
@@ -96,7 +97,7 @@ class MakeUncleFiles:
                                 else:
                                     concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))                           
                                 conclist.append([concentration, struct])
-                            elif self.restartTimeout and self.timeoutCheck(vaspDir):
+                            elif self.restartTimeout and not slurmProblem(vaspDir):
                                 restart.append(struct)
                             else:
                                 failed.append(struct)
@@ -495,21 +496,21 @@ class MakeUncleFiles:
         file.close()  
         os.chdir(dir1) 
 
-    def timeoutCheck(self,structDir):
-        '''checks the latest slurm file for the words TIME LIMIT'''
-        slurmlist = []               
-        structfiles = os.listdir(structDir)
-        for file in structfiles:
-            filePath = structDir + '/' + file
-            if 'slurm' in file and os.stat(filePath).st_size > 0:
-                slurmlist.append(file)
-        if len(slurmlist)>0: #only use the last slurm
-            slurmlist.sort()
-            lastslurm = slurmlist[-1]
-            for line in self.readfile(structDir + '/' + lastslurm):
-                if 'TIME LIMIT' in line: 
-                    return True
-        return False        
+#    def timeoutCheck(self,structDir):
+#        '''checks the latest slurm file for the words TIME LIMIT'''
+#        slurmlist = []               
+#        structfiles = os.listdir(structDir)
+#        for file in structfiles:
+#            filePath = structDir + '/' + file
+#            if 'slurm' in file and os.stat(filePath).st_size > 0:
+#                slurmlist.append(file)
+#        if len(slurmlist)>0: #only use the last slurm
+#            slurmlist.sort()
+#            lastslurm = slurmlist[-1]
+#            for line in self.readfile(structDir + '/' + lastslurm):
+#                if 'TIME LIMIT' in line: 
+#                    return True
+#        return False        
 
     def vdataToPlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 

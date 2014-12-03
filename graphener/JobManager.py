@@ -214,8 +214,6 @@ class JobManager:
         finished = False
         start_time = time.time()
         event_time = start_time
-        print 'job ids'
-        print self.vaspRunner.getCurrentJobIds()
         while not finished or len(self.vaspRunner.getCurrentJobIds())==0:
             event_time += 60
             s.enterabs(event_time, 1,self.reportFinished(self.vaspRunner.getCurrentJobIds())) #bch: was self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
@@ -223,8 +221,11 @@ class JobManager:
             finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
         self.reportNormalStats(vstructsToRun)
-        print 'done with runNormalJobs'
 
     def runSingleAtoms(self):  
         subprocess.call(['echo','\nPreparing and running single atom directories\n']) #bch   
-        self.vaspRunner.makeRunSingleDirectories()  
+        self.vaspRunner.makeRunSingleDirectories()
+#    
+#    def runPureSys(self):  
+#        subprocess.call(['echo','\nPreparing and running pure systems\n']) #bch   
+#        self.vaspRunner.makeRunSingleDirectories()    
