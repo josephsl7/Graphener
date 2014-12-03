@@ -51,7 +51,7 @@ class structsToPoscar:
             subprocess.call(['rm',name])
             subprocess.call(['rm','POSCAR'])
             
-    def readfile(self,filepath): #bch
+    def readfile(self,filepath):  
         file1 = open(filepath,'r')
         lines = file1.readlines()
         file1.close()
@@ -64,7 +64,6 @@ class structsToPoscar:
         i = len(fileChars) - 1
         while fileChars[i] != '.':
             i -= 1
-
         return int(''.join(fileChars[i + 1:]))
 
     def contains(self, struct, alist):

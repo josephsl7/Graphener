@@ -26,7 +26,7 @@ def checkInitialFolders(atoms,restartTimeout):
     maxvstructs = 20000 #maximum number of structures for each atom
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
-
+    
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom     
         #pure energies
@@ -47,15 +47,16 @@ def checkInitialFolders(atoms,restartTimeout):
             itempath = atomDir + '/' + item
             if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
                 structlist.append(item)
-        for i,struct in enumerate(structlist):
-            if mod(i+1,10) == 0: print '\tChecking',i+1,'of',len(structlist), 'structures in', atom 
+        for istruct,struct in enumerate(structlist):
+            failed = False
+            if mod(istruct+1,10) == 0: print '\tChecking',istruct+1,'of',len(structlist), 'structures in', atom 
             vaspDir = atomDir + '/'+ struct
             try:
                 atomCounts = setAtomCounts(vaspDir) #also changes andy "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
             except:
                 failedStructs.append(struct)
-                break
-            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
+                failed = True
+            if not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
                 ifinished += 1
                 vdata[iatom,ifinished]['struct'] = struct
@@ -74,7 +75,7 @@ def checkInitialFolders(atoms,restartTimeout):
                 vdata[iatom,ifinished]['energy'] = structEnergy 
                 formationEnergy = structEnergy - (conc * pureMenergy + (1.0 - conc) * pureHenergy)
                 vdata[iatom,ifinished]['FE'] = formationEnergy
-            elif restartTimeout and timeoutCheck(vaspDir):
+            elif not failed and restartTimeout and timeoutCheck(vaspDir):
                 restartStructs.append(struct)  
             else:
                 failedStructs.append(struct)
@@ -82,25 +83,93 @@ def checkInitialFolders(atoms,restartTimeout):
         vstructsFinished[iatom] =  finishedStructs 
         vstructsRestart[iatom] = restartStructs
         vstructsFailed[iatom] = failedStructs 
- 
+        subprocess.call(['echo','\n\tAtom {}: found {} finished, {} to restart, {} failed'.format(atom,len(finishedStructs),len(restartStructs),len(failedStructs))])
         #sort by FE
         nfinished = count_nonzero(vdata[iatom,:]['struct'])
         vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones 
-        #write structures.in, (or just the header if there is no existing data) 
-        structuresInFile = open(atomDir + '/'+ 'structures.in', 'w')                                   
-        structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
-        for istruct,struct in enumerate(vdata[iatom,:nfinished]['struct']):
-            vaspDir = atomDir + '/'+ str(struct)
-            structuresInFile.write("#------------------------------------------------\n")
-            idString = 'graphene str #: ' + str(struct)
-            structuresInFile.write(idString + " FE = " + str(vdata[iatom,istruct]['FE']) + ", Concentration = " + str(vdata[iatom,istruct]['conc']) + "\n")
-            poscar = readfile(vaspDir + '/POSCAR')
-            structuresInFile.writelines(poscar[1:]) #already wrote the text line
-            structuresInFile.write("#Energy:\n")
-            structuresInFile.write(str(vdata[iatom,istruct]['energy']) + "\n")         
-        structuresInFile.close() 
+        
+        #write structures.in, (or just the header if there is no existing data)
+        structuresInWrite(atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'])
+    
     return  vstructsFinished, vstructsRestart, vstructsFailed, startFromExisting, vdata               
     os.chdir(lastDir)
+
+def structuresInWrite(atomDir, structlist, FElist, conclist,energylist):
+    '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
+       Also writes this info as POSCAR_orig in the structure folder'''
+    lastDir = os.getcwd()
+    structuresInFile = open(atomDir + '/'+ 'structures.in', 'w')                                   
+    structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
+    os.chdir(atomDir)
+#    print 'os.listdir(os.getcwd())',    os.listdir(os.getcwd())
+    subprocess.call(['ln','-s','../enum/struct_enum.out'])
+    subprocess.call(['rm vasp.0*'],shell=True) #start clean
+    for istruct,struct in enumerate(structlist):
+        vaspDir = atomDir + '/'+ str(struct)
+        structuresInFile.write("#------------------------------------------------\n")
+#        cmdstr = '../needed_files/makestr.x struct_enum.out ' + str(struct)
+#        print cmdstr
+#        os.system(cmdstr)
+        subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
+        subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
+        poscar = readfile(vaspDir+'/POSCAR_orig')           
+        idString = 'graphene str #: ' + str(struct)
+        structuresInFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
+        structuresInFile.write("1.0\n")
+        writeLatticeVectors(poscar[2:5],structuresInFile)
+        structuresInFile.writelines(poscar[5:])
+        structuresInFile.write("#Energy:\n")
+        structuresInFile.write(str(energylist[istruct]) + "\n")         
+    structuresInFile.close() 
+    os.chdir(lastDir)
+
+def writeLatticeVectors(vecLines,outfile):
+    """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
+        corresponding member components. """  
+    vec1 = vecLines[0].strip().split()
+    vec2 = vecLines[1].strip().split()
+    vec3 = vecLines[2].strip().split()
+       
+    vec1comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec1] #to handle ******
+    vec2comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec2]
+    vec3comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec3]
+    
+    vec1z = vec1comps[0]
+    vec1x = vec1comps[1]
+    vec1y = vec1comps[2]
+    
+    vec2z = vec2comps[0]
+    vec2x = vec2comps[1]
+    vec2y = vec2comps[2]
+    
+    vec3z = vec3comps[0]
+    vec3x = vec3comps[1]
+    vec3y = vec3comps[2]
+        
+#    vec1x = vec1comps[0]
+#    vec1y = vec1comps[1]
+#    if vec1comps[2] == 15.0:
+#        vec1z = 1000.0
+#    else:
+#        vec1z = vec1comps[2]
+#    
+#    vec2x = vec2comps[0]
+#    vec2y = vec2comps[1]
+#    if vec2comps[2] == 15.0:
+#        vec2z = 1000.0
+#    else:
+#        vec2z = vec2comps[2]
+#    
+#    vec3x = vec3comps[0]
+#    vec3y = vec3comps[1]
+#    if vec3comps[2] == 15.0:
+#        vec3z = 1000.0
+#    else:
+#        vec3z = vec3comps[2]
+    outfile
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec1z, vec1x, vec1y))
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec2z, vec2x, vec2y))
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))
     
 def checkStructsIn(list1,list2):
     '''makes sure that items in list1 are in list 2''' 
@@ -128,7 +197,8 @@ def contcarToPoscar(structs,atoms,iteration):
             structDir = atomDir + '/' + str(struct)
             os.chdir(structDir)
             subprocess.call(['cp','POSCAR','POSCAR_{}'.format(iteration)] )
-            subprocess.call(['cp','CONTCAR','POSCAR'] )   
+            if os.stat('CONTCAR').st_size > 0:
+                subprocess.call(['cp','CONTCAR','POSCAR'] )   
     os.chdir(lastDir)
 
 def convergeCheck(folder, NSW):
@@ -217,10 +287,8 @@ def finishCheck(folder):
 
 def getFromPriorities(priorities, N, vstructsAll, atoms):
     '''take N structures new to vasp of highest priority'''
-    natoms = len(atoms)
-    newstructs = [[]]*natoms
-    print 'newstructs0',newstructs
-    for iatom in range(natoms):
+    newstructs = [[]]*len(atoms)
+    for iatom,atom in enumerate(atoms):
         nNew = 0 
         istruct = 0 
         sublist = []
@@ -231,16 +299,18 @@ def getFromPriorities(priorities, N, vstructsAll, atoms):
                 nNew += 1
             istruct += 1
         newstructs[iatom] = sublist
-        print atom, 'newstructs[iatom]',newstructs[iatom]
     return newstructs
             
-def getDiffE(priority, energiesLast, atoms):
-    '''Finds the L1 norm energy change between iterations, weighted by priority'''
-    ediff = priority[:,:]['FE'] - energiesLast
+def getDiffE(priorities, energiesLast, atoms):
+    '''Finds the L1 norm energy change between iterations, weighted by priority
+       Must have priority sorted by structure name (done before called), and 
+       energiesLast the same'''
+
     ediffL1 = zeros(len(atoms))
     for iatom in range(len(atoms)):
-        priorsum = sum(priority[iatom,:]['prior'])
-        ediffL1[iatom] = sqrt(sum(abs(ediff[iatom,:]) * priority[iatom,:]['prior']/priorsum))
+        ediff = priorities[iatom,:]['FE'] - energiesLast[iatom]
+        priorsum = sum(priorities[iatom,:]['prior'])
+        ediffL1[iatom] = sqrt(sum(abs(ediff) * priorities[iatom,:]['prior']/priorsum))
     return ediffL1
 
 def getNSW(dir): 
@@ -624,12 +694,15 @@ if __name__ == '__main__':
         manager1.runHexMono()
 
     [vstructsFinished,vstructsRestart,vstructsFailed,startFromExisting,vdata] = checkInitialFolders(atoms,restartTimeout) #assigns all struct folders to either finished, restart, or failed''' 
+    print 'vstructsFinished';    print vstructsFinished
+    print 'vstructsRestart'; print vstructsRestart
+    print 'vstructsFailed';print vstructsFailed
     vstructsAll = joinLists(vstructsFinished,vstructsFailed)
     vstructsAll = joinLists(vstructsAll,vstructsRestart)  #may not yet include from structures.start
     pastStructsUpdate(vstructsFinished,atoms)  
-    
+    print'BLOCKING ENUMERATOR'   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
-    enumerator.enumerate()
+#    enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 
@@ -665,10 +738,10 @@ if __name__ == '__main__':
 #        print "vstructsToStart IS SET FOR ITERATION 1"
 #        if iteration == 1: vstructsToStart = [[],['1','3','435']]
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir, restartTimeout) 
-        [newlyFinished, newlyFailed,newlyToRestart,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
+        [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
         #update the vstructs lists and past_structs files       
-        print '[newlyFinished, newlyFailed, newlyToRestart]'
-        print newlyFinished;print newlyFailed;print newlyToRestart
+        print '[newlyFinished,newlyToRestart, newlyFailed ]'
+        print newlyFinished;print newlyToRestart; print newlyFailed
 #        for iatom, atom in enumerate(atoms):
 #            print atom, 'vstructsFinished in Main0', vstructsFinished[iatom]
 
@@ -689,9 +762,10 @@ if __name__ == '__main__':
                 
         # Perform a fit to the VASP data in structures.in for each atom.
         fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
-        fitter.makeFitDirectories()
-        if iteration == 1 and startFromExisting.count(True) > 0: #at least one starts from existing
-            fitter.holdoutFromIn(atoms,startFromExisting)
+        if iteration == 1: 
+            fitter.makeFitDirectories()
+            if startFromExisting.count(True) > 0: #at least one starts from existing
+                fitter.holdoutFromIn(atoms,startFromExisting)
         fitter.fitVASPData(iteration)
     
         # Perform a ground state search on the fit for each atom.    
@@ -699,14 +773,21 @@ if __name__ == '__main__':
         gss.makeGSSDirectories()
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
-        #I have to have everything in a fixed order,  to use energiesLast
         #get the priority of each structure in each atom
         priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
+        #choose new structures while still sorted by priority
+        newStructsPrior = getFromPriorities(priorities, priorNum, vstructsAll,atoms)
 
         #test weighted energy difference since last iteration
+        # First sort priorities by structure name so we have an unchanging order
+        for iatom in range(natoms): priorities[iatom,:] = sort(priorities[iatom,:],order = ['struct'])
+        print 'priorities'
+        print priorities[iatom,:10]['struct']
+        print priorities[iatom,:10]['FE']
         diffe = getDiffE(priorities,energiesLast,atoms)
-        energiesLast = sort(priorities,order = ['struct'])['FE'] #to be used next iteration
-        print 'energiesLast', energiesLast
+        energiesLast = priorities['FE'] #to be used next iteration, sorted by structure
+        print 'new energiesLast', energiesLast
+        
         # Determine which atoms need to continue
 #        diffMax = 0.01 # 10 meV convergence criterion
         diffMax = float(readfile(maindir + '/needed_files/diffMax')[0].strip()) #read from file called 'diffMax', so we can experiment with it during a long run
@@ -720,9 +801,8 @@ if __name__ == '__main__':
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)
-                print 'new atoms',atoms
-#            print'BLOCKING remove atoms for no finished!'
-            elif len(newlyFinished[iatom]) == 0 and len(vstructsToStart[iatom]) > 0:
+
+            elif len(newlyFinished[iatom]) + len(newlyToRestart[iatom])   == 0 and len(vstructsToStart[iatom]) > 0:
                 print 'Atom has only failed structures:', atom,'has been stopped.'
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
@@ -735,7 +815,7 @@ if __name__ == '__main__':
             vstructsAll = multiDelete(vstructsAll,rmAtoms)
             vdata = delete(vdata,rmAtoms,axis=0)        
             energiesLast = delete(priorities,rmAtoms,axis=0)['FE'] #    priorities[ikeep,:]['FE']
-
+            newStructsPrior = multiDelete(newStructsPrior,rmAtoms)
 #        print vdata.shape
 #        print 'vdata0';print vdata[0,:]['struct'][:100]
 #        vdata2 = deepcopy(vdata[atomnumbers[0],:]) #get this started
@@ -748,9 +828,8 @@ if __name__ == '__main__':
 #        print 'vdata';print vdata[0,:]['struct'][:100]
 
 
-        newStructsPrior = getFromPriorities(priorities, priorNum, vstructsAll,atoms)
         if natoms == 0:
-            subprocess.call(['echo','\n----------------- All atoms have converged! ---------------'])
+            subprocess.call(['echo','\n----------------- All atoms have finished ---------------'])
             converged = True
 
         # Set holdoutStructs for the next iteration to the 100 (or less) lowest vasp structures

@@ -105,7 +105,8 @@ class MakeUncleFiles:
                 self.newlyFailed[iatom] = failed #for atom i                
                 conclist.sort()                
                 for i in xrange(len(conclist)): finished.append(conclist[i][1]) 
-                self.newlyFinished[iatom]= finished #sorted by concentration, for atomi
+                self.newlyFinished[iatom]= finished
+                self.newlyToRestart[iatom]= restart #sorted by concentration, for atomi
 #                print 'self.newlyFinished[iatom]',self.newlyFinished[iatom]
                 os.chdir(lastDir)
 
@@ -311,36 +312,35 @@ class MakeUncleFiles:
             if os.path.isdir(atomDir):
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + atom + '\n'])
                 self.reinitialize()              
-                if iteration == 1 and self.startFromExisting[iatom]: #need only structures.holdout
-                    startfile = os.getcwd() + '/needed_files/structures.start.' + atom                     
-                    subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.in'])
-                    self.getPureEs(iatom)
-                else: #need both structures.in and .holdout                   
-                    self.getPureEs(iatom)
-                    if len(self.newlyFinished[iatom]) > 0: self.vaspToVdata(iatom)
-                    structsDotInPath = atomDir + '/enumpast/structures.in'
-                    outfile = open(structsDotInPath, 'a')
-                    for structure in self.newlyFinished[iatom]:
-                        self.writePOSCAR(atomDir + '/' + structure,outfile)
-
-                    outfile.close                                    
-                    
+#                if iteration == 1 and self.startFromExisting[iatom]: #need only structures.holdout
+#                    startfile = os.getcwd() + '/needed_files/structures.start.' + atom                     
+#                    subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.in'])
+#                    self.getPureEs(iatom)
+#                else: #need both structures.in and .holdout                   
+                self.getPureEs(iatom)
+                if len(self.newlyFinished[iatom]) > 0: 
+                    self.vaspToVdata(iatom)
+                outfile = open(atomDir + '/enumpast/structures.in', 'a')
+                for structure in self.newlyFinished[iatom]:
+                    self.writeUnclePOSCAR(atomDir + '/' + structure,outfile,'')
+                outfile.close
+               
                     #Fix below:  it's possible that none of the structures in holdoutStructs
                     #have folders and POSCARS in the atom directory, because they came from 
-                    #structure.start.  So the poscars need to come not from  writePOSCAR(dir,..), but 
-                    #to generate the psuedo-POSCAR, convert it and write it to holdout. 
+                    #structure.start.  So the poscars need to come not from  writeUnclePOSCAR(dir,..), but 
+                    #to generate the pseudo-POSCAR, convert it and write it to holdout. 
 #                    outfile = open(atomDir + '/fits/structures.holdout', 'w')
 #                    outfile.write(self.header) 
 #                    for structure in holdoutStructs[iatom]:
 #                            # Make sure the structure has converged before trying to write it to
 #                            # structures.holdout
-#                        if self.contains(structure, self.newlyFinished[iatom]): self.writePOSCAR(structure, self.holdoutFile)
+#                        if self.contains(structure, self.newlyFinished[iatom]): self.writeUnclePOSCAR(structure, self.holdoutFile)
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
-                    subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
+                subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vdataToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
-        
-        return self.newlyFinished, self.newlyFailed,self.newlyToRestart, self.vdata
+    
+        return self.newlyFinished, self.newlyToRestart, self.newlyFailed, self.vdata
                     
     def readfile(self,filepath): 
         file1 = open(filepath,'r')
@@ -441,15 +441,14 @@ class MakeUncleFiles:
     def setIDString(self, poscarDir):
         """ Sets the first written line of each structure to the form:
                 C H (Metal Atom)  Structure:  #(Decimal) (#(Binary)) """
-        print 'poscarDir', poscarDir
         poscar = open(poscarDir + '/POSCAR', 'r')
         ID = poscar.readlines()[0].strip()       
         self.idString = ID
         
-    def setLatticeVectors(self, structFile):
+    def setLatticeVectors(self, structDir):
         """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
             corresponding member components. """
-        vecFile = open(structFile + '/POSCAR', 'r')
+        vecFile = open(structDir + '/POSCAR', 'r')
         vecFileLines = vecFile.readlines()
         vecFile.close()
         
@@ -496,7 +495,7 @@ class MakeUncleFiles:
         file.close()  
         os.chdir(dir1) 
 
-    def timeoutCheck(self,dir):
+    def timeoutCheck(self,structDir):
         '''checks the latest slurm file for the words TIME LIMIT'''
         slurmlist = []               
         structfiles = os.listdir(structDir)
@@ -507,9 +506,8 @@ class MakeUncleFiles:
         if len(slurmlist)>0: #only use the last slurm
             slurmlist.sort()
             lastslurm = slurmlist[-1]
-            for line in readfile(structDir + '/' + lastslurm):
+            for line in self.readfile(structDir + '/' + lastslurm):
                 if 'TIME LIMIT' in line: 
-                    sublist.append(struct)
                     return True
         return False        
 
@@ -641,12 +639,15 @@ class MakeUncleFiles:
         self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec2z, self.vec2x, self.vec2y))
         self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec3z, self.vec3x, self.vec3y))
     
-    def writePOSCAR(self, poscarDir, outfile):
+    def writeUnclePOSCAR(self, poscarDir, outfile, idString):
         """ Calls all the methods needed to write all the needed information about the current
             structure to the 'structures.in' or 'structures.holdout' files.  Uses an input list
             to decide which structures to put in the 'structures.holdout' file. """
         self.outfile = outfile
-        self.setIDString(poscarDir)
+        if idString == '':
+            self.setIDString(poscarDir)
+        else: 
+            self.setIDString = idString
         self.setLatticeVectors(poscarDir)
         self.setAtomCounts(poscarDir)
         self.setAtomPositions(poscarDir)

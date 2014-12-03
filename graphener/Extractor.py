@@ -63,13 +63,13 @@ class Extractor:
         
         os.chdir(lastDir)
     
-    def setStructsFromGSS(self, alist): # this flattens the list because the pseudo-POSCAR is not unique to an atom
-        """ Sets the list of structures that we want to run through VASP calculations.  The list 
-            being passed to this method (alist) will actually be a list of lists.  It will have a 
-            structure list for each atom that still has not finished the main convergence loop. """
-        self.exStructList = []
-        for atomStructs in alist:
-            self.exStructList.append(atomStructs)
+#    def setStructsFromGSS(self, alist): # this flattens the list because the pseudo-POSCAR is not unique to an atom
+#        """ Sets the list of structures that we want to run through VASP calculations.  The list 
+#            being passed to this method (alist) will actually be a list of lists.  It will have a 
+#            structure list for each atom that still has not finished the main convergence loop. """
+#        self.exStructList = []
+#        for atomStructs in alist:
+#            self.exStructList.append(atomStructs)
     
 #    def getexStructList(self): # this flattens the list because the pseudo-POSCAR is not unique to an atom 
 #        """ Returns the list of structures for each atom that has not finished the convergence

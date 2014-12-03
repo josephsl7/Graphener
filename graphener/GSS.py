@@ -4,7 +4,7 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 import os, subprocess, sys
-from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median
+from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32
 from copy import deepcopy
 
 class GSS:
@@ -80,7 +80,7 @@ class GSS:
         numberCs = len(self.Ncs)
         Ntot = sum(self.Ncs) #total number of structures              
         if iteration==1: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)])     
-        self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', 'S10'),('FE', float), ('prior', float)])
+        self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', int32),('FE', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1:
@@ -110,8 +110,7 @@ class GSS:
                     for n in range(Nc):
                         istr = iplace+n
                         self.priorities[iatom,istr]['struct'] = gssInfo[istr]['struct']
-                        energy = gssInfo[istr]['FE']
-                        self.priorities[iatom,istr]['FE'] = energy
+                        self.priorities[iatom,istr]['FE'] = gssInfo[istr]['FE']
                         self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width) 
                     iplace += Nc
     #            self.priorities = sort(self.priorities, order=['prior']) # sorted low to high 
@@ -121,14 +120,14 @@ class GSS:
                 priorfile = open(atomDir+'/temp','w')
                 priorfile.write('structure,priority,concentration,FEnergy\n')
                 for i in range(Ntot):
-                    priorfile.write('{:10s}{:10.6f}{:8.4f}{:10.6f}\n'.format( \
+                    priorfile.write('{:10d}{:12.6f}{:8.4f}{:10.6f}\n'.format( \
                         self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
                            gssInfo[i]['conc'],gssInfo[i]['FE']))               
                 priorfile.close()
                 os.chdir(atomDir)
                 os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
                 lines = self.readfile(atomDir+'/priorities_{}.out'.format(iteration))
-                for i, line in enumerate(lines[:-1]): #skip last line which is header
+                for i, line in enumerate(lines[:-1]): #skip last line which is header (now footer) as sorted
                     data = line.strip().split()
                     self.priorities[iatom,i]['struct'] = data[0]
                     self.priorities[iatom,i]['prior'] = data[1]
