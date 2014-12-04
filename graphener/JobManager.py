@@ -160,11 +160,12 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures converged.' % converged])
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
     
-    def runDOSJobs(self, vstructsToStart, vstructsToRun):
+    def runDOSJobs(self, vstructsToStart, vstructsRestart):
         """ Starts the Density of States VASP calculations for all of the structures in 
             'vstructsToStart' and waits for all of the jobs to finish. It checks on the jobs every ten 
             minutes. """
         subprocess.call(['echo','\nStarting DOS run. . .\n'])
+        vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         self.vaspRunner.run(3, vstructsToStart, vstructsToRun)   
         s = scheduler(time.time, time.sleep)    
         finished = False
@@ -181,16 +182,18 @@ class JobManager:
         subprocess.call(['echo','\nPreparing and running hexagonal metal monolayers directories\n']) #bch   
         self.vaspRunner.makeRunHexMono()  
             
-    def runLowJobs(self, vstructsToStart,vstructsToRun):
+    def runLowJobs(self, vstructsToStart,vstructsRestart):
         """ Starts the low-precision VASP calculations for all of the structures in 'vstructsToStart'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nPreparing directories for VASP. . .\n'])
+        vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         self.vaspRunner.prepareForVasp(vstructsToStart)
+        self.vaspRunner.prepareRestarts(vstructsRestart) #contcar->poscar, incar and job file
     
         s = scheduler(time.time, time.sleep)
         
         subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
-        self.vaspRunner.run(1, vstructsToRun,vstructsToRun)
+        self.vaspRunner.run(1,vstructsToStart,vstructsToRun)
         
         finished = False
         start_time = time.time()
@@ -203,11 +206,12 @@ class JobManager:
     
         self.reportLowStats(vstructsToRun)
     
-    def runNormalJobs(self, vstructsToStart,vstructsToRun):
+    def runNormalJobs(self, vstructsToStart,vstructsRestart):
         """ Starts the normal-precision VASP calculations for all of the structures in 'vstructsToStart'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
         self.vaspRunner.run(2, vstructsToStart,vstructsToRun)
+        vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         
         s = scheduler(time.time, time.sleep)
     

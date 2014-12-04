@@ -53,8 +53,8 @@ def checkInitialFolders(atoms,restartTimeout):
                 structlist.append(item)
         for istruct,struct in enumerate(structlist):
             failed = False
-            if mod(istruct+1,100) == 0: subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
-            vaspDir = atomDir + '/'+ struct
+            if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
+                subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
                     atomCounts = setAtomCounts(vaspDir) #also changes andy "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
@@ -191,7 +191,8 @@ def contains(struct, alist):
     return False
 
 def contcarToPoscar(structs,atoms,iteration):
-    '''Prepares structures for restart'''
+    '''Prepares structures for restart. Also creates new job and incar files in case 
+       they should be different this time'''
     lastDir = os.getcwd()
     restartStructs = [[]]*len(atoms)
     for iatom, atom in enumerate(atoms):
@@ -241,7 +242,7 @@ def equals(alist, blist):
     else:
         return True
 
-def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsToRun):
+def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
      and put the POSCARs in their corresponding directories. Run VASP'''
 #    vstructsToStart = extractor.getStructList()
@@ -256,15 +257,15 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsT
             # Start VASP jobs and wait until they all complete or time out.
         manager2 = JobManager.JobManager(atoms)
         if runTypes ==['low']:
-            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
-            #manager2.runLowJobs(vstructsToStart,vstructsToRun)
+#            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
+            manager2.runLowJobs(vstructsToStart,vstructsRestart)
         elif runTypes ==['low','normal']:
-            manager2.runLowJobs(vstructsToStart,vstructsToRun)
-            manager2.runNormalJobs(vstructsToStart,vstructsToRun)          
+            manager2.runLowJobs(vstructsToStart,vstructsRestart)
+            manager2.runNormalJobs(vstructsToStart,vstructsRestart)          
         elif runTypes ==['low','normal','dos']:
-            manager2.runLowJobs(vstructsToStart,vstructsToRun)
-            manager2.runNormalJobs(vstructsToStart,vstructsToRun)
-            manager2.runDOSJobs(vstructsToStart,vstructsToRun) 
+            manager2.runLowJobs(vstructsToStart,vstructsRestart)
+            manager2.runNormalJobs(vstructsToStart,vstructsRestart)
+            manager2.runDOSJobs(vstructsToStart,vstructsRestart) 
         else:
             subprocess.call(['echo','Your RUN_TYPES is {}'.format(runTypes)]) 
             sys.exit('The only supported RUN_TYPES are "low", "low normal" and "low normal DOS"') 
@@ -522,26 +523,26 @@ def removeStructs(list1,list2):
         for item in list1[iatom]:
             if item in list2[iatom]: list2[iatom].remove(item)
     return list2
-
-def timeoutCheck(dir):
-    '''Checks the latest slurm file for the words TIME LIMIT. 
-       Or if it doesn't have a slurm, it means it neverstarted, so start those'''
-    slurmlist = []
-    structfiles = os.listdir(dir)
-    failed = False
-    for file in structfiles:
-        filePath = dir + '/' + file
-        if 'slurm' in file and os.stat(filePath).st_size > 0:
-            slurmlist.append(file)
-    if len(slurmlist)==0: 
-        return True
-    else: #only use the last slurm
-        slurmlist.sort()
-        lastslurm = slurmlist[-1]
-        for line in readfile(dir + '/' + lastslurm):
-            if 'TIME LIMIT' in line: 
-                return True
-        return False
+#
+#def timeoutCheck(dir):
+#    '''Checks the latest slurm file for the words TIME LIMIT. 
+#       Or if it doesn't have a slurm, it means it neverstarted, so start those'''
+#    slurmlist = []
+#    structfiles = os.listdir(dir)
+#    failed = False
+#    for file in structfiles:
+#        filePath = dir + '/' + file
+#        if 'slurm' in file and os.stat(filePath).st_size > 0:
+#            slurmlist.append(file)
+#    if len(slurmlist)==0: 
+#        return True
+#    else: #only use the last slurm
+#        slurmlist.sort()
+#        lastslurm = slurmlist[-1]
+#        for line in readfile(dir + '/' + lastslurm):
+#            if 'TIME LIMIT' in line: 
+#                return True
+#        return False
 
 def slurmProblem(dir):
     '''Checks all slurm files for key strings that indicate we shouldn't restart. 
@@ -649,10 +650,10 @@ def writefile(lines,filepath): #need to have \n's inserted already
 # -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
-    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'  
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = os.getcwd()
+    maindir = os.getcwd()
     subprocess.call(['echo','Starting in ' + maindir])
     
     os.chdir(maindir)
@@ -682,13 +683,13 @@ if __name__ == '__main__':
     if not os.path.isdir('hex_monolayer_refs'):
         manager1 = JobManager.JobManager(atoms)
         manager1.runHexMono()
-
-    [vstructsFinished,vstructsRestart,vstructsFailed,startFromExisting,vdata] = checkInitialFolders(atoms,restartTimeout) #assigns all struct folders to either finished, restart, or failed''' 
+    #assign all existing struct folders to either finished, restart, or failed
+    [vstructsFinished,vstructsRestart,vstructsFailed,startFromExisting,vdata] = checkInitialFolders(atoms,restartTimeout)  
 #    subprocess.call(['echo','vstructsFinished']) ; subprocess.call(['echo',vstructsFinished]) 
 #    subprocess.call(['echo','vstructsRestart']) ; subprocess.call(['echo',vstructsRestart]) 
 #    subprocess.call(['echo','vstructsFailed']) ; subprocess.call(['echo',vstructsFailed]) 
     vstructsAll = joinLists(vstructsFinished,vstructsFailed)
-    vstructsAll = joinLists(vstructsAll,vstructsRestart)  #may not yet include from structures.start
+    vstructsAll = joinLists(vstructsAll,vstructsRestart)  
     pastStructsUpdate(vstructsFinished,atoms)  
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
@@ -723,7 +724,7 @@ if __name__ == '__main__':
         contcarToPoscar(vstructsRestart,atoms,iteration)
         vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         pastStructsUpdate(vstructsToStart,atoms)
-        finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsToRun)           
+        finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
         # Create structures.in and structures.holdout files for each atom.
         os.chdir(maindir) #FIX this...shouldn't need it.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir, restartTimeout) 

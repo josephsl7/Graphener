@@ -6,11 +6,10 @@ Created on Aug 29, 2014
 from numpy import zeros, mod, count_nonzero 
 import os, subprocess, sys
 from random import random
-from Main import timeoutCheck,slurmProblem
+from Main import slurmProblem
 
 
 class MakeUncleFiles:
-
 
     def __init__(self, atoms, startFromExisting, iteration,finalDir,restartTimeout):
         """ CONSTRUCTOR """
@@ -83,7 +82,8 @@ class MakeUncleFiles:
                 restart = []
                 for istruct, struct in enumerate(vstructsToRun[iatom]):
 #                    print 'struct',struct
-                    if mod(istruct+1,100) == 0: subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(vstructsToRun[iatom]),atom)])
+                    if mod(istruct+1,100) == 0 or istruct+1 == len(vstructsToRun[iatom]): 
+                        subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(vstructsToRun[iatom]),atom)])
 #                    fullPath = os.path.abspath(struct)
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
