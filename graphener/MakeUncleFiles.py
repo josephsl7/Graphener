@@ -7,10 +7,10 @@ from numpy import zeros, mod, count_nonzero
 import os, subprocess, sys
 from random import random
 from Main import slurmProblem
-
+from comMethods import joinLists
 
 class MakeUncleFiles:
-
+    from comMethods import setAtomCounts
     def __init__(self, atoms, startFromExisting, iteration,finalDir,restartTimeout):
         """ CONSTRUCTOR """
         self.atoms = atoms
@@ -52,8 +52,7 @@ class MakeUncleFiles:
         self.yPositions = []
         self.zPositions = []
         
-        self.atomCounts = []
-        
+        self.atomCounts = []     
         self.energy = 0.0   
         self.singleE = [] 
         self.hexE = [] 
@@ -379,30 +378,29 @@ class MakeUncleFiles:
         self.zPositions = []
         
         self.atomCounts = []
-        
         self.energy = 0.0 
 
-    def setAtomCounts(self, poscarDir):
-        """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
-            the corresponding members. """
-        self.atomCounts = []
-
-        poscar = open(poscarDir + '/POSCAR', 'r')
-        poscarLines = poscar.readlines()
-        poscar.close()
-        
-        counts = poscarLines[5].strip().split()
-        
-        if len(counts) == 3:
-            self.atomCounts.append(int(counts[1]))
-            self.atomCounts.append(int(counts[2]))
-        elif len(counts) == 2:
-            if poscarLines[0].split()[1] == 'H':
-                self.atomCounts.append(int(counts[1]))
-                self.atomCounts.append(0)
-            elif poscarLines[0].split()[1] == 'M':
-                self.atomCounts.append(0)
-                self.atomCounts.append(int(counts[1]))
+#    def setAtomCounts(self, poscarDir):
+#        """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
+#            the corresponding members. """
+#        self.atomCounts = []
+#
+#        poscar = open(poscarDir + '/POSCAR', 'r')
+#        poscarLines = poscar.readlines()
+#        poscar.close()
+#        
+#        counts = poscarLines[5].strip().split()
+#        
+#        if len(counts) == 3:
+#            self.atomCounts.append(int(counts[1]))
+#            self.atomCounts.append(int(counts[2]))
+#        elif len(counts) == 2:
+#            if poscarLines[0].split()[1] == 'H':
+#                self.atomCounts.append(int(counts[1]))
+#                self.atomCounts.append(0)
+#            elif poscarLines[0].split()[1] == 'M':
+#                self.atomCounts.append(0)
+#                self.atomCounts.append(int(counts[1]))
 
     def setAtomPositions(self, poscarDir):
         """ Retrieves the positions of each of the atoms.  Appends the x-coordinate to the 
@@ -517,7 +515,7 @@ class MakeUncleFiles:
         for plots.  vaspToVdata should be run first"""
         lastDir = os.getcwd()
         os.chdir(lastDir + '/' + self.atoms[iatom])
-        eIsolatedH = -1.115 
+        eIsolatedH = -1.1073   
         eIsolatedC = -1.3179 
         eH2 = -6.7591696/2.0 
         energyGraphene = -18.456521 #for 2 C atoms 
@@ -540,6 +538,7 @@ class MakeUncleFiles:
             bindEnergy = structEnergy - (nH*eIsolatedH + nmetal*self.singleE[iatom] + ncarbon*energyGraphene/2.0)/ float(natoms) #2 atoms in graphene 
             self.vdata[iatom,istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))  
+            #note that the hex monolayers have one atom per cell
             hexFormationEnergy = structEnergy - energyGraphene/2  - (conc * self.hexE[iatom] + (1.0 - conc) * eH2)
             self.vdata[iatom,istruct]['HFE'] = hexFormationEnergy
             vaspHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,hexFormationEnergy))    

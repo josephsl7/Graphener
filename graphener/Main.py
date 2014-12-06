@@ -9,6 +9,8 @@ from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
 from copy import deepcopy
 
+from comMethods import joinLists
+
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
 
 def checkInitialFolders(atoms,restartTimeout):
@@ -39,8 +41,8 @@ def checkInitialFolders(atoms,restartTimeout):
         pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/2.0 #2.0: per atom
         pureMenergy = float(readfile(pureMdir + '/OSZICAR')[-1].split()[2])/2.0 
         subprocess.call(['echo','\n\n{}'.format(atom)])
-        subprocess.call(['echo','\tpure H system energy{}'.format(pureHenergy)]) 
-        subprocess.call(['echo','\tpure M system energy{}'.format(pureMenergy)])     
+        subprocess.call(['echo','\tpure H system energy {}'.format(pureHenergy)]) 
+        subprocess.call(['echo','\tpure M system energy {}'.format(pureMenergy)])     
         # all structures (including pure
         finishedStructs = []
         restartStructs = []
@@ -53,11 +55,12 @@ def checkInitialFolders(atoms,restartTimeout):
                 structlist.append(item)
         for istruct,struct in enumerate(structlist):
             failed = False
+            vaspDir = atomDir + '/'+ str(struct)
             if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
                 subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
-                    atomCounts = setAtomCounts(vaspDir) #also changes andy "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
+                    atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
                 except:
                     failed = True
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
@@ -193,6 +196,7 @@ def contains(struct, alist):
 def contcarToPoscar(structs,atoms,iteration):
     '''Prepares structures for restart. Also creates new job and incar files in case 
        they should be different this time'''
+    print'in c2p'
     lastDir = os.getcwd()
     restartStructs = [[]]*len(atoms)
     for iatom, atom in enumerate(atoms):
@@ -202,8 +206,15 @@ def contcarToPoscar(structs,atoms,iteration):
             os.chdir(structDir)
             subprocess.call(['cp','POSCAR','POSCAR_{}'.format(iteration)] )
             if os.path.exists(structDir + '/CONTCAR'):
+                print 'exists'
                 if os.stat(structDir + '/CONTCAR').st_size > 0:
-                    subprocess.call(['cp','CONTCAR','POSCAR'] )   
+                    print 'copy'
+                    print structDir + '/CONTCAR'
+                    os.system('rm {}'.format(structDir + '/POSCAR')) 
+                    os.system('cp {} {}'.format(structDir + '/CONTCAR',structDir + '/POSCAR'))
+#                    print subprocess.check_call(['cp',structDir + '/CONTCAR',structDir + '/POSCAR'])   
+                    subprocess.call(['ls',structDir]  )  
+
     os.chdir(lastDir)
 
 def convergeCheck(folder, NSW):
@@ -220,10 +231,10 @@ def createEnumPastDir(atoms):
     that need past_structs.dat. This creates/clears the folder and puts an empty past_structs.dat there'''
     for i,atom in enumerate(atoms):
         atomDir = os.getcwd() + '/' + atom
-        vsDir = atomDir + '/enumpast'
-        if os.path.isdir(vsDir): subprocess.call(['rm','-r' ,vsDir])                    
-        subprocess.call(['mkdir', vsDir])                
-        file = open(vsDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
+        epDir = atomDir + '/enumpast'
+        if os.path.isdir(epDir): subprocess.call(['rm','-r' ,epDir])                    
+        subprocess.call(['mkdir', epDir])                
+        file = open(epDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
 
 def equals(alist, blist):
     clist = deepcopy(alist)
@@ -255,7 +266,7 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
         toPoscar.convertOutputsToPoscar()
     # Start VASP jobs and wait until they all complete or time out.
             # Start VASP jobs and wait until they all complete or time out.
-        manager2 = JobManager.JobManager(atoms)
+        manager2 = JobManager.JobManager(atoms,ediffg)
         if runTypes ==['low']:
 #            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
             manager2.runLowJobs(vstructsToStart,vstructsRestart)
@@ -343,14 +354,6 @@ def getSteps(folder):
         return value
     except:
         return 9999 
-
-def joinLists(list1,list2):
-    '''Joins lists of the [[sublist1],[sublist2],[sublist3]].  List1 and 2 must have the
-    same length, but can different length sublists'''
-    list3=[]
-    for i in range(len(list1)):
-        list3.append(list1[i]+list2[i])
-    return list3
 
 def multiDelete(list_, args):
     indexes = sorted(args, reverse=True)
@@ -514,8 +517,11 @@ def readSettingsFile():
         elif line.split()[0] == 'RESTART_TIMEOUT:':
             if line.split()[1][0].lower() == 'y': 
                restartTimeout = True
+            
+        elif line.split()[0] == 'EDIFFG:': #ionic relaxation energy max diff, for INCAR, per atom.  May also be used or scaled for ediff, electronic relax energy max diff
+            ediffg = float(line.split()[1])
     
-    return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout]
+    return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout,ediffg]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -586,7 +592,7 @@ def setAtomCounts(poscarDir):
     natoms = sum(atomCounts)
     if fixPOSCAR:
         del(poscarLines[5])
-        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want          
+        writefile(poscarLines[:7+natoms*2],poscarDir + '/POSCAR') #:7+natoms*2 is because CONTCAR includes velocity lines that uncle doesn't want. The factor of 2 is because carbon atoms are not included in natoms      
     return atomCounts
 
 def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
@@ -650,10 +656,12 @@ def writefile(lines,filepath): #need to have \n's inserted already
 # -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm2'  
+    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = os.getcwd()
+#    maindir = os.getcwd()
+
+    
     subprocess.call(['echo','Starting in ' + maindir])
     
     os.chdir(maindir)
@@ -666,7 +674,7 @@ if __name__ == '__main__':
         sys.exit('Stop')
     seed()
 
-    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout] = readSettingsFile()
+    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout,ediffg] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
@@ -678,10 +686,10 @@ if __name__ == '__main__':
     holdoutStructs = [[]]*natoms
 
     if not os.path.isdir('single_atoms'):
-        manager1 = JobManager.JobManager(atoms)
+        manager1 = JobManager.JobManager(atoms,ediffg)
         manager1.runSingleAtoms()
     if not os.path.isdir('hex_monolayer_refs'):
-        manager1 = JobManager.JobManager(atoms)
+        manager1 = JobManager.JobManager(atoms,ediffg)
         manager1.runHexMono()
     #assign all existing struct folders to either finished, restart, or failed
     [vstructsFinished,vstructsRestart,vstructsFailed,startFromExisting,vdata] = checkInitialFolders(atoms,restartTimeout)  
@@ -690,6 +698,7 @@ if __name__ == '__main__':
 #    subprocess.call(['echo','vstructsFailed']) ; subprocess.call(['echo',vstructsFailed]) 
     vstructsAll = joinLists(vstructsFinished,vstructsFailed)
     vstructsAll = joinLists(vstructsAll,vstructsRestart)  
+    createEnumPastDir(atoms)
     pastStructsUpdate(vstructsFinished,atoms)  
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
@@ -697,9 +706,7 @@ if __name__ == '__main__':
 #    enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
-
-    createEnumPastDir(atoms)
-    
+   
     converged = False
     iteration = 1
 
@@ -716,6 +723,7 @@ if __name__ == '__main__':
         extractor = Extractor.Extractor(atoms, uncleOutput, startFromExisting)           
         if iteration == 1:
             vstructsToStart = enumerator.chooseTrainingStructures(iteration,startFromExisting)
+            #may need to append pure structures:
             vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)           
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 

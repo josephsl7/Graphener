@@ -6,6 +6,7 @@ Created on Aug 26, 2014
 import os, subprocess, time
 from sched import scheduler
 import RunVasp
+from comMethods import joinLists
 
 class JobManager:
     """ This class is responsible for scheduling and watching the VASP calculations.  It starts
@@ -16,10 +17,10 @@ class JobManager:
         is used to prepare all the directories, retrieve the needed files, and submit the jobs to
         the supercomputer. """
 
-    def __init__(self, atoms):
+    def __init__(self, atoms,ediffg):
         """ CONSTRUCTOR """
         self.atoms = atoms
-        self.vaspRunner = RunVasp.RunVasp(self.atoms)
+        self.vaspRunner = RunVasp.RunVasp(self.atoms,ediffg)
     
     def reportFinished(self, jobIds):
         """ Returns true if all the jobs with IDs given in 'jobIds' have finished VASP

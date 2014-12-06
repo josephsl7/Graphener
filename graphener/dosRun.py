@@ -16,16 +16,17 @@ def makeDOSDirectories(structlist,atom,NkDiv,walltime):
         if not os.path.exists(structDir):
             subprocess.call(['echo','No folder for {}, struct {}'.format(atom,struct)])
         elif finishCheck(structDir) and  convergeCheck(structDir, getNSW(structDir)):
-#            print structDir
-            os.chdir(structDir)
-            subprocess.call(['mkdir', dosDir])
-            subprocess.call(['ln','-s','/fslhome/bch/bin/vasp533',dosDir+'/vasp533'])
-            subprocess.call(['cp',structDir+'/CONTCAR',dosDir+ '/POSCAR'])
-            subprocess.call(['cp',structDir+'/POTCAR',dosDir+ '/POTCAR'])
-            makeDOS_INCAR(dosDir)
-            makeDOSJobFile(dosDir,atom+struct,walltime)
-            makeKPOINTS(dosDir, NkDiv, NkDiv) 
-            toStart.append(struct)
+            if not os.path.exists(dosDir):
+                subprocess.call(['echo','Preparing {}, struct {} for DOS run'.format(atom,struct)]) 
+                os.chdir(structDir)
+                subprocess.call(['mkdir', dosDir])
+                subprocess.call(['ln','-s','/fslhome/bch/bin/vasp533',dosDir+'/vasp533'])
+                subprocess.call(['cp',structDir+'/CONTCAR',dosDir+ '/POSCAR'])
+                subprocess.call(['cp',structDir+'/POTCAR',dosDir+ '/POTCAR'])
+                makeDOS_INCAR(dosDir)
+                makeDOSJobFile(dosDir,atom+struct,walltime)
+                makeKPOINTS(dosDir, NkDiv, NkDiv) 
+                toStart.append(struct)
         else:
             subprocess.call(['echo','Structure ' + struct + ' has not finished or not converged'])
         os.chdir(topDir)
@@ -65,7 +66,7 @@ def makeDOSJobFile(dosDir,name,walltime):
     jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
     jobFile.write("#SBATCH --mail-user=hess.byu@gmail.com\n")
     jobFile.write("#SBATCH --mail-type=END\n")  
-    jobFile.write("#SBATCH --job-name=%s\n" % name)
+    jobFile.write("#SBATCH --job-name=dos%s\n" % name)
     jobFile.write("#SBATCH --mail-type=FAIL\n")
     jobFile.write("\nmpiexec vasp533 > vasp.out\n")
 
@@ -117,7 +118,8 @@ def startJobs(toStart,atomDir):
 #======================================= Script =====================================
 #======================================= Script =====================================
 
-maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+maindir = '/fslhome/bch/cluster_expansion/graphene/analysis' 
+ 
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #maindir = os.getcwd()
@@ -159,7 +161,6 @@ for atom in atomlist:
             structlist.append(struct)
         print 'structlist';print structlist
         toStart = makeDOSDirectories(structlist,atom,NkDiv,int(rint(walltime)))
-        startJobs(toStart,atomDir)
-
+#        startJobs(toStart,atomDir)
 print "Done"
 

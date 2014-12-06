@@ -1,17 +1,22 @@
 import os, subprocess
 
+
 class RunVasp:
     """ This class is responsible for preparing the directories, retrieving the needed files, and
         submitting VASP jobs to the supercomputer.  It keeps track of the SLURM job ids of all the
         jobs that are currently running from a particular instance of the class. """
     
-    def __init__(self, atoms):
+    from comMethods import setAtomCounts
+    def __init__(self, atoms,ediffg):
         """ CONSTRUCTOR """
+        
         
         self.atoms = atoms
         self.neededFilesFolder = os.getcwd() + '/needed_files/'
         
         self.currJobIds = []
+        self.ediffg = ediffg 
+        
 
 #    def addStructName(self,nameadd):
 #        jobfile = open('job','r')
@@ -51,25 +56,26 @@ class RunVasp:
             atomDir = lastDir + '/' + atom
             
             os.chdir(atomDir)
-            structures = []
+            structs = []
             for item in vstructsToStart[iatom]:
                 if os.path.isdir(item):
-                    structures.append(item)
+                    structs.append(item)
             
-            for structure in structures:
-                structureDir = os.path.abspath(structure)
-                self.makeJobFiles(structureDir,atom+structure)   
-                subprocess.call(['cp','-P','KPOINTS', 'INCAR', 'vasp533', structureDir])
-                poscar = open(structureDir + '/POSCAR','r')
+            for struct in structs:
+                structDir = os.path.abspath(struct)
+                self.makeJobFiles(structDir,atom+struct)  
+                self.makeLowINCARs(structDir)  
+                subprocess.call(['cp','-P','KPOINTS','vasp533', structDir])
+                poscar = open(structDir + '/POSCAR','r')
                 poscarLines = [line.strip() for line in poscar]
                 poscar.close()
                 
                 if poscarLines[0].split()[1] == 'H':
-                    subprocess.call(['cp','CH_POTCAR',structureDir + '/POTCAR'])
+                    subprocess.call(['cp','CH_POTCAR',structDir + '/POTCAR'])
                 elif poscarLines[0].split()[1] == 'M':
-                    subprocess.call(['cp','C' + atom + '_POTCAR',structureDir + '/POTCAR'])
+                    subprocess.call(['cp','C' + atom + '_POTCAR',structDir + '/POTCAR'])
                 else:
-                    subprocess.call(['cp','POTCAR',structureDir])            
+                    subprocess.call(['cp','POTCAR',structDir])            
             os.chdir(lastDir)
 
     def finishCheck(self, folder):
@@ -183,7 +189,7 @@ class RunVasp:
 
     def makeJobFiles(self,dir,name):
         """ Creates a standard job file for submitting a VASP job on the supercomputer. 
-        Done one structure at a time so we can have the structure in the name"""
+        Done one structure at a time so we can have the structure in the name. """
         jobFile = open(dir + '/job','w')   
         jobFile.write("#!/bin/bash\n\n")
         jobFile.write("#SBATCH --time=03:00:00\n")
@@ -215,28 +221,28 @@ class RunVasp:
             kpoints.close()
 
 
-    def makeLowINCARs(self):
+    def makeLowINCARs(self,dir):
         """ Creates a standard INCAR file and puts it in each different structure's top 
-            directory. """
-        dirList = self.atoms
-        
-        for direc in dirList:
-            incar = open(direc + '/INCAR','w')    
-            incar.write("IBRION=2\n")
-            incar.write("ISIF=4\n")
-            incar.write("NSW=400\n")
-            incar.write("Algo=VeryFast\n")
-            incar.write("PREC=Low\n") 
-            incar.write("EDIFF=2E-3\n")
-            incar.write("EDIFFG=2E-3\n")
-            incar.write("ISMEAR=0\n")
-            incar.write("ISPIN=2\n")
-            incar.write("NPAR=4\n")
-            incar.write("LREAL=Auto\n")
-            incar.write("SIGMA=0.1\n")
-            incar.write("LWAVE=.TRUE.\n")
-            incar.write("LCHARG=.TRUE.\n")    
-            incar.close()
+            directory. Need to have ediffs increasing with atom count, since it's a measure
+            for total energy change, not per atom"""
+        self.setAtomCounts(dir)
+        natoms = sum(self.atomCounts)
+        incar = open(dir + '/INCAR','w')    
+        incar.write("IBRION=2\n")
+        incar.write("ISIF=4\n")
+        incar.write("NSW=400\n")
+        incar.write("Algo=VeryFast\n")
+        incar.write("PREC=Low\n") 
+        incar.write("EDIFF={}\n".format(float(self.ediffg)*natoms))
+        incar.write("EDIFFG={}\n".format(float(self.ediffg)*natoms))
+        incar.write("ISMEAR=0\n")
+        incar.write("ISPIN=2\n")
+        incar.write("NPAR=4\n")
+        incar.write("LREAL=Auto\n")
+        incar.write("SIGMA=0.1\n")
+        incar.write("LWAVE=.TRUE.\n")
+        incar.write("LCHARG=.TRUE.\n")    
+        incar.close()
 
     def makeNormalDirectories(self, vstructsToStart):
         topDir = os.getcwd()
@@ -466,19 +472,16 @@ class RunVasp:
         """ Makes all of the files that could be copied to a first, low-precision VASP run for any 
             given structure.  This includes concatenating the POTCARS for the pure and non-pure
             cases. """
-        self.makeLowINCARs()
         self.makePurePOTCARs()
         self.makePOTCARs()
         self.makeKPOINTS(6, 6)
-#        self.makeJobFiles()# move this to later where we can write the structure name
         self.linkVaspExec()
         self.fillDirectories(vstructsToStart)
 
-    def prepareRestart(self, vstructsRestart):
+    def prepareRestarts(self, vstructsRestart):
         """ INCAR settings and job walltime updates might be needed"""
-        self.makeLowINCARs() #puts a copy in each atom directory.  Do it again here in case prepareForVasp is skipped
+        lastDir = os.getcwd()
         for iatom,atom in enumerate(self.atoms):
-            lastDir = os.getcwd()
             atomDir = lastDir + '/' + atom
             os.chdir(atomDir)
             structures = []
@@ -487,9 +490,10 @@ class RunVasp:
                     structures.append(item)            
             for structure in structures:
                 structureDir = os.path.abspath(structure)
-                subprocess.call(['cp',atomDir + '/INCAR',structureDir])
-                self.makeJobFiles(structureDir,atom+structure)   
-           
+                self.makeLowINCARs(structureDir)             
+                self.makeJobFiles(structureDir,atom+structure)    
+        os.chdir(lastDir)
+        
     def run(self, runNum, vstructsToStart,vstructsToRun):
         """ Starts the VASP runs (specified by 'runNum') for each of the structures in
             'vstructsToRun'. For runNum = 1, starts a low-precision run, runNum = 2, starts a 
