@@ -311,16 +311,11 @@ class MakeUncleFiles:
             atomDir = os.getcwd() + '/' + atom
             if os.path.isdir(atomDir):
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + atom + '\n'])
-                self.reinitialize()              
-#                if iteration == 1 and self.startFromExisting[iatom]: #need only structures.holdout
-#                    startfile = os.getcwd() + '/needed_files/structures.start.' + atom                     
-#                    subprocess.call(['cp',startfile,atomDir + '/enumpast/structures.in'])
-#                    self.getPureEs(iatom)
-#                else: #need both structures.in and .holdout                   
+                self.reinitialize()                             
                 self.getPureEs(iatom)
                 if len(self.newlyFinished[iatom]) > 0: 
                     self.vaspToVdata(iatom)
-                outfile = open(atomDir + '/enumpast/structures.in', 'a')
+                outfile = open(atomDir + '/structures.in', 'a')  #structures.in is always updated in the atomic dir
                 for structure in self.newlyFinished[iatom]:
                     self.writeUnclePOSCAR(atomDir + '/' + structure,outfile,'')
                 outfile.close

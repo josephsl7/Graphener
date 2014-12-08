@@ -194,11 +194,8 @@ def contains(struct, alist):
     return False
 
 def contcarToPoscar(structs,atoms,iteration):
-    '''Prepares structures for restart. Also creates new job and incar files in case 
-       they should be different this time'''
-    print'in c2p'
+    '''Prepares structures for restart, copying CONTCAR to POSCAR'''
     lastDir = os.getcwd()
-    restartStructs = [[]]*len(atoms)
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom
         for struct in structs[iatom]:
@@ -206,15 +203,8 @@ def contcarToPoscar(structs,atoms,iteration):
             os.chdir(structDir)
             subprocess.call(['cp','POSCAR','POSCAR_{}'.format(iteration)] )
             if os.path.exists(structDir + '/CONTCAR'):
-                print 'exists'
                 if os.stat(structDir + '/CONTCAR').st_size > 0:
-                    print 'copy'
-                    print structDir + '/CONTCAR'
-                    os.system('rm {}'.format(structDir + '/POSCAR')) 
-                    os.system('cp {} {}'.format(structDir + '/CONTCAR',structDir + '/POSCAR'))
-#                    print subprocess.check_call(['cp',structDir + '/CONTCAR',structDir + '/POSCAR'])   
-                    subprocess.call(['ls',structDir]  )  
-
+                    subprocess.call(['cp',structDir + '/CONTCAR',structDir + '/POSCAR'])    
     os.chdir(lastDir)
 
 def convergeCheck(folder, NSW):
@@ -656,10 +646,10 @@ def writefile(lines,filepath): #need to have \n's inserted already
 # -------------------------------------------- MAIN -----------------------------------------------
           
 if __name__ == '__main__':
-    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = os.getcwd()
+    maindir = os.getcwd()
 
     
     subprocess.call(['echo','Starting in ' + maindir])
@@ -733,7 +723,6 @@ if __name__ == '__main__':
         vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         pastStructsUpdate(vstructsToStart,atoms)
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
-        # Create structures.in and structures.holdout files for each atom.
         os.chdir(maindir) #FIX this...shouldn't need it.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir, restartTimeout) 
         [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
@@ -782,7 +771,7 @@ if __name__ == '__main__':
         for iatom in range(natoms): priorities[iatom,:] = sort(priorities[iatom,:],order = ['struct'])
 
         for iatom in range(natoms):       
-            print 'priorities'
+            print 'priorities for atom, iteration',atom, iteration
             print priorities[iatom,:10]['struct']
             print priorities[iatom,:10]['FE']
             print 'energiesLast'
@@ -800,7 +789,7 @@ if __name__ == '__main__':
         for iatom, atom in enumerate(atoms):
             subprocess.call(['echo','\t{} {:8.6f} eV'.format(atom,diffe[iatom])])
             if diffe[iatom]<diffMax: #Converged
-                subprocess.call(['echo','Atom {} has converged:'.format(atom)])
+                subprocess.call(['echo','Atom {} has converged'.format(atom)])
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)
@@ -810,6 +799,7 @@ if __name__ == '__main__':
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)                
         natoms = len(atoms) #could be lower now
+        print 'At end of iteration',iteration,'atoms continuing:',atoms
 
         if len(rmAtoms)>0:
             vstructsFinished = multiDelete(vstructsFinished,rmAtoms)

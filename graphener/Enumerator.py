@@ -89,7 +89,7 @@ class Enumerator:
         iidStructs = [[]]*len(self.atoms)
         # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
         #        takes about an hour per atom for vol 1-8.)
-        if iteration == 1: #initialize enumpast/.  Compute iid structures once, and copy to all atom folders that need them
+        if iteration == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
             if startFromExisting.count(False)>0: #at least one atoms need iid structures
                 subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
                 os.chdir('enum')
