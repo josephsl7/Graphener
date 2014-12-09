@@ -13,7 +13,66 @@ from comMethods import joinLists
 
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
 
-def checkInitialFolders(atoms,restartTimeout):
+def initializeStructs(atoms,restartTimeout):
+    '''If structures.in exists in the atom folder, then parse that for starting structures.  If not, then leave lists empty for that atom'''
+    lastDir = os.getcwd()
+    natoms = len(atoms)
+    subprocess.call(['echo','Checking structure folders for existing vasp data. . . \n'])
+ 
+    nexistsStructsIn = 0
+    nfoldersOK = 0
+    #find starting method
+    for iatom, atom in enumerate(atoms):
+        nstruct = 0
+        atomDir = lastDir + '/' + atom
+        pureHdir =  atomDir + '/1'
+        pureMdir =  atomDir + '/3'
+        if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
+            nexistsStructsIn += 1
+        if os.path.exists(pureHdir) and os.path.exists(pureMdir):
+            for item in os.listdir(atomDir):
+                itempath = atomDir + '/' + item
+                if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
+                    nstruct += 1
+                    if nstruct == 3:
+                        break #need at least 3 structures to make a fit  
+    if nexistsStructsIn == natoms: 
+        startMethod = 'structures.in' 
+        subprocess.call(['echo','Starting all from structures.in in atomic folder'])          
+    elif nfoldersOK == natoms: 
+        startMethod = 'struct folders'
+        subprocess.call(['echo','Starting all from structure folders'])           
+    elif 0 < nexistsStructsIn < natoms:
+        subprocess.call(['echo','Some atoms folders have structures.in, and some do not.  They must all be alike'])
+        sys.exit('Stop')
+    elif 0 < nfoldersOK < natoms:
+        subprocess.call(['echo','Some atoms folders have existing structure folders, and some do not.  They must all be alike to start with them.'])
+        sys.exit('Stop')
+    elif nexistsStructsIn == 0 and nfoldersOK == 0:
+        startMethod = 'empty folders'
+        subprocess.call(['echo','Starting all from iid structures'])
+    else:
+        subprocess.call(['echo','Error in choosing start method'])
+        sys.exit('Stop')    
+    #read data
+    if startMethod == 'structures.in':
+        [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = parseStructsIn(atoms,restartTimeout)          
+    elif startMethod == 'struct folders': 
+           [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = readInitialFolders(atoms,restartTimeout)           
+    else:
+        natoms = len(atoms)
+        vstructsFinished = [[]]*natoms #every structure vasp has finished before this iteration, a list for each atom
+        vstructsFailed = [[]]*natoms #every structure vasp has failed before this iteration, a list for each atom
+        vstructsRestart = [[]]*natoms #those that timed out before starting or in previous iteration.  Must have folders in the atom directory.
+        maxvstructs = 20000 #maximum number of structures for each atom
+        #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
+        vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
+   
+    return  vstructsFinished, vstructsRestart, vstructsFailed, startMethod, vdata               
+    os.chdir(lastDir)
+
+        
+def readInitialFolders(atoms,vdata,restartTimeout,):
     '''assigns all struct folders to either finished, restart, or failed.  Restart is optional.
     Initializes and writes structures.in and vdata.  Uncle formation energy is calculated (the other energies
     will be calculated in vdataToPlotFiles)
@@ -23,12 +82,11 @@ def checkInitialFolders(atoms,restartTimeout):
     2. finished but not converged (too many ionic steps)  
     ''' 
     lastDir = os.getcwd()
-    subprocess.call(['echo','Checking structure folders for existing vasp data. . . \n'])
+    subprocess.call(['echo','Reading vasp data from structure folders . . . \n'])
     natoms = len(atoms)
     vstructsFinished = [[]]*natoms #every structure vasp has finished before this iteration, a list for each atom
     vstructsFailed = [[]]*natoms #every structure vasp has failed before this iteration, a list for each atom
     vstructsRestart = [[]]*natoms #those that timed out before starting or in previous iteration.  Must have folders in the atom directory.
-    startFromExisting = [False]*natoms 
     maxvstructs = 20000 #maximum number of structures for each atom
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
@@ -52,12 +110,15 @@ def checkInitialFolders(atoms,restartTimeout):
         for item in os.listdir(atomDir):
             itempath = atomDir + '/' + item
             if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
-                structlist.append(item)
+                if hasVaspFiles(itempath):
+                    structlist.append(item)
+                else:
+                    subprocess.call(['rm','-r',itempath])  #delete folder     
         for istruct,struct in enumerate(structlist):
             failed = False
             vaspDir = atomDir + '/'+ str(struct)
             if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
-                subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
+                subprocess.call(['printf','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
                     atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
@@ -88,20 +149,102 @@ def checkInitialFolders(atoms,restartTimeout):
                 restartStructs.append(struct)  
             else:
                 failedStructs.append(struct)
-        if len(finishedStructs) > 0 : startFromExisting[iatom] = True
         vstructsFinished[iatom] =  finishedStructs 
         vstructsRestart[iatom] = restartStructs
         vstructsFailed[iatom] = failedStructs 
-        subprocess.call(['echo','\n\tAtom {}: found {} finished, {} to restart, {} failed'.format(atom,len(finishedStructs),len(restartStructs),len(failedStructs))])
+        subprocess.call(['echo','\tAtom {}: found {} finished, {} to restart, {} failed\n'.format(atom,len(finishedStructs),len(restartStructs),len(failedStructs))])
         #sort by FE
         nfinished = count_nonzero(vdata[iatom,:]['struct'])
         vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones 
         
         #write structures.in, (or just the header if there is no existing data)
         structuresInWrite(atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'])
+    os.chdir(lastDir)    
+    return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
+
+def parseStructsIn(atoms,vstructsFinished):
+    """ Returns the structures, energies, concentrations from structures.start, 
     
-    return  vstructsFinished, vstructsRestart, vstructsFailed, startFromExisting, vdata               
+    This method assumes that the structures.in file will have all of the pure
+    structures and will have the following format for the structure identification line:
+    graphene str #: (structure number) FE = 0.545, Concentration = .473
+    or, for a pure structure:
+    PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
+
+    lastDir = os.getcwd()    
+    natoms = len(atoms)
+    vstructsFinished = [[]]*natoms #every structure vasp has finished before this iteration, a list for each atom
+    vstructsFailed = [[]]*natoms #every structure vasp has failed before this iteration, a list for each atom
+    vstructsRestart = [[]]*natoms #those that timed out before starting or in previous iteration.  Must have folders in the atom directory.
+    maxvstructs = 20000 #maximum number of structures for each atom
+    vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), ('energy', float), ('natoms', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
+    for iatom,atom in enumerate(atoms):
+        istruct = 0
+        subList = []
+        atomDir = lastDir + '/' + atom
+        #parse structures.in
+        startFile = atomDir + '/structures.in'
+        subprocess.call(['cp',startFile,startFile + '_start']) #just for reference later
+        lines = readfile(startFile)          
+        for j in xrange(len(lines)):
+            if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                if j != len(lines) - 1:
+                    structLine = lines[j + 1].strip().split()
+                    if structLine[0].lower() == 'pure':
+                        subList.append(structLine[5])
+                        vdata[iatom,istruct]['struct'] = structLine[5]
+                    else:
+                        subList.append(structLine[3])
+                        vdata[iatom,istruct]['struct'] = structLine[3]
+                    natomsList = [int(i) for i in lines[j+6].strip().split()]
+                    natoms = natomsList[0]+natomsList[1]
+                    vdata[iatom,istruct]['natoms'] = natoms
+                    vdata[iatom,istruct]['conc'] = float(natomsList[1]/float(natoms))
+                    vdata[iatom,istruct]['energy'] = float(lines[j+9+natoms].strip().split()[0])  
+                    istruct += 1                        
+        vstructsFinished[iatom] = subList
+        #get unfinished and failed
+        structlist = []
+        restartStructs = []
+        failedStructs = []
+        for item in os.listdir(atomDir):
+            itempath = atomDir + '/' + item
+            if item not in vstructsFinished[iatom] and os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
+                if hasVaspFiles(itempath):
+                    structlist.append(item)
+                else:
+                    subprocess.call(['rm','-r',itempath]) #delete folder     
+        for istruct,struct in enumerate(structlist): #only the ones not in structures.in
+            failed = False
+            vaspDir = atomDir + '/'+ str(struct)
+            if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
+                subprocess.call(['printf','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
+            
+            if os.stat(vaspDir + '/POSCAR').st_size > 0: 
+                try:
+                    atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
+                except:
+                    failed = True
+            if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
+                failed = True 
+            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
+                subprocess.call(['echo','\tAtom {}: found finished structure {} not in structures.in. Appending to restart list.'.format(atom,struct)])                    
+                restartStructs.append(struct) 
+            elif restartTimeout and not failed and not slurmProblem(vaspDir):
+                restartStructs.append(struct)  
+            else:
+                failedStructs.append(struct)
+        vstructsRestart[iatom] = restartStructs
+        vstructsFailed[iatom] = failedStructs 
+        subprocess.call(['echo','\n\tAtom {}: found {} finished, {} to restart, {} failed after reading structures.in'.format(atom,len(vstructsFinished[iatom]),len(restartStructs),len(failedStructs))])
+        nfinished = count_nonzero(vdata[iatom,:]['struct'])
+        vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones 
+        print 'vdata',vdata[iatom,:30]['struct']   
     os.chdir(lastDir)
+    return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
+
+def hasVaspFiles(dir):
+    return os.path.exists(dir+'/KPOINTS') and os.path.exists(dir+'/INCAR') and os.path.exists(dir+'/POSCAR') and os.path.exists(dir+'/POTCAR')
 
 def structuresInWrite(atomDir, structlist, FElist, conclist,energylist):
     '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
@@ -258,8 +401,8 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
             # Start VASP jobs and wait until they all complete or time out.
         manager2 = JobManager.JobManager(atoms,ediffg)
         if runTypes ==['low']:
-#            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
-            manager2.runLowJobs(vstructsToStart,vstructsRestart)
+            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
+#            manager2.runLowJobs(vstructsToStart,vstructsRestart)
         elif runTypes ==['low','normal']:
             manager2.runLowJobs(vstructsToStart,vstructsRestart)
             manager2.runNormalJobs(vstructsToStart,vstructsRestart)          
@@ -282,8 +425,7 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
     return finalDir
     
 def finishCheck(folder):
-    """ Tests whether VASP is done by finding "Voluntary" in last line of OUTCAR.  The input
-        parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """   
+    """ Tests whether VASP is done by finding "Voluntary" in last line of OUTCAR. """   
     lastfolder = os.getcwd()
     os.chdir(folder)        
     proc = subprocess.Popen(['grep', 'Voluntary', 'OUTCAR'], stdout=subprocess.PIPE)
@@ -350,51 +492,7 @@ def multiDelete(list_, args):
     for index in indexes:
         del list_[index]
     return list_
-
-#def parseStartStructures(atoms,startFromExisting,vstructsFinished,vdata):
-#    """ Returns the structures, energies, concentrations from structures.start, 
-#    
-#    This method assumes that the structures.in file will have all of the pure
-#    structures and will have the following format for the structure identification line:
-#    graphene str #: (structure number) FE = 0.545, Concentration = .473
-#    or, for a pure structure:
-#    PURE M graphene str #: (structure number) FE = 0.0, Concentration = 1.0 """
-#
-#    lastDir = os.getcwd()    
-#    istruct = 0
-#    startList = [[]]*len(atoms)
-#
-#    for iatom,atom in enumerate(atoms):
-#        subList = []
-#        if startFromExisting[iatom]:  
-#            startFile = lastDir + '/needed_files/structures.start.' + atoms[iatom]
-#            subprocess.call(['cp',startFile, lastDir + '/' + atom + '/structures.start'])       
-#            if os.path.exists(startFile):      
-#                infile = open(startFile,'r')
-#                lines = infile.readlines()
-#                infile.close()            
-#                for j in xrange(len(lines)):
-#                    if list(lines[j].strip().split()[0])[:2] == ['#','-']:
-#                        if j != len(lines) - 1:
-#                            structLine = lines[j + 1].strip().split()
-#                            if structLine[0].lower() == 'pure':
-#                                subList.append(structLine[5])
-#                                vdata[iatom,istruct]['struct'] = structLine[5]
-#                            else:
-#                                subList.append(structLine[3])
-#                                vdata[iatom,istruct]['struct'] = structLine[3]
-#                            natomsList = [int(i) for i in lines[j+6].strip().split()]
-#                            natoms = natomsList[0]+natomsList[1]
-#                            vdata[iatom,istruct]['natoms'] = natoms
-#                            vdata[iatom,istruct]['conc'] = float(natomsList[1]/float(natoms))
-#                            vdata[iatom,istruct]['energy'] = float(lines[j+9+natoms].strip().split()[0])  
-#                            istruct += 1                  
-#            else: 
-#                subprocess.call(['echo',"ERROR: structures.start."+ atom + ' is missing from needed_files/'])       
-#        startList[iatom] = subList    
-#    os.chdir(lastDir)
-#    return startList, vdata
-  
+ 
 def pastStructsUpdate(structs,atoms):
     lastDir = os.getcwd()
     for iatom,atom in enumerate(atoms):
@@ -459,19 +557,19 @@ def readSettingsFile():
 
 #        elif line.split()[0] == 'START_FROM_EXISTING:': #read from a structures.start and fit these.  Needs to come after the ATOMS list in the settings lin
 #            if line.split()[1][0].lower() == 'n': #"No" or "None" means no atoms will start from existing calcs.
-#               startFromExisting = [False]*len(atoms) 
+#               startMethod = [False]*len(atoms) 
 #            elif line.split()[1][0].lower() == 'a': #"All" 
-#               startFromExisting = [True]*len(atoms)
+#               startMethod = [True]*len(atoms)
 #            else:
 #                try:  
 #                    parselist = re.search(':(.+?)#', line).group(1).lower().split()[:len(atoms)] #take only enough to match number of atoms, as it might be an old list
-#                    startFromExisting = [True if i == 't' else False for i in parselist]
-#                    if len(startFromExisting) < len(atoms): 
+#                    startMethod = [True if i == 't' else False for i in parselist]
+#                    if len(startMethod) < len(atoms): 
 #                        subprocess.call(['echo','START_FROM_EXISTING length is too short for the number of atoms! Stopping'])
 #                        sys.exit('Stop')
 #                except AttributeError:
 #                    print "Can't parse START_STRUCTS T's and F's.  Defaulting to no start structs." 
-#                    startFromExisting = [False]*len(atoms)               
+#                    startMethod = [False]*len(atoms)               
         elif line.split()[0] == 'PRIORITY/IID:':
             if str(line.split()[1]).lower() == 'i':
                 PriorOrIID = 'i'
@@ -644,21 +742,25 @@ def writefile(lines,filepath): #need to have \n's inserted already
                 
 
 # -------------------------------------------- MAIN -----------------------------------------------
-          
+'''All atom folders must start with the same method:  
+1) structures.in from previous run must exist in each atom folder
+or
+2) structures.in must be deleted from each atomfolder. Structure folders must exist from previous runs (including pure cases) in atom folders, which can be a mix of finished and unfinished structures.  
+s from previous run must exist
+or
+3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
-##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = os.getcwd()
+    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
+#    maindir = os.getcwd()
 
-    
     subprocess.call(['echo','Starting in ' + maindir])
     
     os.chdir(maindir)
     pathMax = maindir + '/needed_files/diffMax'
     if os.path.exists(pathMax):
         diffMax = float(readfile(pathMax)[0].strip()) 
-        subprocess.call(['echo','\ndiffMax read from file (convergence criterium): '+str(diffMax)])
+        subprocess.call(['echo','\ndiffMax read from file (convergence criterium): '+str(diffMax) + '\n'])
     else:
         subprocess.call(['echo','\nMissing diffMax file with the convergence criterium diffMax in eV. Stopping'])
         sys.exit('Stop')
@@ -669,6 +771,7 @@ if __name__ == '__main__':
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
     vstructsToStart = [[]]*natoms #the structures vasp must create folders for and start this iteration, a list for each atom   
+    vstructsRestart = [[]]*natoms
     newlyFinished = [[]]*natoms
     newlyFailed = [[]]*natoms
     newlyToRestart = [[]]*natoms
@@ -682,14 +785,11 @@ if __name__ == '__main__':
         manager1 = JobManager.JobManager(atoms,ediffg)
         manager1.runHexMono()
     #assign all existing struct folders to either finished, restart, or failed
-    [vstructsFinished,vstructsRestart,vstructsFailed,startFromExisting,vdata] = checkInitialFolders(atoms,restartTimeout)  
-#    subprocess.call(['echo','vstructsFinished']) ; subprocess.call(['echo',vstructsFinished]) 
-#    subprocess.call(['echo','vstructsRestart']) ; subprocess.call(['echo',vstructsRestart]) 
-#    subprocess.call(['echo','vstructsFailed']) ; subprocess.call(['echo',vstructsFailed]) 
+    [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout)    
     vstructsAll = joinLists(vstructsFinished,vstructsFailed)
-    vstructsAll = joinLists(vstructsAll,vstructsRestart)  
+    vstructsAll = joinLists(vstructsAll,vstructsRestart0)  
     createEnumPastDir(atoms)
-    pastStructsUpdate(vstructsFinished,atoms)  
+    pastStructsUpdate(vstructsAll,atoms)  
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
     subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
@@ -710,32 +810,29 @@ if __name__ == '__main__':
         #since atoms may have changed, have to reinitialize this
         enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput) 
         # Extract the pseudo-POSCARs from struct_enum.out
-        extractor = Extractor.Extractor(atoms, uncleOutput, startFromExisting)           
-        if iteration == 1:
-            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startFromExisting)
-            #may need to append pure structures:
-            vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)           
+        extractor = Extractor.Extractor(atoms, uncleOutput, startMethod)           
+        if iteration == 1: 
+            if startMethod == 'empty folders': 
+                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod)
+                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
+            vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
+            contcarToPoscar(vstructsRestart,atoms,iteration) 
+            vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         elif iteration > 1 and PriorOrIID == 'i':
-            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startFromExisting)   
-        contcarToPoscar(vstructsRestart,atoms,iteration)
-        vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
+            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod)   
+            contcarToPoscar(vstructsRestart,atoms,iteration)
+            vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
+        if iteration == 2: #bring in restarts from initial folders
+            vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
+            print 'vstructsRestart',vstructsRestart
+            
         pastStructsUpdate(vstructsToStart,atoms)
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
         os.chdir(maindir) #FIX this...shouldn't need it.
-        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startFromExisting, iteration, finalDir, restartTimeout) 
+        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startMethod, iteration, finalDir, restartTimeout) 
         [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
-        #update the vstructs lists and past_structs files       
-#        print '[newlyFinished,newlyToRestart, newlyFailed ]'
-#        print newlyFinished;print newlyToRestart; print newlyFailed
-        
-#        subprocess.call(['echo','newlyFinished']) ; subprocess.call(['echo',newlyFinished]) 
-#        subprocess.call(['echo','newlyToRestart']) ; subprocess.call(['echo',newlyToRestart]) 
-#        subprocess.call(['echo','newlyFailed']) ; subprocess.call(['echo',newlyFailed])
-#        for iatom, atom in enumerate(atoms):
-#            print atom, 'vstructsFinished in Main0', vstructsFinished[iatom]
-
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
         vstructsAll = joinLists(vstructsFinished,vstructsFailed)
@@ -752,8 +849,7 @@ if __name__ == '__main__':
         fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
         if iteration == 1: 
             fitter.makeFitDirectories()
-            if startFromExisting.count(True) > 0: #at least one starts from existing
-                fitter.holdoutFromIn(atoms,startFromExisting)
+            if startMethod != 'empty folders': fitter.holdoutFromIn(atoms)
         fitter.fitVASPData(iteration)
     
         # Perform a ground state search on the fit for each atom.    
@@ -768,9 +864,10 @@ if __name__ == '__main__':
 
         #test weighted energy difference since last iteration
         # First sort priorities by structure name so we have an unchanging order
-        for iatom in range(natoms): priorities[iatom,:] = sort(priorities[iatom,:],order = ['struct'])
+        for iatom, atom in enumerate(atoms): 
+            priorities[iatom,:] = sort(priorities[iatom,:],order = ['struct'])
 
-        for iatom in range(natoms):       
+        for iatom, atom in enumerate(atoms):       
             print 'priorities for atom, iteration',atom, iteration
             print priorities[iatom,:10]['struct']
             print priorities[iatom,:10]['FE']
@@ -793,36 +890,33 @@ if __name__ == '__main__':
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)
-            elif len(newlyFinished[iatom]) + len(newlyToRestart[iatom])   == 0 and len(vstructsToStart[iatom]) > 0:
-                subprocess.call(['echo','Atom {] has only failed structures, and has been stopped.:'.format(atom)])
+            elif len(newlyFinished[iatom]) + len(newlyToRestart[iatom]) == 0 and len(vstructsToStart[iatom]) > 0:
+                subprocess.call(['echo','Atom {} did not finish any new structures, and has been stopped.:'.format(atom)])
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)                
         natoms = len(atoms) #could be lower now
-        print 'At end of iteration',iteration,'atoms continuing:',atoms
-
         if len(rmAtoms)>0:
             vstructsFinished = multiDelete(vstructsFinished,rmAtoms)
             vstructsFailed = multiDelete(vstructsFailed,rmAtoms)
+            newlyToRestart = multiDelete(newlyToRestart,rmAtoms)
             vstructsAll = multiDelete(vstructsAll,rmAtoms)
             vdata = delete(vdata,rmAtoms,axis=0)        
             energiesLast = delete(priorities,rmAtoms,axis=0)['FE'] #    priorities[ikeep,:]['FE']
             newStructsPrior = multiDelete(newStructsPrior,rmAtoms)
-#        print vdata.shape
-#        print 'vdata0';print vdata[0,:]['struct'][:100]
-#        vdata2 = deepcopy(vdata[atomnumbers[0],:]) #get this started
-#        print 'vdata2';print vdata2[:]['struct'][:100]
-#        print vdata2.shape
-#        for i in atomnumbers[1:]:
-#            vdata2 = vdata2.append(deepcopy(vdata[i,:]),axis=0)
-#        print vdata2.shape
-#        vdata = vdata2
-#        print 'vdata';print vdata[0,:]['struct'][:100]
-
-
         if natoms == 0:
             subprocess.call(['echo','\n----------------- All atoms have finished ---------------'])
             converged = True
+        else:       
+            if natoms >1:
+                subprocess.call(['echo','At end of iteration {} are continuing:'.format(' '.join(atoms))])
+            else:
+                subprocess.call(['echo','At end of iteration {} is continuing:'.format(' '.join(atoms))])
+        #---------- prep for next iteration --------------
+        vstructsRestart = newlyToRestart
+
+
+
 
         # Set holdoutStructs for the next iteration to the 100 (or less) lowest vasp structures
          
@@ -845,17 +939,3 @@ if __name__ == '__main__':
     # Should do some analysis after the loop has finished as well. """
 
     subprocess.call(['echo','\n---------- PROGRAM ENDED ----------\n'])
-        
-
-    
-        
-    
-    
- 
- 
- 
- 
- 
- 
- 
-    

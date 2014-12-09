@@ -77,8 +77,8 @@ class Enumerator:
         
         newfile.close()
         
-    def chooseTrainingStructures(self,iteration, startFromExisting):
-        """ If startFromExisting is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
+    def chooseTrainingStructures(self,iteration, startMethod):
+        """ If startMethod is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
          
             The UNCLE option that we run to choose the training structures should look for a file 
             called 'past_structs.dat' so as not to choose structures from that list. (Dr. Hess 
@@ -89,24 +89,19 @@ class Enumerator:
         iidStructs = [[]]*len(self.atoms)
         # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
         #        takes about an hour per atom for vol 1-8.)
-        if iteration == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
-            if startFromExisting.count(False)>0: #at least one atoms need iid structures
+        for iatom,atom in enumerate(self.atoms):
+            atomDir = lastDir + '/' + atom
+            if iteration == 1 and startMethod == 'empty folders': #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
                 subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
                 os.chdir('enum')
                 subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
                 lines = self.readfile('training_set_structures.dat')
                 iidList = [line.strip().split()[1] for line in lines]                    
-            for iatom,atom in enumerate(self.atoms):
-
-                if not startFromExisting[iatom]:
-                    subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
-                    vsDir = lastDir + '/' + atom + '/enumpast'
-                    subprocess.call(['cp','training_set_structures.dat',vsDir])
-                    #get the iidStructs from training_set_structures.dat for each atom
-                    iidStructs[iatom] = iidList                                        
-        else: # later iterations: must get separate iid structures for each atom         
-             for iatom,atom in enumerate(self.atoms):
-                atomDir = lastDir + '/' + atom
+                subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
+                vsDir = lastDir + '/' + atom + '/enumpast'
+                subprocess.call(['cp','training_set_structures.dat',vsDir])
+                iidStructs[iatom] = iidList                                        
+            else: # later iterations: must get separate iid structures for each atom         
                 try:
                     os.chdir(atomDir + '/enumpast')
                     subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])

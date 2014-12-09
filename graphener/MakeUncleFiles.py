@@ -3,7 +3,7 @@ Created on Aug 29, 2014
 
 @author: eswens13
 '''
-from numpy import zeros, mod, count_nonzero 
+from numpy import zeros, mod, count_nonzero,sort
 import os, subprocess, sys
 from random import random
 from Main import slurmProblem
@@ -11,10 +11,10 @@ from comMethods import joinLists
 
 class MakeUncleFiles:
     from comMethods import setAtomCounts
-    def __init__(self, atoms, startFromExisting, iteration,finalDir,restartTimeout):
+    def __init__(self, atoms, startMethod, iteration,finalDir,restartTimeout):
         """ CONSTRUCTOR """
         self.atoms = atoms
-        self.startFromExisting = startFromExisting
+        self.startMethod = startMethod
         self.iteration = iteration
         self.finalDir = finalDir   
         self.restartTimeout = restartTimeout
@@ -519,7 +519,8 @@ class MakeUncleFiles:
         vaspHFEfile = open('vaspHFE.out','w')  
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = 0 #creating for all finished structs
-        for i in range(nfinished):
+        #this does not need to be sorted.  The 
+        for j in range(nfinished):
             struct = self.vdata[iatom,istruct]['struct']
             conc = self.vdata[iatom,istruct]['conc']
             natoms = self.vdata[iatom,istruct]['natoms']

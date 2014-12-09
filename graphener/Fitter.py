@@ -53,8 +53,10 @@ class Fitter:
                     fitsDir = atomDir + '/fits'
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
-                        subprocess.call(['cp', atomDir + 'structures.in', '.' ]) #so we have the latest version here
-                        subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut) #not waiting long enough for large cluster numbers
+                        subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here
+                        check = subprocess.check_output([self.uncleExec, '15'])
+                        subprocess.call(['echo','Uncle 15 feedback'+ check])
+#                        subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut) #not waiting long enough for large cluster numbers
                         subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
@@ -70,7 +72,10 @@ class Fitter:
             atomDir = os.path.abspath(self.atoms[iatom])
             fitsDir = atomDir + '/fits'
             if os.path.isdir(fitsDir): #remove it...start clean because must have current files
-                subprocess.call(['rm','-r',fitsDir])
+#               print 'removing fits dir'
+                check = subprocess.check_output(['rm','-r',fitsDir])
+                subprocess.call(['echo','rmFits feedback'+ check])
+#                subprocess.call(['rm','-r',fitsDir])
             subprocess.call(['mkdir',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])
@@ -94,30 +99,29 @@ class Fitter:
                     outfile.write(inlines[i])
             outfile.close()
 
-    def holdoutFromIn(self, atoms,startFromExisting):
+    def holdoutFromIn(self, atoms):
         '''Writes structures.holdout for the first iteration, for a given atom
         If starting from existing struct calculations, takes up to N structs in the top of the 
         structures.in file.  Useful when starting from existing structs.  In this case, 
-        they should be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
+        they would be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
      
         nmax = 100
         for iatom, atom in enumerate(atoms):
-            if startFromExisting[iatom]:
-                atomDir = os.getcwd() + '/' + atom
-                
-                infile = open(atomDir + '/fits/structures.in', 'r')
-                holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
+            atomDir = os.getcwd() + '/' + atom
+            
+            infile = open(atomDir + '/structures.in', 'r')
+            holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
 #                holdoutFile.write(self.header) #bch why are 2 headers being written if I uncomment this?
-                count = 0
-                for line in infile:
-                    if list(line.strip().split()[0])[:2] == ['#', '-']:
-                        if count >= nmax:
-                            break
-                        count += 1    
-                    holdoutFile.write(line)
+            count = 0
+            for line in infile:
+                if list(line.strip().split()[0])[:2] == ['#', '-']:
+                    if count >= nmax:
+                        break
+                    count += 1    
+                holdoutFile.write(line)
     
-            infile.close()
-            holdoutFile.close()
+        infile.close()
+        holdoutFile.close()
 
 
 

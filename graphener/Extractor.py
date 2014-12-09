@@ -12,13 +12,13 @@ class Extractor:
         routine from the enumlib library in UNCLE.  The StructsToPoscar class will then take this 
         set of pseudo-POSCARs and prepare them for VASP calculations. """
 
-    def __init__(self, atoms, uncleOutput, startFromExisting):
+    def __init__(self, atoms, uncleOutput, startMethod):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.extractExec = os.path.abspath('needed_files/makestr.x')
         self.uncleOut = uncleOutput
         self.exStructList = []
-        self.startFromExisting = startFromExisting
+        self.startMethod = startMethod
 
 
     def checkPureInCurrent(self, iterNum, vstructsToStart, vstructsFinish):  #OK
