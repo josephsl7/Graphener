@@ -256,6 +256,8 @@ class GSS:
     def performGroundStateSearch(self, iteration):
         """ Performs the ground state search with the current fit from UNCLE. """
         lastDir = os.getcwd()
+        natoms = len(self.atoms)
+
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1:
                 gssDir = os.getcwd() + '/' + atom + '/gss/'
@@ -263,8 +265,21 @@ class GSS:
                     subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
-                    subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
-                    os.chdir(lastDir)              
+                    if natoms == 1: subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
+                    os.chdir(lastDir)
+        if natoms > 1:#parallelize the atom jobs
+            #make job files
+            mem = '16' #Gb
+            walltime = 1.0 #hrs
+            subdir = 'gss'
+            execString = self.uncleExec + ' 21'
+            parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
+            #submit jobs
+            jobIds = parallelAtomsSubmit(self.atoms,subdir)
+            #wait
+            parallelAtomsWait(jobIds)
+            os.chdir(lastDir)             
+                          
 
 
 

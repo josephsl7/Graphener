@@ -192,9 +192,8 @@ def parallelAtomsWait(jobIds):
     start_time = time.time()
     event_time = start_time
     subprocess.call(['echo','\nWaiting for above atom jobs to finish...\n'])
-
     while not finished:
-        event_time += 30
+        event_time += 10 #check every x seconds 
         s.enterabs(event_time, 1, doNothing, ([1]))
         s.run()
         finished = reportFinished(jobIds)

@@ -40,18 +40,10 @@ class Fitter:
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
                         subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here                   
-        if natoms == 1:
-            for iatom, atom in enumerate(self.atoms):
-                if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
-                    atomDir = lastDir + '/' + atom
-                    if os.path.isdir(atomDir):
-                        fitsDir = atomDir + '/fits'
-                        if os.path.isdir(fitsDir):
-                            os.chdir(fitsDir)
-                            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)
+                        if natoms == 1:subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
-        else: #parallelize the atom jobs
+        if natoms > 1:#parallelize the atom jobs
             #make job files
             os.chdir(lastDir)
             mem = '16' #Gb

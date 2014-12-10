@@ -50,10 +50,10 @@ class Enumerator:
         
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        if sum(self.clusterNums)<=1500: #1500 assumes you are running Main with 16G. 
+        if sum(self.clusterNums)<=1500: #the 1500 assumes you are running Main with 16G. 
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
-            subprocess.call(['echo','BLOCKING CLUSTER JOB'])
+            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
 #            clusterjob = ClustersBuild.ClusterJob()
 #            clusterjob.buildClusters()
         
@@ -87,37 +87,51 @@ class Enumerator:
             training structures for each atom is determined by the TRAINING_STRUCTS setting in 
             settings.in. """
         lastDir = os.getcwd()
-        iidStructs = [[]]*len(self.atoms)
-        # TODO:  Split this into supercomputer jobs so it only takes half as long.  (Usually
-        #        takes about an hour per atom for vol 1-8.)
-        for iatom,atom in enumerate(self.atoms):
-            atomDir = lastDir + '/' + atom
-            if iteration == 1 and startMethod == 'empty folders': #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
-                subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
-                os.chdir('enum')
-                subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
-                lines = readfile('training_set_structures.dat')
+        natoms = len(self.atoms)
+        iidStructs = [[]]*natoms
+       
+        if (iteration == 1 and startMethod == 'empty folders') or natoms == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
+            subprocess.call(['echo','\nChoosing i.i.d. structures for all\n'])                         
+            os.chdir('enum')
+            subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
+            lines = readfile('training_set_structures.dat')
+            for iatom,atom in enumerate(self.atoms):
+                atomDir = lastDir + '/' + atom
                 iidList = [line.strip().split()[1] for line in lines]                    
                 subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
                 vsDir = lastDir + '/' + atom + '/enumpast'
                 subprocess.call(['cp','training_set_structures.dat',vsDir])
                 iidStructs[iatom] = iidList 
-                os.chdir(lastDir)                                       
-            else: # later iterations: must get separate iid structures for each atom         
-                try:
-                    os.chdir(atomDir + '/enumpast')
-                    subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
-                    subprocess.call(['ln','-s','../../enum/struct_enum.out'])
-                    subprocess.call(['ln','-s','../../enum/lat.in']) 
-                    subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
-                    subprocess.call(['ln','-s','../../enum/clusters.out'])                          
-                    subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
-                    os.chdir(lastDir)
-                    #get the iidStructs from training_set_structures.dat for each atom
-                    lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
-                    iidStructs[iatom] = [line.strip().split()[1] for line in lines] 
-                except:
-                    subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
+            os.chdir(lastDir)                                       
+        else: # must get separate iid structures for each atom, so parallelize        
+            #prep
+            for iatom,atom in enumerate(self.atoms):
+                atomDir = lastDir + '/' + atom
+#            try:
+                os.chdir(atomDir + '/enumpast')
+                subprocess.call(['echo','\nChoosing i.i.d. structures for ' + atom + ' . . .\n'])
+                subprocess.call(['ln','-s','../../enum/struct_enum.out'])
+                subprocess.call(['ln','-s','../../enum/lat.in']) 
+                subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
+                subprocess.call(['ln','-s','../../enum/clusters.out'])                          
+                subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
+                os.chdir(lastDir)
+                #get the iidStructs from training_set_structures.dat for each atom
+                lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
+                iidStructs[iatom] = [line.strip().split()[1] for line in lines] 
+            #make job files
+            os.chdir(lastDir)
+            mem = '16' #Gb
+            walltime = 1.5 #hrs
+            subdir = 'enumpast'
+            execString = self.uncleExec + ' 42 ' + str(self.niid)
+            parallelJobFiles(self.atoms,subdir,walltime,mem,execString) 
+            #submit jobs
+            jobIds = parallelAtomsSubmit(self.atoms,subdir)
+            #wait
+            parallelAtomsWait(jobIds)            
+#            except:
+#                    subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
         os.chdir(lastDir)       
         return iidStructs
     
