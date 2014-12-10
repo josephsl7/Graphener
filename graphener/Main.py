@@ -9,7 +9,7 @@ from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
 from copy import deepcopy
 
-from comMethods import joinLists
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors
 
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
 
@@ -35,7 +35,9 @@ def initializeStructs(atoms,restartTimeout):
                 if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
                     nstruct += 1
                     if nstruct == 3:
-                        break #need at least 3 structures to make a fit  
+                        break #need at least 3 structures to make a fit 
+        if nstruct == 3: nfoldersOK += 1
+#        print 'atom nexistsStructsIn,nstruct ',nexistsStructsIn nstruct 
     if nexistsStructsIn == natoms: 
         startMethod = 'structures.in' 
         subprocess.call(['echo','Starting all from structures.in in atomic folder'])          
@@ -72,7 +74,7 @@ def initializeStructs(atoms,restartTimeout):
     os.chdir(lastDir)
 
         
-def readInitialFolders(atoms,vdata,restartTimeout,):
+def readInitialFolders(atoms,restartTimeout,):
     '''assigns all struct folders to either finished, restart, or failed.  Restart is optional.
     Initializes and writes structures.in and vdata.  Uncle formation energy is calculated (the other energies
     will be calculated in vdataToPlotFiles)
@@ -158,7 +160,7 @@ def readInitialFolders(atoms,vdata,restartTimeout,):
         vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones 
         
         #write structures.in, (or just the header if there is no existing data)
-        structuresInWrite(atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'])
+        structuresInWrite(atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'],'w')
     os.chdir(lastDir)    
     return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
 
@@ -238,87 +240,13 @@ def parseStructsIn(atoms,vstructsFinished):
         vstructsFailed[iatom] = failedStructs 
         subprocess.call(['echo','\n\tAtom {}: found {} finished, {} to restart, {} failed after reading structures.in'.format(atom,len(vstructsFinished[iatom]),len(restartStructs),len(failedStructs))])
         nfinished = count_nonzero(vdata[iatom,:]['struct'])
-        vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones 
-        print 'vdata',vdata[iatom,:30]['struct']   
+        vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones  
     os.chdir(lastDir)
     return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
 
 def hasVaspFiles(dir):
     return os.path.exists(dir+'/KPOINTS') and os.path.exists(dir+'/INCAR') and os.path.exists(dir+'/POSCAR') and os.path.exists(dir+'/POTCAR')
 
-def structuresInWrite(atomDir, structlist, FElist, conclist,energylist):
-    '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
-       Also writes this info as POSCAR_orig in the structure folder'''
-    lastDir = os.getcwd()
-    structuresInFile = open(atomDir + '/'+ 'structures.in', 'w')                                   
-    structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
-    os.chdir(atomDir)
-    subprocess.call(['ln','-s','../enum/struct_enum.out'])
-    subprocess.call(['rm vasp.0*'],shell=True) #start clean
-    for istruct,struct in enumerate(structlist):
-        vaspDir = atomDir + '/'+ str(struct)
-        structuresInFile.write("#------------------------------------------------\n")
-
-        subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
-        subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
-        poscar = readfile(vaspDir+'/POSCAR_orig')           
-        idString = 'graphene str #: ' + str(struct)
-        structuresInFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
-        structuresInFile.write("1.0\n")
-        writeLatticeVectors(poscar[2:5],structuresInFile)
-        structuresInFile.writelines(poscar[5:])
-        structuresInFile.write("#Energy:\n")
-        structuresInFile.write(str(energylist[istruct]) + "\n")         
-    structuresInFile.close() 
-    os.chdir(lastDir)
-
-def writeLatticeVectors(vecLines,outfile):
-    """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
-        corresponding member components. """  
-    vec1 = vecLines[0].strip().split()
-    vec2 = vecLines[1].strip().split()
-    vec3 = vecLines[2].strip().split()
-       
-    vec1comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec1] #to handle ******
-    vec2comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec2]
-    vec3comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec3]
-    
-    vec1z = vec1comps[0]
-    vec1x = vec1comps[1]
-    vec1y = vec1comps[2]
-    
-    vec2z = vec2comps[0]
-    vec2x = vec2comps[1]
-    vec2y = vec2comps[2]
-    
-    vec3z = vec3comps[0]
-    vec3x = vec3comps[1]
-    vec3y = vec3comps[2]
-        
-#    vec1x = vec1comps[0]
-#    vec1y = vec1comps[1]
-#    if vec1comps[2] == 15.0:
-#        vec1z = 1000.0
-#    else:
-#        vec1z = vec1comps[2]
-#    
-#    vec2x = vec2comps[0]
-#    vec2y = vec2comps[1]
-#    if vec2comps[2] == 15.0:
-#        vec2z = 1000.0
-#    else:
-#        vec2z = vec2comps[2]
-#    
-#    vec3x = vec3comps[0]
-#    vec3y = vec3comps[1]
-#    if vec3comps[2] == 15.0:
-#        vec3z = 1000.0
-#    else:
-#        vec3z = vec3comps[2]
-    outfile
-    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec1z, vec1x, vec1y))
-    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec2z, vec2x, vec2y))
-    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))
     
 def checkStructsIn(list1,list2):
     '''makes sure that items in list1 are in list 2''' 
@@ -401,8 +329,8 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
             # Start VASP jobs and wait until they all complete or time out.
         manager2 = JobManager.JobManager(atoms,ediffg)
         if runTypes ==['low']:
-            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
-#            manager2.runLowJobs(vstructsToStart,vstructsRestart)
+#            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
+            manager2.runLowJobs(vstructsToStart,vstructsRestart)
         elif runTypes ==['low','normal']:
             manager2.runLowJobs(vstructsToStart,vstructsRestart)
             manager2.runNormalJobs(vstructsToStart,vstructsRestart)          
@@ -751,8 +679,8 @@ or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
-    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = os.getcwd()
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
+    maindir = os.getcwd()
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -826,7 +754,6 @@ if __name__ == '__main__':
             vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
         if iteration == 2: #bring in restarts from initial folders
             vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
-            print 'vstructsRestart',vstructsRestart
             
         pastStructsUpdate(vstructsToStart,atoms)
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           

@@ -313,13 +313,18 @@ class MakeUncleFiles:
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + atom + '\n'])
                 self.reinitialize()                             
                 self.getPureEs(iatom)
-                if len(self.newlyFinished[iatom]) > 0: 
-                    self.vaspToVdata(iatom)
-                outfile = open(atomDir + '/structures.in', 'a')  #structures.in is always updated in the atomic dir
-                for structure in self.newlyFinished[iatom]:
-                    self.writeUnclePOSCAR(atomDir + '/' + structure,outfile,'')
-                outfile.close
+                nNewFinished = self.newlyFinished[iatom]
+                if len(nNewFinished) > 0: 
+                    newPos = self.vaspToVdata(iatom) #starting position of new data
+                    i1 = newPos; i2 = newPos + nNewFinished
+                    structuresInWrite(atomDir,vdata[iatom,i1:i2]['struct'], vdata[iatom,i1:i2]['FE'],\
+                         vdata[iatom,i1:i2]['conc'],vdata[iatom,i1:i2]['energy'],'a')                    
+#                outfile = open(atomDir + '/structures.in', 'a')  #structures.in is always updated in the atomic dir
+#                for structure in self.newlyFinished[iatom]:
+#                    self.writeUnclePOSCAR(atomDir + '/' + structure,outfile,'')
+#                outfile.close
                
+                    
                     #Fix below:  it's possible that none of the structures in holdoutStructs
                     #have folders and POSCARS in the atom directory, because they came from 
                     #structure.start.  So the poscars need to come not from  writeUnclePOSCAR(dir,..), but 
@@ -519,7 +524,7 @@ class MakeUncleFiles:
         vaspHFEfile = open('vaspHFE.out','w')  
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = 0 #creating for all finished structs
-        #this does not need to be sorted.  The 
+        #this does not need to be sorted. 
         for j in range(nfinished):
             struct = self.vdata[iatom,istruct]['struct']
             conc = self.vdata[iatom,istruct]['conc']
@@ -552,17 +557,6 @@ class MakeUncleFiles:
         #        during the loop.
         lastDir = os.getcwd()
         os.chdir(lastDir + '/' + self.atoms[iatom])
-#        pureHdir = os.getcwd() + '/1'
-#        pureMdir = os.getcwd() + '/3'
-#        
-#        self.setAtomCounts(pureHdir)
-#        self.setEnergy(pureHdir)
-#        self.pureHenergy = float(self.energy)
-#        
-#        self.setAtomCounts(pureMdir)
-#        self.setEnergy(pureMdir)
-#        self.pureMenergy = float(self.energy)
-        
         formEnergyList = []
         sortedStructs = []
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
@@ -589,76 +583,76 @@ class MakeUncleFiles:
             sortedStructs.append(pair[1])        
         self.newlyFinished[iatom] = sortedStructs           
         os.chdir(lastDir)
+        return nfinished #the position in vdata before adding the data
+            
+#    def writeAtomCounts(self):
+#        """ Writes the number of H atoms and the number of M atoms to the structures.in or 
+#            structures.holdout file. """
+#        if len(self.atomCounts) == 2:
+#            self.outfile.write(str(self.atomCounts[0]) + " " + str(self.atomCounts[1]) + "\n")
+#        elif len(self.atomCounts) == 1:
+#            self.outfile.write(str(self.atomCounts[0]) + "\n")
+#    
+#    def writeAtomPositions(self):
+#        """ Writes the positions of the atoms in the current structure to the structures.in
+#            or structures.holdout file.  The positions are written in the form:
+#                z-coord   x-coord   y-coord
+#            because this is the convention that UNCLE uses. """
+#        self.outfile.write("Cartesian\n")
+#        for i in xrange(len(self.atomPositions)):
+#            self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % 
+#                               (self.zPositions[i], self.xPositions[i], self.yPositions[i]))   
+#
+#    def writeDashedLine(self):
+#        """ Writes a dashed line in the structures.in/.holdout files as a separator between
+#            different structures. """
+#        self.outfile.write("#------------------------------------------------\n")
+#
+#    def writeEnergy(self):
+#        """ Writes the energy of the current structure to the structures.in or structures.holdout
+#            file. """
+#        self.outfile.write("#Energy:\n")
+#        self.outfile.write(str(self.energy) + "\n")    
+#      
+#    def writeIDString(self):
+#        """ Writes the ID string of the current structure to either the structures.in or 
+#            structures.holdout file. """
+#        concentration = float(float(self.atomCounts[1]) / float(sum(self.atomCounts)))
+#        formationEnergy = float(self.energy) - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
+#        
+#        self.outfile.write(self.idString + " FE = " + str(formationEnergy) + ", Concentration = " + str(concentration) + "\n")
         
-    def writeAtomCounts(self):
-        """ Writes the number of H atoms and the number of M atoms to the structures.in or 
-            structures.holdout file. """
-        if len(self.atomCounts) == 2:
-            self.outfile.write(str(self.atomCounts[0]) + " " + str(self.atomCounts[1]) + "\n")
-        elif len(self.atomCounts) == 1:
-            self.outfile.write(str(self.atomCounts[0]) + "\n")
-    
-    def writeAtomPositions(self):
-        """ Writes the positions of the atoms in the current structure to the structures.in
-            or structures.holdout file.  The positions are written in the form:
-                z-coord   x-coord   y-coord
-            because this is the convention that UNCLE uses. """
-        self.outfile.write("Cartesian\n")
-        for i in xrange(len(self.atomPositions)):
-            self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % 
-                               (self.zPositions[i], self.xPositions[i], self.yPositions[i]))   
-
-    def writeDashedLine(self):
-        """ Writes a dashed line in the structures.in/.holdout files as a separator between
-            different structures. """
-        self.outfile.write("#------------------------------------------------\n")
-
-    def writeEnergy(self):
-        """ Writes the energy of the current structure to the structures.in or structures.holdout
-            file. """
-        self.outfile.write("#Energy:\n")
-        self.outfile.write(str(self.energy) + "\n")    
-      
-    def writeIDString(self):
-        """ Writes the ID string of the current structure to either the structures.in or 
-            structures.holdout file. """
-        concentration = float(float(self.atomCounts[1]) / float(sum(self.atomCounts)))
-        formationEnergy = float(self.energy) - (concentration * self.pureMenergy + (1.0 - concentration) * self.pureHenergy)
-        
-        self.outfile.write(self.idString + " FE = " + str(formationEnergy) + ", Concentration = " + str(concentration) + "\n")
-        
-    def writeLatticeVecs(self):
-        """ Writes the lattice vectors of the current structure to the structures.in or
-            structures.holdout file. """
-        self.outfile.write("1.0\n")
-        self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec1z, self.vec1x, self.vec1y))
-        self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec2z, self.vec2x, self.vec2y))
-        self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec3z, self.vec3x, self.vec3y))
-    
-    def writeUnclePOSCAR(self, poscarDir, outfile, idString):
-        """ Calls all the methods needed to write all the needed information about the current
-            structure to the 'structures.in' or 'structures.holdout' files.  Uses an input list
-            to decide which structures to put in the 'structures.holdout' file. """
-        self.outfile = outfile
-        if idString == '':
-            self.setIDString(poscarDir)
-        else: 
-            self.setIDString = idString
-        self.setLatticeVectors(poscarDir)
-        self.setAtomCounts(poscarDir)
-        self.setAtomPositions(poscarDir)
-        self.setEnergy(poscarDir)
-        
-        # Make sure the pure structures go in structures.in
-        if self.idString.split()[0] == 'PURE':
-            self.outfile = outfile       
-        self.writeDashedLine(); outfile.flush()       
-        self.writeIDString(); outfile.flush()        
-        self.writeLatticeVecs(); outfile.flush()     
-        self.writeAtomCounts(); outfile.flush()     
-        self.writeAtomPositions(); outfile.flush()     
-        self.writeEnergy(); outfile.flush()     
-
+#    def writeLatticeVecs(self):
+#        """ Writes the lattice vectors of the current structure to the structures.in or
+#            structures.holdout file. """
+#        self.outfile.write("1.0\n")
+#        self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec1z, self.vec1x, self.vec1y))
+#        self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec2z, self.vec2x, self.vec2y))
+#        self.outfile.write("  %12.8f  %12.8f  %12.8f\n" % (self.vec3z, self.vec3x, self.vec3y))
+#    
+#    def writeUnclePOSCAR(self, poscarDir, outfile, idString):
+#        """ Calls all the methods needed to write all the needed information about the current
+#            structure to the 'structures.in' or 'structures.holdout' files.  Uses an input list
+#            to decide which structures to put in the 'structures.holdout' file. """
+#        self.outfile = outfile
+#        if idString == '':
+#            self.setIDString(poscarDir)
+#        else: 
+#            self.setIDString = idString
+#        self.setLatticeVectors(poscarDir)
+#        self.setAtomCounts(poscarDir)
+#        self.setAtomPositions(poscarDir)
+#        self.setEnergy(poscarDir)
+#        
+#        # Make sure the pure structures go in structures.in
+#        if self.idString.split()[0] == 'PURE':
+#            self.outfile = outfile       
+#        self.writeDashedLine(); outfile.flush()       
+#        self.writeIDString(); outfile.flush()        
+#        self.writeLatticeVecs(); outfile.flush()     
+#        self.writeAtomCounts(); outfile.flush()     
+#        self.writeAtomPositions(); outfile.flush()     
+#        self.writeEnergy(); outfile.flush()     
 
 
 

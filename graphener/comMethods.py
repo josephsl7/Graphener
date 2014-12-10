@@ -59,29 +59,6 @@ def writefile(lines,filepath): #need to have \n's inserted already
     file1.writelines(lines) 
     file1.close()
     return
-
-
-#def setAtomCounts(self, poscarDir):
-#    """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
-#        the corresponding members. """
-#    self.atomCounts = []
-#
-#    poscar = open(poscarDir + '/POSCAR', 'r')
-#    poscarLines = poscar.readlines()
-#    poscar.close()
-#    
-#    counts = poscarLines[5].strip().split()
-#    
-#    if len(counts) == 3:
-#        self.atomCounts.append(int(counts[1]))
-#        self.atomCounts.append(int(counts[2]))
-#    elif len(counts) == 2:
-#        if poscarLines[0].split()[1] == 'H':
-#            self.atomCounts.append(int(counts[1]))
-#            self.atomCounts.append(0)
-#        elif poscarLines[0].split()[1] == 'M':
-#            self.atomCounts.append(0)
-#            self.atomCounts.append(int(counts[1]))
             
 def setAtomCounts(self,poscarDir):
     """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
@@ -108,5 +85,57 @@ def setAtomCounts(self,poscarDir):
     if fixPOSCAR:
         del(poscarLines[5])
         writefile(poscarLines[:7+natoms*2],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want          
+
+def structuresInWrite(atomDir, structlist, FElist, conclist,energylist,writeType):
+    '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
+       Also writes this info as POSCAR_orig in the structure folder'''
+    lastDir = os.getcwd()
+    structuresInFile = open(atomDir + '/'+ 'structures.in', writeType)                                   
+    structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
+    os.chdir(atomDir)
+    subprocess.call(['ln','-s','../enum/struct_enum.out'])
+    subprocess.call(['rm vasp.0*'],shell=True) #start clean
+    for istruct,struct in enumerate(structlist):
+        vaspDir = atomDir + '/'+ str(struct)
+        structuresInFile.write("#------------------------------------------------\n")
+
+        subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
+        subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
+        poscar = readfile(vaspDir+'/POSCAR_orig')           
+        idString = 'graphene str #: ' + str(struct)
+        structuresInFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
+        structuresInFile.write("1.0\n")
+        writeLatticeVectors(poscar[2:5],structuresInFile)
+        structuresInFile.writelines(poscar[5:])
+        structuresInFile.write("#Energy:\n")
+        structuresInFile.write(str(energylist[istruct]) + "\n")         
+    structuresInFile.close() 
+    os.chdir(lastDir)
+
+def writeLatticeVectors(vecLines,outfile):
+    """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
+        corresponding member components. """  
+    vec1 = vecLines[0].strip().split()
+    vec2 = vecLines[1].strip().split()
+    vec3 = vecLines[2].strip().split()
+       
+    vec1comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec1] #to handle ******
+    vec2comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec2]
+    vec3comps = [float(comp) if comp[0]!='*' else 1000 for comp in vec3]
     
+    vec1z = vec1comps[0]
+    vec1x = vec1comps[1]
+    vec1y = vec1comps[2]
+    
+    vec2z = vec2comps[0]
+    vec2x = vec2comps[1]
+    vec2y = vec2comps[2]
+    
+    vec3z = vec3comps[0]
+    vec3x = vec3comps[1]
+    vec3y = vec3comps[2]
+
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec1z, vec1x, vec1y))
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec2z, vec2x, vec2y))
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))   
     

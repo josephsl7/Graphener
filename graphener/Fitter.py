@@ -73,8 +73,10 @@ class Fitter:
             fitsDir = atomDir + '/fits'
             if os.path.isdir(fitsDir): #remove it...start clean because must have current files
 #               print 'removing fits dir'
-                check = subprocess.check_output(['rm','-r',fitsDir])
-                subprocess.call(['echo','rmFits feedback'+ check])
+                try:
+                    check = subprocess.check_output(['rm','-r',fitsDir])
+                except:
+                    subprocess.call(['echo','rmFits feedback'+ check])
 #                subprocess.call(['rm','-r',fitsDir])
             subprocess.call(['mkdir',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
