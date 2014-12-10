@@ -6,10 +6,11 @@ Created on Aug 27, 2014
 import os
 import re
 import subprocess
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
+                    convergeCheck,finishCheck,getNSW,getSteps
 
 
 class Analyzer:
-
 
     def __init__(self, atoms):
         """ CONSTRUCTOR """
@@ -44,12 +45,12 @@ class Analyzer:
         # folder must end with a '/'
         outfile = open("results", "w")
         outfile.write("********** INCAR SETTINGS **********\n\n")
-        incarLines = self.readfile(folder + "INCAR")
+        incarLines = readfile(folder + "INCAR")
         for line in incarLines:
             outfile.write(line)
     
         outfile.write("\n********** FINISH CHECK **********\n")
-        finished = self.finishCheck(folder)
+        finished = finishCheck(folder)
         if finished:
             outfile.write("\nFinished\n")
         else:
@@ -68,8 +69,8 @@ class Analyzer:
             match = re.match('(\s*NSW\s*)=\s*([0-9]*)', theLine)
             if match:
                 NSW = int(match.group(2))
-                if self.convergeCheck(folder, NSW):
-                    outfile.write("\nConverged in " + str(self.getSteps(folder)) + " steps.\n")
+                if convergeCheck(folder, NSW):
+                    outfile.write("\nConverged in " + str(getSteps(folder)) + " steps.\n")
                 else:
                     outfile.write("\nDid not converge.\n")
             else:
@@ -115,48 +116,7 @@ class Analyzer:
     
         subprocess.call(['cp', 'results', folder + 'end_of_run_info'])
         subprocess.call(['rm', 'results'])
-
-    def readfile(self, filepath):
-        file1 = open(filepath,'r')
-        lines = file1.readlines()
-        file1.close()
-        return lines
-
-    def finishCheck(self, folder):
-        """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
-            parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
-        lastfolder = os.getcwd()
-        os.chdir(folder)
-        proc = subprocess.Popen(['grep', 'Voluntary', 'OUTCAR'],stdout=subprocess.PIPE)
-        newstring = proc.communicate()
-        os.chdir(lastfolder)    
-        return newstring[0].find('Voluntary') > -1 #True/False
-
-    def convergeCheck(self, folder, NSW):
-        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
-        try:
-            value = self.getSteps(folder)
-            return value < NSW  
-        except:
-            return False  
-    
-    def getSteps(self, folder):
-        '''number of steps in relaxation, as an integer'''
-        lastfolder = os.getcwd()
-        os.chdir(folder)
-        if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
-            os.chdir(lastfolder) 
-            return -9999
-        oszicar = open('OSZICAR','r')
-        laststep = oszicar.readlines()[-1].split()[0]
-        oszicar.close()
-        os.chdir(lastfolder)  
-        try:
-            value = int(laststep)
-            return value
-        except:
-            return 9999
-    
+   
     def cpuTime(self, folder):
         lastfolder = os.getcwd()
         os.chdir(folder)

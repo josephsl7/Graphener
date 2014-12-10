@@ -6,7 +6,7 @@ Created on Aug 26, 2014
 import os, subprocess, time
 from sched import scheduler
 import RunVasp
-from comMethods import joinLists
+from comMethods import joinLists,getSteps
 
 class JobManager:
     """ This class is responsible for scheduling and watching the VASP calculations.  It starts
@@ -48,7 +48,7 @@ class JobManager:
                 for structure in vstructsToStart[i]:
                     structureDir = atomDir + '/' + structure
                     if os.path.isdir(structureDir):
-                        if self.finishCheck(structureDir) and self.convergeCheck(structureDir, 400):
+                        if finishCheck(structureDir) and convergeCheck(structureDir, 400):
                             total += 1
                             converged += 1
                         else:
@@ -63,45 +63,6 @@ class JobManager:
                 subprocess.call(['echo','\t%d structures converged.' % converged])
                 subprocess.call(['echo','\t%d structures did not converge.' % notConverged])
                             
-    def finishCheck(self, folder):
-        """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
-            parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
-            
-        lastfolder = os.getcwd()
-        os.chdir(folder)
-        
-        proc = subprocess.Popen(['grep', 'Voluntary', 'OUTCAR'],stdout=subprocess.PIPE)
-        newstring = proc.communicate()
-        os.chdir(lastfolder)   
-         
-        return newstring[0].find('Voluntary') > -1 #True/False
-
-    def convergeCheck(self, folder, NSW):
-        """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
-            ionic relaxation step) is less than NSW."""
-        try:
-            value = self.getSteps(folder)
-            return value < NSW #True/False
-        except:
-            return False #True/False
-
-    def getSteps(self, folder):
-        """Returns the number of steps of ionic relaxation, as an integer. """
-        lastfolder = os.getcwd()
-        os.chdir(folder)
-        if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
-            os.chdir(lastfolder) 
-            return -9999
-        oszicar = open('OSZICAR','r')
-        laststep = oszicar.readlines()[-1].split()[0]
-        oszicar.close()
-        os.chdir(lastfolder)  
-        try:
-            value = int(laststep)
-            return value
-        except:
-            return 9999
-
     def reportDOSStats(self, vstructsToStart):
         """ Reports the percentage of structures that converged during the Density of States VASP
             calculations.  Also reports the number of structures that converged and the number
@@ -117,7 +78,7 @@ class JobManager:
                     if os.path.isdir(structDir):
                         dosDir = structDir + '/DOS'
                         if os.path.isdir(dosDir):
-                            if self.finishCheck(dosDir) and self.convergeCheck(dosDir, 2):
+                            if finishCheck(dosDir) and convergeCheck(dosDir, 2):
                                 total += 1
                                 converged += 1
                             else:
@@ -147,7 +108,7 @@ class JobManager:
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
                         if os.path.isdir(normalDir):
-                            if self.finishCheck(normalDir) and self.convergeCheck(normalDir, 400):
+                            if finishCheck(normalDir) and convergeCheck(normalDir, 400):
                                 total += 1
                                 converged += 1
                             else:

@@ -33,14 +33,6 @@ class RunVasp:
     def clearCurrentJobIds(self):
         """ Clears the list of current job IDs. """
         self.currJobIds = []
-
-    def convergeCheck(self, folder, NSW):
-        """Tests whether force convergence is done by whether the last line of Oszicar is less than NSW."""
-        try:
-            value = self.getSteps(folder)
-            return value < NSW #True/False
-        except:
-            return False #True/False
       
     def linkVaspExec(self):
         """ Copies the vasp executable file to the current working directory. """
@@ -78,44 +70,9 @@ class RunVasp:
                     subprocess.call(['cp','POTCAR',structDir])            
             os.chdir(lastDir)
 
-    def finishCheck(self, folder):
-        """ Tests whether Vasp is done by finding "Voluntary" in last line of OUTCAR.  The input
-        parameter, folder, is the directory containing OUTCAR, not the OUTCAR file itself. """
-        lastfolder = os.getcwd()
-        os.chdir(os.path.abspath(folder))
-        proc = subprocess.Popen(['grep', 'Voluntary', 'OUTCAR'],stdout=subprocess.PIPE)
-        newstring = proc.communicate()
-        os.chdir(lastfolder)    
-        return newstring[0].find('Voluntary') > -1 #True/False
-
     def getCurrentJobIds(self):
         """ Returns the list of current job IDs. """
-        return self.currJobIds
-
-    def getSteps(self, folder):
-        '''number of steps in relaxation, as an integer'''
-        lastfolder = os.getcwd()
-        os.chdir(folder)
-        if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
-            os.chdir(lastfolder) 
-            return -9999
-        oszicar = open('OSZICAR','r')
-        laststep = oszicar.readlines()[-1].split()[0]
-        oszicar.close()
-        os.chdir(lastfolder)  
-        try:
-            value = int(laststep)
-            return value
-        except:
-            return 9999 
-
-    def hasFinished(self, folder):
-        """ Determines whether the structure has finished and converged VASP calculations by 
-            looking at its folder. """
-        if self.finishCheck(folder) and self.convergeCheck(folder, 400):
-            return True
-        else:
-            return False    
+        return self.currJobIds  
 
     def makeDOSDirectories(self, vstructsToStart):
         """ After the normal-precision relaxation, creates a directory for the Density of States
@@ -130,7 +87,7 @@ class RunVasp:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
-                        if os.path.isdir(normalDir) and self.finishCheck(normalDir) and self.convergeCheck(normalDir, 400):
+                        if os.path.isdir(normalDir) and finishCheck(normalDir) and convergeCheck(normalDir, 400):
                             os.chdir(structDir)
                             subprocess.call(['mkdir', 'DOS'])
                             subprocess.call(['cp','normal/CONTCAR','normal/DOSCAR','normal/EIGENVAL',
@@ -252,7 +209,7 @@ class RunVasp:
                 os.chdir(elementDir)
                 for structure in vstructsToStart[iatom]:
                     structDir = elementDir + '/' + structure
-                    if os.path.isdir(structDir) and self.finishCheck(structDir) and self.convergeCheck(structDir, 400):
+                    if os.path.isdir(structDir) and finishCheck(structDir) and convergeCheck(structDir, 400):
                         os.chdir(structDir)
                         subprocess.call(['mkdir', 'normal'])
                         subprocess.call(['cp','-P','CONTCAR','KPOINTS','vasp533',

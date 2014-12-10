@@ -5,7 +5,8 @@ Created on Aug 26, 2014
 '''
 import os, subprocess
 import ClustersBuild
-
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
+                    convergeCheck,finishCheck,getNSW,getSteps
 
 class Enumerator:
     """ This class enumerates symmetrically unique structures in a given volume range using UNCLE.  
@@ -95,7 +96,7 @@ class Enumerator:
                 subprocess.call(['echo','\nChoosing i.i.d. structures\n'])                         
                 os.chdir('enum')
                 subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
-                lines = self.readfile('training_set_structures.dat')
+                lines = readfile('training_set_structures.dat')
                 iidList = [line.strip().split()[1] for line in lines]                    
                 subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
                 vsDir = lastDir + '/' + atom + '/enumpast'
@@ -112,7 +113,7 @@ class Enumerator:
                     subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
                     os.chdir(lastDir)
                     #get the iidStructs from training_set_structures.dat for each atom
-                    lines = self.readfile(atomDir + '/enumpast/training_set_structures.dat')
+                    lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
                     iidStructs[iatom] = [line.strip().split()[1] for line in lines] 
                 except:
                     subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])
@@ -155,7 +156,7 @@ class Enumerator:
 
     def getNtot(self,dir):
         """Gets total number of structures in enumeration"""
-        return int(self.readfile(dir + '/struct_enum.out')[-1].split()[0])
+        return int(readfile(dir + '/struct_enum.out')[-1].split()[0])
                           
     def makeAtomDirectories(self):
         """ Creates a directory for each atom in the atom list specified in settings.in.  All the 
@@ -165,10 +166,4 @@ class Enumerator:
             if not os.path.isdir(atomDir):
                 subprocess.call(['mkdir',atomDir])    
 
-    def readfile(self, filepath):
-        file1 = open(filepath,'r')
-        lines = file1.readlines()
-        file1.close()
-        return lines
-            
                   

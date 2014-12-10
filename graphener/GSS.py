@@ -6,7 +6,8 @@ Created on Aug 29, 2014
 import os, subprocess, sys
 from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32
 from copy import deepcopy
-
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
+                    convergeCheck,finishCheck,getNSW,getSteps
 class GSS:
     """ This class performs the UNCLE ground state search for the lowest formation energy
         structures. From this, we get a list of every structure that was enumerated and its
@@ -87,7 +88,7 @@ class GSS:
                 atomDir = dir + '/' + self.atoms[iatom] + '/gss'
                 gfvfile = open(atomDir + '/gssFailedVasp.out','w')
                 gssInfo = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('FE', float)]) #columns:  struct, concentration, energy
-                lines = self.readfile(atomDir + '/gss_' + str(iteration) + '.out')
+                lines = readfile(atomDir + '/gss_' + str(iteration) + '.out')
                 for i,line in enumerate(lines[2:]):
                     struct = line.strip().split()[0]
                     conc = float(line.strip().split()[2]) #metal concentration
@@ -126,7 +127,7 @@ class GSS:
                 priorfile.close()
                 os.chdir(atomDir)
                 os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
-                lines = self.readfile(atomDir+'/priorities_{}.out'.format(iteration))
+                lines = readfile(atomDir+'/priorities_{}.out'.format(iteration))
                 for i, line in enumerate(lines[:-1]): #skip last line which is header (now footer) as sorted
                     data = line.strip().split()
                     self.priorities[iatom,i]['struct'] = data[0]
@@ -142,7 +143,7 @@ class GSS:
         dir = os.getcwd() + '/' + self.atoms[0] + '/gss/'
         os.chdir(dir)
         os.system('sort -g -k 3 gss_1.out > tempout') #sorts by column 3, metal concentration
-        lines = self.readfile('tempout');os.system('rm tempout')         
+        lines = readfile('tempout');os.system('rm tempout')         
         conc_old = 1.0 #starts with highest concentration first 
         Nc = 0  
         if iteration==1: concfile = open(lastDir + '/concentrations.info' , 'w')
@@ -174,7 +175,7 @@ class GSS:
                 subprocess.call(['cp',self.enumFolder + '/lat.in', gssDir])
                 subprocess.call(['cp',self.fitsDir + '/J.1.out', gssDir])
            
-                inlines = self.readfile(self.neededFilesDir + '/groundstatesearch.in')              
+                inlines = readfile(self.neededFilesDir + '/groundstatesearch.in')              
                 outfile = open(gssDir + '/groundstatesearch.in','w')
                 for i in xrange(len(inlines)):
                     if i == 4:
@@ -183,7 +184,7 @@ class GSS:
                         outfile.write(inlines[i])
                 outfile.close()
                 
-                inlines = self.readfile(self.neededFilesDir + '/gss_plot.gp')
+                inlines = readfile(self.neededFilesDir + '/gss_plot.gp')
                 outfile = open(gssDir + '/gss_plot.gp','w')
                 for i in xrange(len(inlines)):
                     if i == 3:
@@ -212,7 +213,7 @@ class GSS:
                 subprocess.call(['mv', '../vaspHFE.out', '.']) 
                 if os.path.isdir(gssDir):           
                     #Binding energy
-                    inlines = self.readfile(self.neededFilesDir + '/BE_plot.gp')
+                    inlines = readfile(self.neededFilesDir + '/BE_plot.gp')
                     outfile = open(gssDir + '/BE_plot.gp','w')
                     for i in xrange(len(inlines)):
                         if i == 3:
@@ -226,10 +227,10 @@ class GSS:
                     outfile.close()
             
                     #Hexagonal formation energy    
-                    data = self.readfile(gssDir+'/vaspHFE.out')
+                    data = readfile(gssDir+'/vaspHFE.out')
                     ydata = [float(line.strip().split()[1]) for line in data]
                     ymax = min(amax(ydata),1.0) #don't let yrange get over 1 eV
-                    inlines = self.readfile(self.neededFilesDir + '/HFE_plot.gp')
+                    inlines = readfile(self.neededFilesDir + '/HFE_plot.gp')
                     outfile = open(gssDir + '/HFE_plot.gp','w')
                     for i in xrange(len(inlines)):
                         if i == 3:
@@ -265,11 +266,6 @@ class GSS:
                     subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
                     os.chdir(lastDir)              
 
-    def readfile(self,filepath): #bch
-        file1 = open(filepath,'r')
-        lines = file1.readlines()
-        file1.close()
-        return lines
 
 
 

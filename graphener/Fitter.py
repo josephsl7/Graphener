@@ -4,12 +4,9 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 import os,sys,subprocess,time,shutil
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
+                    convergeCheck,finishCheck,getNSW,getSteps
 
-def readfile(filepath):
-    file1 = open(filepath,'r')
-    lines = file1.readlines()
-    file1.close()
-    return lines
 
 
 def copyfiletrue(file1,file2):

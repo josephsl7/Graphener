@@ -9,7 +9,8 @@ from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
 from copy import deepcopy
 
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
+                    convergeCheck,finishCheck,getNSW,getSteps
 
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
 
@@ -120,7 +121,7 @@ def readInitialFolders(atoms,restartTimeout,):
             failed = False
             vaspDir = atomDir + '/'+ str(struct)
             if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
-                subprocess.call(['printf','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
+                subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
                     atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
@@ -276,16 +277,7 @@ def contcarToPoscar(structs,atoms,iteration):
             if os.path.exists(structDir + '/CONTCAR'):
                 if os.stat(structDir + '/CONTCAR').st_size > 0:
                     subprocess.call(['cp',structDir + '/CONTCAR',structDir + '/POSCAR'])    
-    os.chdir(lastDir)
-
-def convergeCheck(folder, NSW):
-    """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
-        ionic relaxation step) is less than NSW."""
-    try:
-        value = getSteps(folder)
-        return value < NSW  
-    except:
-        return False  
+    os.chdir(lastDir) 
 
 def createEnumPastDir(atoms):
     '''enumpast is a folder for storing past_structs.dat, and enumerating new iid structures 
@@ -351,15 +343,6 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
         subprocess.call(['echo','Your RUN_TYPES is {}'.format(runTypes)]) 
         sys.exit('The only supported RUN_TYPES are "low", "low normal" and "low normal DOS"')   
     return finalDir
-    
-def finishCheck(folder):
-    """ Tests whether VASP is done by finding "Voluntary" in last line of OUTCAR. """   
-    lastfolder = os.getcwd()
-    os.chdir(folder)        
-    proc = subprocess.Popen(['grep', 'Voluntary', 'OUTCAR'], stdout=subprocess.PIPE)
-    newstring = proc.communicate()
-    os.chdir(lastfolder)            
-    return newstring[0].find('Voluntary') > -1
 
 def getFromPriorities(priorities, N, vstructsAll, atoms):
     '''take N structures new to vasp of highest priority'''
@@ -398,22 +381,6 @@ def getNSW(dir):
     proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
     return int(proc.communicate()[0].split('=')[-1])
 
-def getSteps(folder):
-    """ Returns the number of ionic relaxation steps that VASP performed, as an integer. """
-    lastfolder = os.getcwd()
-    os.chdir(folder)
-    if not os.path.exists('OSZICAR') or os.path.getsize('OSZICAR') == 0:
-        os.chdir(lastfolder) 
-        return -9999
-    oszicar = open('OSZICAR', 'r')
-    laststep = oszicar.readlines()[-1].split()[0]
-    oszicar.close()
-    os.chdir(lastfolder)  
-    try:
-        value = int(laststep)
-        return value
-    except:
-        return 9999 
 
 def multiDelete(list_, args):
     indexes = sorted(args, reverse=True)
@@ -431,13 +398,7 @@ def pastStructsUpdate(structs,atoms):
         file = open( atomDir +'/enumpast/past_structs.dat','w')
         for struct in pastStructs:
             file.write(str(struct)+'\n')
-        file.close
-            
-def readfile(filepath):
-        file1 = open(filepath,'r')
-        lines = file1.readlines()
-        file1.close()
-        return lines           
+        file.close       
 
 def readSettingsFile():
     currDir = os.getcwd()
@@ -634,40 +595,6 @@ def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
     except IOError:
         subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])   
 
-def writefile(lines,filepath): #need to have \n's inserted already
-    file1 = open(filepath,'w')
-    file1.writelines(lines) 
-    file1.close()
-    return
-
-#def writeLowestVasp(lowestStructsFile, vStructsFinished, iteration, atoms):
-#    try:
-#        lowestStructsFile.write('==============================================================\n')
-#        lowestStructsFile.write('\tIteration: ' + str(iteration) + '\n')
-#        lowestStructsFile.write('==============================================================\n')
-#        for i in xrange(len(vStructsFinished)):
-#            lowestStructsFile.write('\n******************** ' + atoms[i] + ' ********************\n')
-#            atomLength = len(vStructsFinished[i])
-#            if atomLength >= 100:
-#                for j in xrange(len(vStructsFinished[i][:100])):
-#                    if (j + 1) % 20 == 0 or j == 99:
-#                        lowestStructsFile.write(str(vStructsFinished[i][j]) + '\n')
-#                    else:
-#                        lowestStructsFile.write(str(vStructsFinished[i][j]) + ', ')
-#            elif atomLength == 0:
-#                lowestStructsFile.write('\nNo structures submitted.\n')
-#            else:
-#                for j in xrange(len(vStructsFinished[i][:atomLength])):
-#                    if (j + 1) % 20 == 0 or j == atomLength - 1:
-#                        lowestStructsFile.write(str(vStructsFinished[i][j]) + '\n')
-#                    else:
-#                        lowestStructsFile.write(str(vStructsFinished[i][j]) + ', ')                       
-#        lowestStructsFile.flush()
-#        os.fsync(lowestStructsFile.fileno())
-#        
-#    except IOError:
-#        subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to lowest_vasp file. ~~~~~~~~~~\n'])
-                
 
 # -------------------------------------------- MAIN -----------------------------------------------
 '''All atom folders must start with the same method:  
@@ -678,9 +605,9 @@ s from previous run must exist
 or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = os.getcwd()
+#    maindir = os.getcwd()
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -842,9 +769,6 @@ if __name__ == '__main__':
         #---------- prep for next iteration --------------
         vstructsRestart = newlyToRestart
 
-
-
-
         # Set holdoutStructs for the next iteration to the 100 (or less) lowest vasp structures
          
         for iatom in range(natoms):
@@ -857,12 +781,7 @@ if __name__ == '__main__':
         # Go to next iteration
         iteration += 1
         
-#        if iteration == 4:
-#            break
-    
     uncleOutput.close()
-#    lowestStructsFile.close()
-#    lowestGssFile.close()
-    # Should do some analysis after the loop has finished as well. """
+
 
     subprocess.call(['echo','\n---------- PROGRAM ENDED ----------\n'])
