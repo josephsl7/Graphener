@@ -20,9 +20,11 @@ def finishCheck(folder):
     return newstring[0].find('Voluntary') > -1
     
 def getNSW(dir): 
-    proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
-    return int(proc.communicate()[0].split('=')[-1])
-
+    if os.path.exists(dir+'/INCAR'):
+        proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
+        return int(proc.communicate()[0].split('=')[-1])
+    else:
+        return 1
 def getSteps(folder):
     """ Returns the number of ionic relaxation steps that VASP performed, as an integer. """
     lastfolder = os.getcwd()
@@ -88,10 +90,12 @@ def setAtomCounts(self,poscarDir):
 
 def structuresInWrite(atomDir, structlist, FElist, conclist,energylist,writeType):
     '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
-       Also writes this info as POSCAR_orig in the structure folder'''
+       Also writes this info as POSCAR_orig in the structure folder.  writeType is either "w" or "a"
+       depending on whether you are starting the file or appending to it.'''
     lastDir = os.getcwd()
     structuresInFile = open(atomDir + '/'+ 'structures.in', writeType)                                   
-    structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
+    if writeType == 'w':
+        structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
     os.chdir(atomDir)
     subprocess.call(['ln','-s','../enum/struct_enum.out'])
     subprocess.call(['rm vasp.0*'],shell=True) #start clean

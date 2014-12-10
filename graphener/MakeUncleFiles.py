@@ -80,15 +80,14 @@ class MakeUncleFiles:
                 finished = []
                 failed = []
                 restart = []
+
                 for istruct, struct in enumerate(vstructsToRun[iatom]):
-#                    print 'struct',struct
                     if mod(istruct+1,100) == 0 or istruct+1 == len(vstructsToRun[iatom]): 
                         subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(vstructsToRun[iatom]),atom)])
-#                    fullPath = os.path.abspath(struct)
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
                         if os.path.isdir(vaspDir):
-                            if finishCheck(vaspDir) and convergeCheck(vaspDir, self.getNSW(vaspDir)): #finalDir                           
+                            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -108,7 +107,8 @@ class MakeUncleFiles:
                 for i in xrange(len(conclist)): finished.append(conclist[i][1]) 
                 self.newlyFinished[iatom]= finished
                 self.newlyToRestart[iatom]= restart #sorted by concentration, for atomi
-#                print 'self.newlyFinished[iatom]',self.newlyFinished[iatom]
+                subprocess.call(['echo','\tAtom {} vasp calcs: {} finished, {} to restart, {} failed\n'.format(atom,len(self.newlyFinished[iatom]),len(self.newlyToRestart[iatom]),len(self.newlyFailed[iatom]))])
+
                 os.chdir(lastDir)
 
     def contains(self, struct, alist):
@@ -184,13 +184,13 @@ class MakeUncleFiles:
             self.setEnergy(pureHdir)
             self.pureHenergy = float(self.energy)
         else:
-            subprocess(['echo','Missing pure H energy folder'])
+            subprocess.call(['echo','Missing pure H energy folder'])
         if os.path.exists(pureMdir):        
             self.setAtomCounts(pureMdir)
             self.setEnergy(pureMdir)
             self.pureMenergy = float(self.energy)
         else:
-            subprocess(['echo','Missing pure M energy folder']) 
+            subprocess.call(['echo','Missing pure M energy folder']) 
 #                    if etest != 999999:
 #                        self.pureMenergy = etest
 #                    else:
@@ -224,9 +224,9 @@ class MakeUncleFiles:
 #        
 #        return 999999
 
-    def getNSW(self,dir): 
-        proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
-        return int(proc.communicate()[0].split('=')[-1])   
+#    def getNSW(self,dir): 
+#        proc = subprocess.Popen(['grep','-i','NSW',dir+'/INCAR'],stdout=subprocess.PIPE) 
+#        return int(proc.communicate()[0].split('=')[-1])   
 
 #    def writeHoldoutFromIn(self, atomDir):
 #        '''Writes structures.holdout for the first iteration, for a given atom
@@ -256,7 +256,7 @@ class MakeUncleFiles:
         if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-            if finishCheck(dir2) and convergeCheck(dir2, self.getNSW(dir2)): #finalDir
+            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)): #finalDir
                 if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
                 file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
                 self.hexE[iatom] = self.getEnergy(dir2) 
@@ -279,8 +279,8 @@ class MakeUncleFiles:
                 subprocess.call(['echo', '\nCreating structures.in and structures.holdout files for ' + atom + '\n'])
                 self.reinitialize()                             
                 self.getPureEs(iatom)
-                nNewFinished = self.newlyFinished[iatom]
-                if len(nNewFinished) > 0: 
+                nNewFinished = len(self.newlyFinished[iatom])
+                if nNewFinished > 0: 
                     newPos = self.vaspToVdata(iatom) #starting position of new data
                     i1 = newPos; i2 = newPos + nNewFinished
                     structuresInWrite(atomDir,vdata[iatom,i1:i2]['struct'], vdata[iatom,i1:i2]['FE'],\
@@ -298,8 +298,8 @@ class MakeUncleFiles:
 #                        if self.contains(structure, self.newlyFinished[iatom]): self.writeUnclePOSCAR(structure, self.holdoutFile)
 #                    outfile.close 
                     # Replace below when fix above is done: Just using a default holdout
-                subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
                 self.vdataToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
+            subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
     
         return self.newlyFinished, self.newlyToRestart, self.newlyFailed, self.vdata
 

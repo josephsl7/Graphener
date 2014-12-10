@@ -53,9 +53,9 @@ class Enumerator:
         if sum(self.clusterNums)<=1500: #1500 assumes you are running Main with 16G. 
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
-#            subprocess.call(['echo','BLOCKING CLUSTER JOB'])
-            clusterjob = ClustersBuild.ClusterJob()
-            clusterjob.buildClusters()
+            subprocess.call(['echo','BLOCKING CLUSTER JOB'])
+#            clusterjob = ClustersBuild.ClusterJob()
+#            clusterjob.buildClusters()
         
         os.chdir(lastDir)
 

@@ -6,7 +6,9 @@ Created on Aug 26, 2014
 import os, subprocess, time
 from sched import scheduler
 import RunVasp
-from comMethods import joinLists,getSteps
+from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
+                    convergeCheck,finishCheck,getNSW,getSteps
+
 
 class JobManager:
     """ This class is responsible for scheduling and watching the VASP calculations.  It starts
@@ -48,7 +50,8 @@ class JobManager:
                 for structure in vstructsToStart[i]:
                     structureDir = atomDir + '/' + structure
                     if os.path.isdir(structureDir):
-                        if finishCheck(structureDir) and convergeCheck(structureDir, 400):
+#                        print structure ,'checks',finishCheck(structureDir), convergeCheck(structureDir, getNSW(structureDir))
+                        if finishCheck(structureDir) and convergeCheck(structureDir, getNSW(structureDir)):
                             total += 1
                             converged += 1
                         else:
@@ -108,7 +111,7 @@ class JobManager:
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
                         if os.path.isdir(normalDir):
-                            if finishCheck(normalDir) and convergeCheck(normalDir, 400):
+                            if finishCheck(normalDir) and convergeCheck(normalDir, getNSW(normalDir)):
                                 total += 1
                                 converged += 1
                             else:
@@ -166,7 +169,7 @@ class JobManager:
             s.run()
             finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
-        self.reportLowStats(vstructsToRun)
+#        self.reportLowStats(vstructsToRun)
     
     def runNormalJobs(self, vstructsToStart,vstructsRestart):
         """ Starts the normal-precision VASP calculations for all of the structures in 'vstructsToStart'

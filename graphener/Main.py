@@ -4,7 +4,7 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 
-import os, subprocess,sys,re
+import os, subprocess,sys,re, time
 from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
 from copy import deepcopy
@@ -22,12 +22,13 @@ def initializeStructs(atoms,restartTimeout):
  
     nexistsStructsIn = 0
     nfoldersOK = 0
-    #find starting method
+    #find starting methhod
     for iatom, atom in enumerate(atoms):
         nstruct = 0
         atomDir = lastDir + '/' + atom
         pureHdir =  atomDir + '/1'
         pureMdir =  atomDir + '/3'
+#        os.chdir(atomDir); os.system('rm structures.in');os.chdir(lastDir) ######## remove me...used for testing
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
         if os.path.exists(pureHdir) and os.path.exists(pureMdir):
@@ -605,9 +606,9 @@ s from previous run must exist
 or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
-    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = os.getcwd()
+    maindir = os.getcwd()
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -643,14 +644,15 @@ if __name__ == '__main__':
     [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout)    
     vstructsAll = joinLists(vstructsFinished,vstructsFailed)
     vstructsAll = joinLists(vstructsAll,vstructsRestart0)  
-    createEnumPastDir(atoms)
-    pastStructsUpdate(vstructsAll,atoms)  
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
-    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-#    enumerator.enumerate()
+#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+    enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
+
+    createEnumPastDir(atoms)
+    pastStructsUpdate(vstructsAll,atoms)  
    
     converged = False
     iteration = 1
@@ -666,6 +668,8 @@ if __name__ == '__main__':
         enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput) 
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod)           
+        if iteration == 2: #bring in restarts from initial folders
+            vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
         if iteration == 1: 
             if startMethod == 'empty folders': 
                 vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod)
@@ -679,14 +683,13 @@ if __name__ == '__main__':
             vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod)   
             contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
-        if iteration == 2: #bring in restarts from initial folders
-            vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
-            
+ 
         pastStructsUpdate(vstructsToStart,atoms)
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
         os.chdir(maindir) #FIX this...shouldn't need it.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startMethod, iteration, finalDir, restartTimeout) 
         [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
+        print 'newlyFinished',newlyFinished
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
         vstructsAll = joinLists(vstructsFinished,vstructsFailed)

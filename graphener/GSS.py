@@ -152,7 +152,7 @@ class GSS:
             if conc == conc_old:
                 Nc += 1
             else: 
-                if iteration==1: concfile.write('{:8.3f}{:10d}'.format(conc_old,Nc))
+                if iteration==1: concfile.write('{:8.3f}{:10d}\n'.format(conc_old,Nc))
                 self.Ncs.append(Nc) #for the previous concentration           
                 Nc = 1
                 conc_old = conc

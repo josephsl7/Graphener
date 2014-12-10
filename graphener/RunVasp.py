@@ -87,7 +87,7 @@ class RunVasp:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
-                        if os.path.isdir(normalDir) and finishCheck(normalDir) and convergeCheck(normalDir, 400):
+                        if os.path.isdir(normalDir) and finishCheck(normalDir) and convergeCheck(normalDir, getNSW(normalDir)):
                             os.chdir(structDir)
                             subprocess.call(['mkdir', 'DOS'])
                             subprocess.call(['cp','normal/CONTCAR','normal/DOSCAR','normal/EIGENVAL',
@@ -209,7 +209,7 @@ class RunVasp:
                 os.chdir(elementDir)
                 for structure in vstructsToStart[iatom]:
                     structDir = elementDir + '/' + structure
-                    if os.path.isdir(structDir) and finishCheck(structDir) and convergeCheck(structDir, 400):
+                    if os.path.isdir(structDir) and finishCheck(structDir) and convergeCheck(structDir, getNSW(structDir)):
                         os.chdir(structDir)
                         subprocess.call(['mkdir', 'normal'])
                         subprocess.call(['cp','-P','CONTCAR','KPOINTS','vasp533',
