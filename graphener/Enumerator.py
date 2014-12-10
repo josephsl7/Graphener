@@ -101,7 +101,8 @@ class Enumerator:
                 subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
                 vsDir = lastDir + '/' + atom + '/enumpast'
                 subprocess.call(['cp','training_set_structures.dat',vsDir])
-                iidStructs[iatom] = iidList                                        
+                iidStructs[iatom] = iidList 
+                os.chdir(lastDir)                                       
             else: # later iterations: must get separate iid structures for each atom         
                 try:
                     os.chdir(atomDir + '/enumpast')

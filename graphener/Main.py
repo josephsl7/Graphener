@@ -42,7 +42,7 @@ def initializeStructs(atoms,restartTimeout):
 #        print 'atom nexistsStructsIn,nstruct ',nexistsStructsIn nstruct 
     if nexistsStructsIn == natoms: 
         startMethod = 'structures.in' 
-        subprocess.call(['echo','Starting all from structures.in in atomic folder'])          
+        subprocess.call(['echo','Starting all from structures.in within atomic folders'])          
     elif nfoldersOK == natoms: 
         startMethod = 'struct folders'
         subprocess.call(['echo','Starting all from structure folders'])           
@@ -607,8 +607,8 @@ or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = os.getcwd()
+    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
+#    maindir = os.getcwd()
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -646,8 +646,8 @@ if __name__ == '__main__':
     vstructsAll = joinLists(vstructsAll,vstructsRestart0)  
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
-#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-    enumerator.enumerate()
+    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+#    enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 
@@ -689,7 +689,7 @@ if __name__ == '__main__':
         os.chdir(maindir) #FIX this...shouldn't need it.
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startMethod, iteration, finalDir, restartTimeout) 
         [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
-        print 'newlyFinished',newlyFinished
+#        print 'newlyFinished',newlyFinished
         vstructsFinished = joinLists(vstructsFinished,newlyFinished)
         vstructsFailed = joinLists(vstructsFailed,newlyFailed)
         vstructsAll = joinLists(vstructsFinished,vstructsFailed)

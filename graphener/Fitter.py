@@ -5,19 +5,8 @@ Created on Aug 29, 2014
 '''
 import os,sys,subprocess,time,shutil
 from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
-
-
-
-def copyfiletrue(file1,file2):
-    '''To replace 'cp', when failing for inexplicable reasons'''
-    lines = readfile(file1)
-    outfile = open(file2,'w')
-    for line in lines:
-        outfile.write(line)
-        outfile.flush()
-    os.fsync(outfile.fileno())
-    outfile.close
+                    convergeCheck,finishCheck,getNSW,getSteps,parallelJobFiles,\
+                    parallelAtomsSubmit,parallelAtomsWait,reportFinished
 
 class Fitter:
     """ This class performs the UNCLE fits to the VASP data that has been gathered so far.  It also
@@ -38,10 +27,10 @@ class Fitter:
         self.vstructsFinished = vstructsFinished
 
     def fitVASPData(self, iteration,):
-        """ Performs the UNCLE fit to the VASP data. After the fit is done, it adds the iteration
-            onto the end of the files we want to keep track of from iteration to iteration. """
+        """ Performs the UNCLE fit to the VASP data. """
+        natoms = len(self.atoms)
         lastDir = os.getcwd()
-        
+        #prep for all
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
                 atomDir = lastDir + '/' + atom
@@ -50,17 +39,45 @@ class Fitter:
                     fitsDir = atomDir + '/fits'
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
-                        subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here
-                        check = subprocess.check_output([self.uncleExec, '15'])
-                        subprocess.call(['echo','Uncle 15 feedback'+ check])
-#                        subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut) #not waiting long enough for large cluster numbers
+                        subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here                   
+        if natoms == 1:
+            for iatom, atom in enumerate(self.atoms):
+                if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
+                    atomDir = lastDir + '/' + atom
+                    if os.path.isdir(atomDir):
+                        fitsDir = atomDir + '/fits'
+                        if os.path.isdir(fitsDir):
+                            os.chdir(fitsDir)
+                            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)
+#                            check = subprocess.check_output([self.uncleExec, '15'])
+#                            subprocess.call(['echo','Uncle 15 feedback'+ check])
+        else: #parallelize the atom jobs
+            #make job files
+            os.chdir(lastDir)
+            mem = '16' #Gb
+            walltime = 0.75 #hrs
+            subdir = 'fits'
+            execString = self.uncleExec + ' 15'
+            parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
+            #submit jobs
+            jobIds = parallelAtomsSubmit(self.atoms,subdir)
+            #wait
+            parallelAtomsWait(jobIds)            
+        #post calc work for all
+        for iatom, atom in enumerate(self.atoms):
+            if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
+                atomDir = lastDir + '/' + atom
+                if os.path.isdir(atomDir):
+                    fitsDir = atomDir + '/fits'
+                    if os.path.isdir(fitsDir):
+                        os.chdir(fitsDir) 
                         subprocess.call(['mv','fitting_errors.out','fitting_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','prediction_errors.out','prediction_errors_' + str(iteration) + '.out'])
                         subprocess.call(['mv','J.1.summary.out','J.1.summary_' + str(iteration) + '.out'])
                         subprocess.call(['cp','structures.in', 'structures.in_' + str(iteration)]) #also leaves a copy of the file to be appended to
                         subprocess.call(['cp','structures.holdout', 'structures.holdout_' + str(iteration)]) #leave the file in case a
-                        os.chdir(lastDir)
-        
+        os.chdir(lastDir)
+    
     def makeFitDirectories(self):
         """ Creates the 'fits' directories for each atom and populates the directories with the 
             files that UNCLE needs to perform a fit.  These files are lat.in, CS.in, clusters.out, 

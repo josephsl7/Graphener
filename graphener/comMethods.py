@@ -1,4 +1,6 @@
-import os, subprocess,sys,re
+import os, subprocess,sys,re,time
+from numpy import mod, floor,zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete
+from sched import scheduler
 
 def convergeCheck(folder, NSW):
     """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
@@ -141,5 +143,76 @@ def writeLatticeVectors(vecLines,outfile):
 
     outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec1z, vec1x, vec1y))
     outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec2z, vec2x, vec2y))
-    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))   
+    outfile.write("  %12.8f a %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))   
+    
+def parallelJobFiles(atoms,subdir,walltime,mem,execString):
+    """ Create job files for parallelizing over atoms.
+    Walltime in decimal hours. Mem in Gb."""
+    lastDir = os.getcwd()
+    hrs = int(floor(walltime)); mints = int(mod(walltime,1)*60)
+    for iatom, atom in enumerate(atoms):
+        atomDir = lastDir + '/' + atom
+        try:               
+            os.chdir(atomDir + '/' + subdir)
+            jobFile = open('job','w')
+            jobFile.write('#!/bin/bash\n')
+            jobFile.write('#SBATCH --time={}:{}:00\n'.format(hrs,mints))
+            jobFile.write('#SBATCH --ntasks=1\n')
+            jobFile.write('#SBATCH --mem-per-cpu={}G\n'.format(mem))
+            jobFile.write('#SBATCH --mail-user=hess.byu@gmail.com\n')
+            jobFile.write('#SBATCH --mail-type=FAIL\n\n')
+            jobFile.write('#SBATCH --mail-type=end\n\n')
+            jobFile.write("#SBATCH --job-name=%s\n\n" % atom)  
+            jobFile.write(execString)
+            jobFile.close()
+        except:
+            subprocess.call(['echo','\n~~~~~~~~~~ Failed while writing atom job files for ' + atom + '! ~~~~~~~~~~\n'])
+    os.chdir(lastDir)
+
+def parallelAtomsSubmit(atoms,subdir):
+    lastDir = os.getcwd()
+    jobIds = []    
+    for iatom, atom in enumerate(atoms):
+        atomDir = lastDir + '/' + atom
+        try:               
+            os.chdir(atomDir + '/' + subdir)
+            proc = subprocess.Popen(['sbatch', 'job'], stdout=subprocess.PIPE)
+            newid = proc.communicate()[0].split()[3]
+            jobIds.append(newid)
+        except:
+            subprocess.call(['echo','\n~~~~~~~~~~ Failed while submitting atom job files for ' + atom + '! ~~~~~~~~~~\n'])
+        os.chdir(lastDir)
+    return jobIds
+
+def parallelAtomsWait(jobIds):
+    """ Waits for the training structures to be generated for all of the atoms before moving on.
+        Checks every thirty seconds to see if the jobs have finished. """
+    s = scheduler(time.time, time.sleep)    
+    finished = False
+    start_time = time.time()
+    event_time = start_time
+    subprocess.call(['echo','\nWaiting for above atom jobs to finish...\n'])
+
+    while not finished:
+        event_time += 30
+        s.enterabs(event_time, 1, doNothing, ([1]))
+        s.run()
+        finished = reportFinished(jobIds)
+
+def doNothing(param1):
+    """ This is just to satisfy the scheduler's requirements to call a method in the enterabs()
+        command. """
+    pass
+
+def reportFinished(jobIds):
+    """ Reports whether the job ids have dropped from thequeue. """
+    devnull = open(os.devnull, 'w')
+    for jobid in jobIds:
+        proc = subprocess.Popen(['squeue', '--job', jobid], stdout=subprocess.PIPE, stderr=devnull)
+        output = proc.communicate()[0].split()
+        if len(output) != 8 and len(output) != 0:   # It will list either all the headers or
+            return False                            # sometimes an error and outputs nothing.
+                                                    # The error in this case is an "invalid
+                                                    # job id" error because the job is no
+    return True                                     # longer on the supercomputer.  
     
