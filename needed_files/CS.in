@@ -48,7 +48,7 @@
 #              - 'T'  I want to (i) do many fits, (ii) Analyze the results to see which terms are statistically significant,
 #                     (iii) truncate my expansion and (iv) refit using simple least squares.  A final truncation is done using
 #                                    the cutoff provided below.
-R
+S
 # Use reweighted l_1 norm routine? (Y - yes, N - no)
 N
 # Do you want to loop over values of sigma^2 or just use the hard-coded value('Y'- loop over values, 'N'- use hard-coded value (only for BCS (option 15) )  )
