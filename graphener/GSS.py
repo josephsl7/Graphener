@@ -7,7 +7,8 @@ import os, subprocess, sys
 from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32
 from copy import deepcopy
 from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
+                    convergeCheck,finishCheck,getNSW,getSteps,parallelJobFiles,\
+                    parallelAtomsSubmit,parallelAtomsWait,reportFinished
 class GSS:
     """ This class performs the UNCLE ground state search for the lowest formation energy
         structures. From this, we get a list of every structure that was enumerated and its
@@ -257,7 +258,7 @@ class GSS:
         """ Performs the ground state search with the current fit from UNCLE. """
         lastDir = os.getcwd()
         natoms = len(self.atoms)
-
+        subdir = 'gss'
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1:
                 gssDir = os.getcwd() + '/' + atom + '/gss/'
@@ -265,17 +266,25 @@ class GSS:
                     subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
-                    if natoms == 1: subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
+#                    if natoms == 1: subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
                     os.chdir(lastDir)
-        if natoms > 1:#parallelize the atom jobs
+        if natoms ==1:
+            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
+            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+            os.chdir(lastDir)   
+        else:#parallelize the atom jobs
             #make job files
             mem = '16' #Gb
             walltime = 1.0 #hrs
-            subdir = 'gss'
             execString = self.uncleExec + ' 21'
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
             #submit jobs
-            jobIds = parallelAtomsSubmit(self.atoms,subdir)
+            jobIds = parallelAtomsSubmit(self.atoms[2:],subdir)
+            #use this job to calculate atom 1:
+            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
+            subprocess.call(['echo','\This job calculating atom 1\n'])
+            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+            os.chdir(lastDir)
             #wait
             parallelAtomsWait(jobIds)
             os.chdir(lastDir)             

@@ -204,7 +204,7 @@ def doNothing(param1):
     pass
 
 def reportFinished(jobIds):
-    """ Reports whether the job ids have dropped from thequeue. """
+    """ Reports whether the job ids have dropped from the queue. """
     devnull = open(os.devnull, 'w')
     for jobid in jobIds:
         proc = subprocess.Popen(['squeue', '--job', jobid], stdout=subprocess.PIPE, stderr=devnull)

@@ -6,7 +6,8 @@ Created on Aug 26, 2014
 import os, subprocess
 import ClustersBuild
 from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
+                    convergeCheck,finishCheck,getNSW,getSteps,parallelJobFiles,\
+                    parallelAtomsSubmit,parallelAtomsWait,reportFinished
 
 class Enumerator:
     """ This class enumerates symmetrically unique structures in a given volume range using UNCLE.  
@@ -126,9 +127,14 @@ class Enumerator:
             subdir = 'enumpast'
             execString = self.uncleExec + ' 42 ' + str(self.niid)
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString) 
-            #submit jobs
-            jobIds = parallelAtomsSubmit(self.atoms,subdir)
-            #wait
+            #submit jobs for atoms 2 an above
+            jobIds = parallelAtomsSubmit(self.atoms[2:],subdir)
+            #use this job to calculate atom 1:
+            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
+            subprocess.call(['echo','\This job calculating atom 1\n'])
+            subprocess.call([self.uncleExec, '42',str(self.niid)], stdout=self.uncleOut)             
+            os.chdir(lastDir)      
+            #wait for others
             parallelAtomsWait(jobIds)            
 #            except:
 #                    subprocess.call(['echo','\n~~~~~~~~~~ Could not choose i.i.d. structures for ' + atom + '! ~~~~~~~~~~\n'])

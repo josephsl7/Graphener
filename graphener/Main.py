@@ -606,9 +606,9 @@ s from previous run must exist
 or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
-    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = os.getcwd()
+    maindir = os.getcwd()
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -645,9 +645,9 @@ if __name__ == '__main__':
     vstructsAll = joinLists(vstructsFinished,vstructsFailed)
     vstructsAll = joinLists(vstructsAll,vstructsRestart0)  
   
-#    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
+    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
     subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-    enumerator.enumerate()
+#    enumerator.enumerate() #comment this out for testing
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 

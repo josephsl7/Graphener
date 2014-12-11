@@ -30,6 +30,7 @@ class Fitter:
         """ Performs the UNCLE fit to the VASP data. """
         natoms = len(self.atoms)
         lastDir = os.getcwd()
+        subdir = 'fits'
         #prep for all
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
@@ -40,21 +41,29 @@ class Fitter:
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
                         subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here                   
-                        if natoms == 1:subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
-        if natoms > 1:#parallelize the atom jobs
+        if natoms ==1:
+            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
+            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+            os.chdir(lastDir)   
+        else:#parallelize the atom jobs
             #make job files
             os.chdir(lastDir)
             mem = '16' #Gb
             walltime = 0.75 #hrs
-            subdir = 'fits'
+
             execString = self.uncleExec + ' 15'
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
             #submit jobs
-            jobIds = parallelAtomsSubmit(self.atoms,subdir)
+            jobIds = parallelAtomsSubmit(self.atoms[2:],subdir)
+            #use this job to calculate atom 1:
+            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
+            subprocess.call(['echo','\This job calculating atom 1\n'])
+            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+            os.chdir(lastDir)
             #wait
-            parallelAtomsWait(jobIds)            
+            parallelAtomsWait(jobIds)         
         #post calc work for all
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
