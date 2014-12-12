@@ -670,8 +670,6 @@ if __name__ == '__main__':
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod)           
         if iteration == 2: #bring in restarts from initial folders
-            print 'vstructsRestart';print vstructsRestart
-            print 'vstructsRestart0';print vstructsRestart0
             vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
         if iteration == 1: 
             if startMethod == 'empty folders': 

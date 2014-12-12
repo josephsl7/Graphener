@@ -283,12 +283,7 @@ class MakeUncleFiles:
                     newPos = self.vaspToVdata(iatom) #starting position of new data
                     i1 = newPos; i2 = newPos + nNewFinished
                     structuresInWrite(atomDir,vdata[iatom,i1:i2]['struct'], vdata[iatom,i1:i2]['FE'],\
-                         vdata[iatom,i1:i2]['conc'],vdata[iatom,i1:i2]['energy'],'a')                                  
-                    print "vdata[iatom,i1:i2]['struct']",vdata[iatom,i1:i2]['struct']
-                    print "vdata[iatom,i1:i2]['FE']", vdata[iatom,i1:i2]['FE']
-                    print "vdata[iatom,i1:i2]['conc']", vdata[iatom,i1:i2]['conc']
-                    print"vdata[iatom,i1:i2]['energy']"
-                
+                         vdata[iatom,i1:i2]['conc'],vdata[iatom,i1:i2]['energy'],'a')                                                 
                     #Fix below:  it's possible that none of the structures in holdoutStructs
                     #have folders and POSCARS in the atom directory, because they came from 
                     #structure.start.  So the poscars need to come not from  writeUnclePOSCAR(dir,..), but 
@@ -535,6 +530,7 @@ class MakeUncleFiles:
                 conc = float(float(self.atomCounts[1])/natoms)
             self.vdata[iatom,istruct]['conc'] = conc                       
             formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
+            self.vdata[iatom,istruct]['FE'] = formationEnergy
             formEnergyList.append([formationEnergy, struct])
             istruct += 1                                
         formEnergyList.sort()       
