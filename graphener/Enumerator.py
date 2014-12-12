@@ -5,9 +5,7 @@ Created on Aug 26, 2014
 '''
 import os, subprocess
 import ClustersBuild
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps,parallelJobFiles,\
-                    parallelAtomsSubmit,parallelAtomsWait,reportFinished
+from comMethods import *
 
 class Enumerator:
     """ This class enumerates symmetrically unique structures in a given volume range using UNCLE.  

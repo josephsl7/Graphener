@@ -7,8 +7,7 @@ from numpy import zeros, mod, count_nonzero,sort
 import os, subprocess, sys
 from random import random
 from Main import slurmProblem
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
+from comMethods import *
  
 class MakeUncleFiles:
     from comMethods import setAtomCounts
@@ -87,7 +86,7 @@ class MakeUncleFiles:
                     if os.path.isdir(atomDir + '/' + struct):
                         vaspDir = atomDir + '/' + struct + self.finalDir
                         if os.path.isdir(vaspDir):
-                            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): #finalDir                           
+                            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): #finalDir                           
                                # Check for concentration
                                 self.setAtomCounts(struct)                            
                                 concentration = 0.0
@@ -256,7 +255,7 @@ class MakeUncleFiles:
         if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)): #finalDir
+            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(vaspDir): #finalDir
                 if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
                 file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
                 self.hexE[iatom] = self.getEnergy(dir2) 

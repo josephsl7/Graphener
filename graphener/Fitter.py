@@ -4,9 +4,7 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 import os,sys,subprocess,time,shutil
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps,parallelJobFiles,\
-                    parallelAtomsSubmit,parallelAtomsWait,reportFinished
+from comMethods import *
 
 class Fitter:
     """ This class performs the UNCLE fits to the VASP data that has been gathered so far.  It also

@@ -9,8 +9,7 @@ from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
 from copy import deepcopy
 
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
+from comMethods import *
 
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
 
@@ -130,7 +129,7 @@ def readInitialFolders(atoms,restartTimeout,):
                     failed = True
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
                 failed = True 
-            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
+            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
                 finishedStructs.append(struct)
                 ifinished += 1
                 vdata[iatom,ifinished]['struct'] = struct
@@ -231,7 +230,7 @@ def parseStructsIn(atoms,vstructsFinished):
                     failed = True
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
                 failed = True 
-            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
+            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
                 subprocess.call(['echo','\tAtom {}: found finished structure {} not in structures.in. Appending to restart list.'.format(atom,struct)])                    
                 restartStructs.append(struct) 
             elif restartTimeout and not failed and not slurmProblem(vaspDir):
@@ -358,6 +357,8 @@ def getFromPriorities(priorities, N, vstructsAll, atoms):
                 sublist.append(struct)
                 nNew += 1
             istruct += 1
+        subprocess.call(['echo','/tAtom {}, lowest priority new struct: {}, {}'.format(atom,str(priorities[iatom,N-1]['struct']),str(priorities[iatom,N-1]['prior']))])
+            
         newstructs[iatom] = sublist
     return newstructs
             
@@ -719,7 +720,7 @@ if __name__ == '__main__':
         #get the priority of each structure in each atom
         priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
         #choose new structures while still sorted by priority
-        newStructsPrior = getFromPriorities(priorities, priorNum, vstructsAll,atoms)
+        newStructsPrior = getFromPriorities(priorities, priorNum, vstructsAll,atoms)       
 
         #test weighted energy difference since last iteration
         # First sort priorities by structure name so we have an unchanging order

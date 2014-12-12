@@ -6,9 +6,7 @@ Created on Aug 27, 2014
 import os
 import re
 import subprocess
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
-
+from comMethods import *
 
 class Analyzer:
 

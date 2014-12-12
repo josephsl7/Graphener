@@ -6,9 +6,7 @@ Created on Aug 29, 2014
 import os, subprocess, sys
 from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32
 from copy import deepcopy
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps,parallelJobFiles,\
-                    parallelAtomsSubmit,parallelAtomsWait,reportFinished
+from comMethods import *
 class GSS:
     """ This class performs the UNCLE ground state search for the lowest formation energy
         structures. From this, we get a list of every structure that was enumerated and its

@@ -6,8 +6,7 @@ Created on Aug 26, 2014
 import os, subprocess, time
 from sched import scheduler
 import RunVasp
-from comMethods import joinLists,structuresInWrite,writeLatticeVectors,readfile,writefile,\
-                    convergeCheck,finishCheck,getNSW,getSteps
+from comMethods import *
 
 
 class JobManager:
