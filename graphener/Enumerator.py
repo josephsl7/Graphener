@@ -128,10 +128,10 @@ class Enumerator:
             execString = self.uncleExec + ' 42 ' + str(self.niid)
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString) 
             #submit jobs for atoms 2 an above
-            jobIds = parallelAtomsSubmit(self.atoms[2:],subdir)
-            #use this job to calculate atom 1:
-            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
-            subprocess.call(['echo','\This job calculating atom 1\n'])
+            jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
+            #use this job to calculate the first atom:
+            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
+            subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
             subprocess.call([self.uncleExec, '42',str(self.niid)], stdout=self.uncleOut)             
             os.chdir(lastDir)      
             #wait for others

@@ -167,7 +167,7 @@ def readInitialFolders(atoms,restartTimeout,):
     return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
 
 def parseStructsIn(atoms,vstructsFinished):
-    """ Returns the structures, energies, concentrations from structures.start, 
+    """ Returns the structures, energies, concentrations from structures.in, 
     
     This method assumes that the structures.in file will have all of the pure
     structures and will have the following format for the structure identification line:
@@ -606,9 +606,9 @@ s from previous run must exist
 or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = os.getcwd()
+#    maindir = os.getcwd()
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -669,6 +669,8 @@ if __name__ == '__main__':
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod)           
         if iteration == 2: #bring in restarts from initial folders
+            print 'vstructsRestart';print vstructsRestart
+            print 'vstructsRestart0';print vstructsRestart0
             vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
         if iteration == 1: 
             if startMethod == 'empty folders': 
@@ -757,6 +759,7 @@ if __name__ == '__main__':
             vstructsFinished = multiDelete(vstructsFinished,rmAtoms)
             vstructsFailed = multiDelete(vstructsFailed,rmAtoms)
             newlyToRestart = multiDelete(newlyToRestart,rmAtoms)
+            vstructsRestart0 = multiDelete(vstructsRestart0,rmAtoms)
             vstructsAll = multiDelete(vstructsAll,rmAtoms)
             vdata = delete(vdata,rmAtoms,axis=0)        
             energiesLast = delete(priorities,rmAtoms,axis=0)['FE'] #    priorities[ikeep,:]['FE']
@@ -766,9 +769,9 @@ if __name__ == '__main__':
             converged = True
         else:       
             if natoms >1:
-                subprocess.call(['echo','At end of iteration {} are continuing:'.format(' '.join(atoms))])
+                subprocess.call(['echo','At end of iteration, {} are continuing.'.format(' '.join(atoms))])
             else:
-                subprocess.call(['echo','At end of iteration {} is continuing:'.format(' '.join(atoms))])
+                subprocess.call(['echo','At end of iteration, {} is continuing.'.format(' '.join(atoms))])
         #---------- prep for next iteration --------------
         vstructsRestart = newlyToRestart
 

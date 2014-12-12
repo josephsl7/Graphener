@@ -157,17 +157,18 @@ class JobManager:
     
         s = scheduler(time.time, time.sleep)
         
-        subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
-        self.vaspRunner.run(1,vstructsToStart,vstructsToRun)
+        if vstructsToStart != [[]]*len(self.atoms):
+            subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
+            self.vaspRunner.run(1,vstructsToStart,vstructsToRun)
         
-        finished = False
-        start_time = time.time()
-        event_time = start_time
-        while not finished:
-            event_time += 5
-            s.enterabs(event_time, 1, self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
-            s.run()
-            finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
+            finished = False
+            start_time = time.time()
+            event_time = start_time
+            while not finished:
+                event_time += 5
+                s.enterabs(event_time, 1, self.reportFinished, ([self.vaspRunner.getCurrentJobIds()]))
+                s.run()
+                finished = self.reportFinished(self.vaspRunner.getCurrentJobIds())
     
 #        self.reportLowStats(vstructsToRun)
     

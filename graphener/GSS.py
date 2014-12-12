@@ -90,7 +90,7 @@ class GSS:
                 gfvfile = open(atomDir + '/gssFailedVasp.out','w')
                 gssInfo = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('FE', float)]) #columns:  struct, concentration, energy
                 lines = readfile(atomDir + '/gss_' + str(iteration) + '.out')
-                for i,line in enumerate(lines[2:]):
+                for i,line in enumerate(lines[2:]): #first 2 lines are headers
                     struct = line.strip().split()[0]
                     conc = float(line.strip().split()[2]) #metal concentration
                     formEnergy = float(line.strip().split()[7])                
@@ -266,11 +266,10 @@ class GSS:
                     subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
-#                    if natoms == 1: subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)
                     os.chdir(lastDir)
         if natoms ==1:
-            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
-            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
+            subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
             os.chdir(lastDir)   
         else:#parallelize the atom jobs
             #make job files
@@ -279,13 +278,13 @@ class GSS:
             execString = self.uncleExec + ' 21'
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
             #submit jobs
-            jobIds = parallelAtomsSubmit(self.atoms[2:],subdir)
-            #use this job to calculate atom 1:
-            os.chdir(lastDir + '/' + self.atoms[1]  + '/' + subdir)
-            subprocess.call(['echo','\This job calculating atom 1\n'])
-            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+            jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
+            #use this job to calculate the first atom:
+            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
+            subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
+            subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
             os.chdir(lastDir)
-            #wait
+            #wait for others
             parallelAtomsWait(jobIds)
             os.chdir(lastDir)             
                           

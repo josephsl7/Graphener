@@ -143,7 +143,7 @@ def writeLatticeVectors(vecLines,outfile):
 
     outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec1z, vec1x, vec1y))
     outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec2z, vec2x, vec2y))
-    outfile.write("  %12.8f a %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))   
+    outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))   
     
 def parallelJobFiles(atoms,subdir,walltime,mem,execString):
     """ Create job files for parallelizing over atoms.
@@ -191,7 +191,7 @@ def parallelAtomsWait(jobIds):
     finished = False
     start_time = time.time()
     event_time = start_time
-    subprocess.call(['echo','\nWaiting for above atom jobs to finish...\n'])
+    subprocess.call(['echo','\n\tWaiting for above atom jobs to finish...\n'])
     while not finished:
         event_time += 10 #check every x seconds 
         s.enterabs(event_time, 1, doNothing, ([1]))

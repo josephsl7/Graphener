@@ -285,7 +285,11 @@ class MakeUncleFiles:
                     i1 = newPos; i2 = newPos + nNewFinished
                     structuresInWrite(atomDir,vdata[iatom,i1:i2]['struct'], vdata[iatom,i1:i2]['FE'],\
                          vdata[iatom,i1:i2]['conc'],vdata[iatom,i1:i2]['energy'],'a')                                  
-                    
+                    print "vdata[iatom,i1:i2]['struct']",vdata[iatom,i1:i2]['struct']
+                    print "vdata[iatom,i1:i2]['FE']", vdata[iatom,i1:i2]['FE']
+                    print "vdata[iatom,i1:i2]['conc']", vdata[iatom,i1:i2]['conc']
+                    print"vdata[iatom,i1:i2]['energy']"
+                
                     #Fix below:  it's possible that none of the structures in holdoutStructs
                     #have folders and POSCARS in the atom directory, because they came from 
                     #structure.start.  So the poscars need to come not from  writeUnclePOSCAR(dir,..), but 
