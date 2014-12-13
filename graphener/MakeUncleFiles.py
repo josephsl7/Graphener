@@ -135,18 +135,7 @@ class MakeUncleFiles:
         proc = subprocess.Popen(['grep','-i','NELM',dir+'/INCAR'],stdout=subprocess.PIPE)
         result =  proc.communicate()[0]
         NELM = int(result.split('=')[1].split()[0])
-        return self.elConvergeCheck(dir,NELM) and finishCheck(dir)
-            
-    def energyDropCheck(self,dir):
-        '''tests whether the energies have dropped in OSZICAR...rising energies are unphysical 
-        and show a numerical convergence problem. The factor like 0.99 allows for very small energy rises only'''
-        lines = readfile(dir+'/OSZICAR') 
-        energies = []
-        for line in lines:
-            if 'F=' in line:
-                energies.append(float(line.split()[2]))
-        return energies[-1] <= 0.99*energies[0] 
-    
+        return self.elConvergeCheck(dir,NELM) and finishCheck(dir)   
 
     def getElSteps(self,folder): 
         '''number of electronic steps for isolated runs'''
@@ -255,7 +244,7 @@ class MakeUncleFiles:
         if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
         for iatom,atom in enumerate(self.atoms):
             dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(vaspDir): #finalDir
+            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(dir2): #finalDir
                 if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
                 file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
                 self.hexE[iatom] = self.getEnergy(dir2) 

@@ -10,6 +10,21 @@ def convergeCheck(folder, NSW):
         return value < NSW  
     except:
         return False  
+
+def energyDropCheck(dir):
+    '''tests whether the energies have dropped in OSZICAR...rising energies are unphysical 
+    and show a numerical convergence problem. The factor like 0.99 allows for very small energy rises only'''
+    lines = readfile(dir+'/OSZICAR') 
+    energies = []
+    for line in lines:
+        try:
+            if 'F=' in line and len(line.split())>2:
+                energies.append(float(line.split()[2]))
+        except:
+            'do nothing' # this allows to continue if file is corrupt
+    if len(energies) > 2:
+        return energies[-1] <= 0.99*energies[0] 
+    return False
     
 def finishCheck(folder):
     """ Tests whether VASP is done by finding "Voluntary" in last line of OUTCAR.  The input
@@ -44,13 +59,16 @@ def getSteps(folder):
     except:
         return 9999 
 
-def joinLists(list1,list2):
-    '''Joins lists of the [[sublist1],[sublist2],[sublist3]].  List1 and 2 must have the
-    same length, but can different length sublists'''
-    list3=[]
-    for i in range(len(list1)):
-        list3.append(list1[i]+list2[i])
-    return list3
+def joinLists(toJoin):
+    '''Joins lists in toJoin of the form [[sublist1],[sublist2],[sublist3]...].  Lists must have the
+    same length, but can different length sublists'''    
+    joinedList = [[]]*len(toJoin[0])
+    for isublist in range(len(toJoin[0])):
+        sublist=[]
+        for ilist in range(len(toJoin)):
+            sublist += toJoin[ilist][isublist]
+        joinedList[isublist] = sublist
+    return joinedList
     
 def readfile(filepath):
     file1 = open(filepath,'r')
@@ -163,7 +181,7 @@ def parallelJobFiles(atoms,subdir,walltime,mem,execString):
             jobFile.write('#SBATCH --mail-type=FAIL\n\n')
             jobFile.write('#SBATCH --mail-type=end\n\n')
             jobFile.write("#SBATCH --job-name=%s\n\n" % atom)  
-            jobFile.write(execString)
+            jobFile.write(execString + ' > {}job.out'.format(subdir))
             jobFile.close()
         except:
             subprocess.call(['echo','\n~~~~~~~~~~ Failed while writing atom job files for ' + atom + '! ~~~~~~~~~~\n'])

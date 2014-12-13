@@ -13,7 +13,7 @@ from comMethods import *
 
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
 
-def initializeStructs(atoms,restartTimeout):
+def initializeStructs(atoms,restartTimeout,rmStructIn):
     '''If structures.in exists in the atom folder, then parse that for starting structures.  If not, then leave lists empty for that atom'''
     lastDir = os.getcwd()
     natoms = len(atoms)
@@ -27,7 +27,11 @@ def initializeStructs(atoms,restartTimeout):
         atomDir = lastDir + '/' + atom
         pureHdir =  atomDir + '/1'
         pureMdir =  atomDir + '/3'
-#        os.chdir(atomDir); os.system('rm structures.in');os.chdir(lastDir) ######## remove me...used for testing
+        if rmStructIn and os.path.exists(atomDir + '/structures.in'): 
+            os.chdir(atomDir)
+            os.system('mv structures.in structures.in.old')
+            subprocess.call(['echo','Not using structures.in: moved to structures.in.old'])          
+            os.chdir(lastDir) 
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
         if os.path.exists(pureHdir) and os.path.exists(pureMdir):
@@ -38,7 +42,7 @@ def initializeStructs(atoms,restartTimeout):
                     if nstruct == 3:
                         break #need at least 3 structures to make a fit 
         if nstruct == 3: nfoldersOK += 1
-#        print 'atom nexistsStructsIn,nstruct ',nexistsStructsIn nstruct 
+
     if nexistsStructsIn == natoms: 
         startMethod = 'structures.in' 
         subprocess.call(['echo','Starting all from structures.in within atomic folders'])          
@@ -49,7 +53,7 @@ def initializeStructs(atoms,restartTimeout):
         subprocess.call(['echo','Some atoms folders have structures.in, and some do not.  They must all be alike'])
         sys.exit('Stop')
     elif 0 < nfoldersOK < natoms:
-        subprocess.call(['echo','Some atoms folders have existing structure folders, and some do not.  They must all be alike to start with them.'])
+        subprocess.call(['echo','Some atoms folders have at least three existing structure folders, and some do not.  They must all be alike to start with them.'])
         sys.exit('Stop')
     elif nexistsStructsIn == 0 and nfoldersOK == 0:
         startMethod = 'empty folders'
@@ -407,10 +411,11 @@ def readSettingsFile():
     infile = open(currDir + '/needed_files/settings.in', 'r')
     inlines = []
     for line in infile:
-        firstPart = line.strip().split()[0]
-        firstChar = list(firstPart)[0]
-        if firstChar != '#':
-            inlines.append(line.strip())
+        if len(line.strip().split()) > 0: #in case a blank line is in there
+            firstPart = line.strip().split()[0]
+            firstChar = list(firstPart)[0]
+            if firstChar != '#':
+                inlines.append(line.strip())
     infile.close()
     
     atoms = []
@@ -426,6 +431,7 @@ def readSettingsFile():
     xlabel = "xlabel"
     ylabel = "ylabel"
     restartTimeout = False 
+    rmStructIn = False
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':  
@@ -445,22 +451,7 @@ def readSettingsFile():
             parts = line.split()
             for i in xrange(1, 11):
                 clusterNums.append(int(parts[i]))
-
-#        elif line.split()[0] == 'START_FROM_EXISTING:': #read from a structures.start and fit these.  Needs to come after the ATOMS list in the settings lin
-#            if line.split()[1][0].lower() == 'n': #"No" or "None" means no atoms will start from existing calcs.
-#               startMethod = [False]*len(atoms) 
-#            elif line.split()[1][0].lower() == 'a': #"All" 
-#               startMethod = [True]*len(atoms)
-#            else:
-#                try:  
-#                    parselist = re.search(':(.+?)#', line).group(1).lower().split()[:len(atoms)] #take only enough to match number of atoms, as it might be an old list
-#                    startMethod = [True if i == 't' else False for i in parselist]
-#                    if len(startMethod) < len(atoms): 
-#                        subprocess.call(['echo','START_FROM_EXISTING length is too short for the number of atoms! Stopping'])
-#                        sys.exit('Stop')
-#                except AttributeError:
-#                    print "Can't parse START_STRUCTS T's and F's.  Defaulting to no start structs." 
-#                    startMethod = [False]*len(atoms)               
+                
         elif line.split()[0] == 'PRIORITY/IID:':
             if str(line.split()[1]).lower() == 'i':
                 PriorOrIID = 'i'
@@ -496,11 +487,16 @@ def readSettingsFile():
         elif line.split()[0] == 'RESTART_TIMEOUT:':
             if line.split()[1][0].lower() == 'y': 
                restartTimeout = True
+               
+        elif line.split()[0] == 'REMOVE_STR.IN:':
+            if line.split()[1][0].lower() == 'y': 
+               rmStructIn = True               
             
         elif line.split()[0] == 'EDIFFG:': #ionic relaxation energy max diff, for INCAR, per atom.  May also be used or scaled for ediff, electronic relax energy max diff
             ediffg = float(line.split()[1])
     
-    return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout,ediffg]
+    return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, \
+            ylabel,restartTimeout, rmStructIn, ediffg]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -607,9 +603,12 @@ s from previous run must exist
 or
 3) if all the above are missing from all folders, each atom will start from scratch with iid structures'''          
 if __name__ == '__main__':
-    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = os.getcwd()
+    maindir = os.getcwd() # leave this as default!
+    
+# override default maindir   
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
+
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -623,7 +622,8 @@ if __name__ == '__main__':
         sys.exit('Stop')
     seed()
 
-    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel, ylabel,restartTimeout,ediffg] = readSettingsFile()
+    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, priorNum, plotTitle, xlabel,\
+             ylabel,restartTimeout, rmStructIn, ediffg] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
@@ -642,9 +642,8 @@ if __name__ == '__main__':
         manager1 = JobManager.JobManager(atoms,ediffg)
         manager1.runHexMono()
     #assign all existing struct folders to either finished, restart, or failed
-    [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout)    
-    vstructsAll = joinLists(vstructsFinished,vstructsFailed)
-    vstructsAll = joinLists(vstructsAll,vstructsRestart0)  
+    [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout,rmStructIn)    
+    vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, niid, uncleOutput)
     subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
@@ -670,7 +669,7 @@ if __name__ == '__main__':
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod)           
         if iteration == 2: #bring in restarts from initial folders
-            vstructsRestart = joinLists(vstructsRestart0,vstructsRestart)
+            vstructsRestart = joinLists([vstructsRestart0,vstructsRestart])
         if iteration == 1: 
             if startMethod == 'empty folders': 
                 vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod)
@@ -679,11 +678,11 @@ if __name__ == '__main__':
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
             contcarToPoscar(vstructsRestart,atoms,iteration) 
-            vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
+            vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
             vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod)   
             contcarToPoscar(vstructsRestart,atoms,iteration)
-            vstructsToRun = joinLists(vstructsRestart,vstructsToStart)
+            vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
  
         pastStructsUpdate(vstructsToStart,atoms)
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
@@ -691,9 +690,9 @@ if __name__ == '__main__':
         uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startMethod, iteration, finalDir, restartTimeout) 
         [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
 #        print 'newlyFinished',newlyFinished
-        vstructsFinished = joinLists(vstructsFinished,newlyFinished)
-        vstructsFailed = joinLists(vstructsFailed,newlyFailed)
-        vstructsAll = joinLists(vstructsFinished,vstructsFailed)
+        vstructsFinished = joinLists([vstructsFinished,newlyFinished])
+        vstructsFailed = joinLists([vstructsFailed,newlyFailed])
+        vstructsAll = joinLists([vstructsFinished,vstructsFailed,newlyToRestart])
         os.chdir(maindir) #FIX this...shouldn't need it.  
 
 
@@ -752,9 +751,13 @@ if __name__ == '__main__':
                 subprocess.call(['echo','Atom {} did not finish any new structures, and has been stopped.:'.format(atom)])
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
-                rmAtoms.append(iatom)                
+                rmAtoms.append(iatom)              
         natoms = len(atoms) #could be lower now
         if len(rmAtoms)>0:
+            print 'new atoms',atoms
+            print 'rmAtoms',rmAtoms  
+            print 'newlyToRestart';print newlyToRestart
+            print 'vstructsRestart0'; print vstructsRestar0
             vstructsFinished = multiDelete(vstructsFinished,rmAtoms)
             vstructsFailed = multiDelete(vstructsFailed,rmAtoms)
             newlyToRestart = multiDelete(newlyToRestart,rmAtoms)
@@ -763,6 +766,8 @@ if __name__ == '__main__':
             vdata = delete(vdata,rmAtoms,axis=0)        
             energiesLast = delete(priorities,rmAtoms,axis=0)['FE'] #    priorities[ikeep,:]['FE']
             newStructsPrior = multiDelete(newStructsPrior,rmAtoms)
+            print 'after revome: newlyToRestart';print newlyToRestart
+            print 'after remove: vstructsRestart0'; print vstructsRestar0
         if natoms == 0:
             subprocess.call(['echo','\n----------------- All atoms have finished ---------------'])
             converged = True
