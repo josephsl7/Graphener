@@ -24,7 +24,29 @@ class Fitter:
         #self.header = "peratom\nnoweights\nposcar\n"
         self.vstructsFinished = vstructsFinished
 
-    def fitVASPData(self, iteration,):
+    def filterStructuresIn(self, fitsDir, iteration, maxE):
+        '''Remove structs from structures.in, just before fitting, that don't fit criteria here. 
+           For now, structures above maxE will be removed'''
+        if maxE < 100: # < the default
+            inFile = fitsDir + '/structures.in'
+            lines = readfile(inFile)
+            subprocess.call(['mv',inFile,inFile + '_{}full'.format(iteration)]) 
+            outFile = open(fitsDir + '/structures.in','w')
+            outFile.write("peratom\nnoweights\nposcar\n")
+            for j in xrange(len(lines)):
+                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                    if j != len(lines) - 1:
+                        FE = float(lines[j+1].strip().split()[6].strip(','))
+                        if FE <= maxE:
+                            natomsList = [int(i) for i in lines[j+6].strip().split()]
+                            natoms = natomsList[0]+natomsList[1]
+                            outFile.writelines(lines[j:j+10+natoms])
+                        else:
+                            struct = lines[j + 1].strip().split()[3]
+                            subprocess.call(['echo','\tNot including struct {} in fit (exceeds maxE)'.format(struct)])
+            outFile.close() 
+                
+    def fitVASPData(self, iteration, maxE):
         """ Performs the UNCLE fit to the VASP data. """
         natoms = len(self.atoms)
         lastDir = os.getcwd()
@@ -38,7 +60,8 @@ class Fitter:
                     fitsDir = atomDir + '/fits'
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
-                        subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here                   
+                        subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here 
+                        self.filterStructuresIn(fitsDir,iteration, maxE) #remove structures above a certain energy from the fit.                   
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
         if natoms ==1:
@@ -52,12 +75,13 @@ class Fitter:
             walltime = 0.75 #hrs
 
             execString = self.uncleExec + ' 15'
-            parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
+            atomStrings = ['']*natoms
+            parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 
             #submit jobs
             jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
             #use this job to calculate the first atom:
             os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
-            subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
+            subprocess.call(['echo','\n\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
             subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
             os.chdir(lastDir)
             #wait
@@ -95,7 +119,6 @@ class Fitter:
             subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/clusters.out',fitsDir])
-#            subprocess.call(['cp',atomDir + '/structures.in',fitsDir])
 
             infile = open(self.neededFilesDir + '/CS.in','r')
             inlines = [line for line in infile]

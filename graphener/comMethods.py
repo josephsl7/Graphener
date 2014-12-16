@@ -163,28 +163,28 @@ def writeLatticeVectors(vecLines,outfile):
     outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec2z, vec2x, vec2y))
     outfile.write("  %12.8f  %12.8f  %12.8f\n" % (vec3z, vec3x, vec3y))   
     
-def parallelJobFiles(atoms,subdir,walltime,mem,execString):
+def parallelJobFiles(atoms,subdir,walltime,mem,execString,atomStrings):
     """ Create job files for parallelizing over atoms.
     Walltime in decimal hours. Mem in Gb."""
     lastDir = os.getcwd()
     hrs = int(floor(walltime)); mints = int(mod(walltime,1)*60)
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom
-        try:               
-            os.chdir(atomDir + '/' + subdir)
-            jobFile = open('job','w')
-            jobFile.write('#!/bin/bash\n')
-            jobFile.write('#SBATCH --time={}:{}:00\n'.format(hrs,mints))
-            jobFile.write('#SBATCH --ntasks=1\n')
-            jobFile.write('#SBATCH --mem-per-cpu={}G\n'.format(mem))
-            jobFile.write('#SBATCH --mail-user=hess.byu@gmail.com\n')
-            jobFile.write('#SBATCH --mail-type=FAIL\n\n')
-            jobFile.write('#SBATCH --mail-type=end\n\n')
-            jobFile.write("#SBATCH --job-name=%s\n\n" % atom)  
-            jobFile.write(execString + ' > {}job.out'.format(subdir))
-            jobFile.close()
-        except:
-            subprocess.call(['echo','\n~~~~~~~~~~ Failed while writing atom job files for ' + atom + '! ~~~~~~~~~~\n'])
+#        try:               
+        os.chdir(atomDir + '/' + subdir)
+        jobFile = open('job','w')
+        jobFile.write('#!/bin/bash\n')
+        jobFile.write('#SBATCH --time={}:{}:00\n'.format(hrs,mints))
+        jobFile.write('#SBATCH --ntasks=1\n')
+        jobFile.write('#SBATCH --mem-per-cpu={}G\n'.format(mem))
+        jobFile.write('#SBATCH --mail-user=hess.byu@gmail.com\n')
+        jobFile.write('#SBATCH --mail-type=FAIL\n\n')
+        jobFile.write('#SBATCH --mail-type=end\n\n')
+        jobFile.write("#SBATCH --job-name=%s\n\n" % atom)  
+        jobFile.write(execString + ' ' + atomStrings[iatom] + ' > {}job.out'.format(subdir))
+        jobFile.close()
+#        except:
+#            subprocess.call(['echo','\n~~~~~~~~~~ Failed while writing atom job files for ' + atom + '! ~~~~~~~~~~\n'])
     os.chdir(lastDir)
 
 def parallelAtomsSubmit(atoms,subdir):

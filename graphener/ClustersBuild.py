@@ -7,7 +7,7 @@ import os, subprocess, time, sys
 from sched import scheduler
 from comMethods import *
 
-class ClusterJob:
+class clustersjob:
     """ The largest numbers of clusters (up to 900*5) take 64G of memory and a single processor.  
     We need to run uncle 10 (build clusters) with a separate job on a large memory job
     that builds the clusters"""
@@ -19,15 +19,15 @@ class ClusterJob:
     def buildClusters(self):
         '''Runs the process of building clusters'''
         self.makeRunClusters()
-        self.waitClusterJob()
-        if not os.path.exists('clusterjob.out'):
+        self.waitclustersjob()
+        if not os.path.exists('clustersjob.out'):
             sys.exit('Cluster job never started.  Stopping program')
         else:
-            lines = readfile('clusterjob.out')
+            lines = readfile('clustersjob.out')
             if 'done' not in lines[-1]:
                 sys.exit('Cluster job failed.  Stopping program')            
             
-    def waitClusterJob(self):
+    def waitclustersjob(self):
         """Waits until the cluster job is done """
         s = scheduler(time.time, time.sleep)    
         finished = False
@@ -42,7 +42,7 @@ class ClusterJob:
           
     def makeRunClusters(self): #bch all
         """Creates cluster jobfile and starts the run """     
-        jobFile = open('clusterjob','w')
+        jobFile = open('clustersjob','w')
         jobFile.write("#!/bin/bash\n\n")
         jobFile.write("#SBATCH --time=00:35:00\n")
         jobFile.write("#SBATCH --ntasks=1\n")
@@ -51,9 +51,9 @@ class ClusterJob:
         jobFile.write("#SBATCH --mail-type=FAIL\n")
         jobFile.write("#SBATCH --mail-type=END\n") 
         jobFile.write("#SBATCH --job-name=clusters\n" )           
-        jobFile.write("uncle 10 > clusterjob.out\n") 
+        jobFile.write("uncle 10 > clustersjob.out\n") 
         jobFile.close()
-        proc = subprocess.Popen(['sbatch','clusterjob'], stdout=subprocess.PIPE)
+        proc = subprocess.Popen(['sbatch','clustersjob'], stdout=subprocess.PIPE)
         jobid = proc.communicate()[0].split()[3]
         subprocess.call(['echo', 'Submitted cluster job ' + jobid])
         self.currJobIds.append(jobid)

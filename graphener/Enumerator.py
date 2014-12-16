@@ -15,13 +15,12 @@ class Enumerator:
         the struct_enum.out file that is produced. The methods in this class are only needed for 
         the first iteration of the main convergence loop. """
   
-    def __init__(self, atoms, volRange, clusterNums, niid, uncleOutput):
+    def __init__(self, atoms, volRange, clusterNums, uncleOutput):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
         
         self.clusterNums = clusterNums
-        self.niid = niid
         
         self.uncleExec = os.path.abspath('needed_files/uncle.x')
         self.enumFile = os.path.abspath('enum/struct_enum.out')
@@ -53,8 +52,8 @@ class Enumerator:
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
 #            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
-            clusterjob = ClustersBuild.ClusterJob()
-            clusterjob.buildClusters()
+            clustersjob = ClustersBuild.clustersjob()
+            clustersjob.buildClusters()
         
         os.chdir(lastDir)
 
@@ -77,7 +76,7 @@ class Enumerator:
         
         newfile.close()
         
-    def chooseTrainingStructures(self,iteration, startMethod):
+    def chooseTrainingStructures(self,iteration, startMethod,nNew):
         """ If startMethod is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
          
             The UNCLE option that we run to choose the training structures should look for a file 
@@ -92,7 +91,7 @@ class Enumerator:
         if (iteration == 1 and startMethod == 'empty folders') or natoms == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
             subprocess.call(['echo','\nChoosing i.i.d. structures for all\n'])                         
             os.chdir('enum')
-            subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
+            subprocess.call([self.uncleExec, '42', str(nNew[0])], stdout=self.uncleOut)           
             lines = readfile('training_set_structures.dat')
             for iatom,atom in enumerate(self.atoms):
                 atomDir = lastDir + '/' + atom
@@ -113,7 +112,7 @@ class Enumerator:
                 subprocess.call(['ln','-s','../../enum/lat.in']) 
                 subprocess.call(['ln','-s','../../enum/enum_PI_matrix.out'])
                 subprocess.call(['ln','-s','../../enum/clusters.out'])                          
-                subprocess.call([self.uncleExec, '42', str(self.niid)], stdout=self.uncleOut)
+#                subprocess.call([self.uncleExec, '42', str(nNew[iatom])], stdout=self.uncleOut)
                 os.chdir(lastDir)
                 #get the iidStructs from training_set_structures.dat for each atom
                 lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
@@ -123,14 +122,16 @@ class Enumerator:
             mem = '16' #Gb
             walltime = 1.5 #hrs
             subdir = 'enumpast'
-            execString = self.uncleExec + ' 42 ' + str(self.niid)
-            parallelJobFiles(self.atoms,subdir,walltime,mem,execString) 
+            execString = self.uncleExec + ' 42 '
+            atomStrings = [str(n) for n in nNew]
+            print 'atomStrings',atomStrings
+            parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 
             #submit jobs for atoms 2 an above
             jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
             #use this job to calculate the first atom:
             os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
             subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
-            subprocess.call([self.uncleExec, '42',str(self.niid)], stdout=self.uncleOut)             
+            subprocess.call([self.uncleExec, '42',str(nNew[0])], stdout=self.uncleOut)             
             os.chdir(lastDir)      
             #wait for others
             parallelAtomsWait(jobIds)            

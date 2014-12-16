@@ -84,10 +84,10 @@ class GSS:
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1:
-                atomDir = dir + '/' + self.atoms[iatom] + '/gss'
-                gfvfile = open(atomDir + '/gssFailedVasp.out','w')
+                gssDir = dir + '/' + self.atoms[iatom] + '/gss'
+                gfvfile = open(gssDir + '/gssFailedVasp.out','w')
                 gssInfo = zeros((Ntot),dtype = [('struct', 'S10'), ('conc', float), ('FE', float)]) #columns:  struct, concentration, energy
-                lines = readfile(atomDir + '/gss_' + str(iteration) + '.out')
+                lines = readfile(gssDir + '/gss_' + str(iteration) + '.out')
                 for i,line in enumerate(lines[2:]): #first 2 lines are headers
                     struct = line.strip().split()[0]
                     conc = float(line.strip().split()[2]) #metal concentration
@@ -111,27 +111,11 @@ class GSS:
                         istr = iplace+n
                         self.priorities[iatom,istr]['struct'] = gssInfo[istr]['struct']
                         self.priorities[iatom,istr]['FE'] = gssInfo[istr]['FE']
-                        self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width) 
+                        self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width)  
                     iplace += Nc
-    #            self.priorities = sort(self.priorities, order=['prior']) # sorted low to high 
-                #Note:  if I do the sort above, the sort works in the sense that when I print the elements,
-                # they are sorted.  BUT, when I write them to a file they are all zero!  Some memory/pointer problem? 
-                # so I will use the work-around with linux sort the written file, then read them back in 
-                priorfile = open(atomDir+'/temp','w')
-                priorfile.write('structure,priority,concentration,FEnergy\n')
-                for i in range(Ntot):
-                    priorfile.write('{:10d}{:12.6f}{:8.4f}{:10.6f}\n'.format( \
-                        self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
-                           gssInfo[i]['conc'],gssInfo[i]['FE']))               
-                priorfile.close()
-                os.chdir(atomDir)
-                os.system('sort -g -r -k 2 temp > '+ 'priorities_{}.out'.format(iteration)) #puts highest priorites at top
-                lines = readfile(atomDir+'/priorities_{}.out'.format(iteration))
-                for i, line in enumerate(lines[:-1]): #skip last line which is header (now footer) as sorted
-                    data = line.strip().split()
-                    self.priorities[iatom,i]['struct'] = data[0]
-                    self.priorities[iatom,i]['prior'] = data[1]
-                    self.priorities[iatom,i]['FE'] = data[3]
+                #sort highest to lowest
+                self.priorities[iatom,:] = sort(self.priorities[iatom,:], order=['prior']) # sorted low to high 
+                self.priorities[iatom,:]= self.priorities[iatom,::-1] # reversed: now highest to lowest
                 os.chdir(lastDir)                  
         os.chdir(lastDir)
         return self.priorities                
@@ -274,7 +258,8 @@ class GSS:
             mem = '16' #Gb
             walltime = 1.0 #hrs
             execString = self.uncleExec + ' 21'
-            parallelJobFiles(self.atoms,subdir,walltime,mem,execString)
+            atomStrings = ['']*natoms
+            parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 
             #submit jobs
             jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
             #use this job to calculate the first atom:
