@@ -59,6 +59,10 @@ def getSteps(folder):
     except:
         return 9999 
 
+def isequal(x,y):
+    eps = 5.0e-5
+    return abs(x-y)<eps
+
 def joinLists(toJoin):
     '''Joins lists in toJoin of the form [[sublist1],[sublist2],[sublist3]...].  Lists must have the
     same length, but can different length sublists'''    
@@ -108,32 +112,36 @@ def setAtomCounts(self,poscarDir):
         del(poscarLines[5])
         writefile(poscarLines[:7+natoms*2],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want          
 
-def structuresInWrite(atomDir, structlist, FElist, conclist,energylist,writeType):
+def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outType,writeType):
     '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
-       Also writes this info as POSCAR_orig in the structure folder.  writeType is either "w" or "a"
+       Also writes this info as POSCAR_orig in the structure folder.  outType is '.in' or '.holdout'.  writeType is either "w" or "a"
        depending on whether you are starting the file or appending to it.'''
+    if howmany == 'all':
+        N = len(structlist)
+    else:
+        N = min(howmany,len(structlist)) 
     lastDir = os.getcwd()
-    structuresInFile = open(atomDir + '/'+ 'structures.in', writeType)                                   
+    outFile = open(atomDir + '/'+ 'structures{}'.format(outType), writeType)                                   
     if writeType == 'w':
-        structuresInFile.write("peratom\nnoweights\nposcar\n"); structuresInFile.flush()  #header
+        outFile.write("peratom\nnoweights\nposcar\n"); outFile.flush()  #header
     os.chdir(atomDir)
     subprocess.call(['ln','-s','../enum/struct_enum.out'])
     subprocess.call(['rm vasp.0*'],shell=True) #start clean
-    for istruct,struct in enumerate(structlist):
+    for istruct,struct in enumerate(structlist[:N]): #just take first N for now.  Can change to a slice later
         vaspDir = atomDir + '/'+ str(struct)
-        structuresInFile.write("#------------------------------------------------\n")
+        outFile.write("#------------------------------------------------\n")
 
         subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
         subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
         poscar = readfile(vaspDir+'/POSCAR_orig')           
         idString = 'graphene str #: ' + str(struct)
-        structuresInFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
-        structuresInFile.write("1.0\n")
-        writeLatticeVectors(poscar[2:5],structuresInFile)
-        structuresInFile.writelines(poscar[5:])
-        structuresInFile.write("#Energy:\n")
-        structuresInFile.write(str(energylist[istruct]) + "\n")         
-    structuresInFile.close() 
+        outFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
+        outFile.write("1.0\n")
+        writeLatticeVectors(poscar[2:5],outFile)
+        outFile.writelines(poscar[5:])
+        outFile.write("#Energy:\n")
+        outFile.write(str(energylist[istruct]) + "\n")         
+    outFile.close() 
     os.chdir(lastDir)
 
 def writeLatticeVectors(vecLines,outfile):
@@ -180,7 +188,7 @@ def parallelJobFiles(atoms,subdir,walltime,mem,execString,atomStrings):
         jobFile.write('#SBATCH --mail-user=hess.byu@gmail.com\n')
         jobFile.write('#SBATCH --mail-type=FAIL\n\n')
         jobFile.write('#SBATCH --mail-type=end\n\n')
-        jobFile.write("#SBATCH --job-name=%s\n\n" % atom)  
+        jobFile.write("#SBATCH --job-name=%s\n\n" % atom+subdir)  
         jobFile.write(execString + ' ' + atomStrings[iatom] + ' > {}job.out'.format(subdir))
         jobFile.close()
 #        except:

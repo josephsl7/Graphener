@@ -256,7 +256,7 @@ class GSS:
         else:#parallelize the atom jobs
             #make job files
             mem = '16' #Gb
-            walltime = 1.0 #hrs
+            walltime = 2.0 #hrs
             execString = self.uncleExec + ' 21'
             atomStrings = ['']*natoms
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 

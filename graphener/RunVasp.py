@@ -149,7 +149,7 @@ class RunVasp:
         Done one structure at a time so we can have the structure in the name. """
         jobFile = open(dir + '/job','w')   
         jobFile.write("#!/bin/bash\n\n")
-        jobFile.write("#SBATCH --time=03:00:00\n")
+        jobFile.write("#SBATCH --time=06:00:00\n")
 #            jobFile.write("#SBATCH --time=00:00:30\n")
         jobFile.write("#SBATCH --ntasks=16\n")
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
@@ -517,11 +517,12 @@ class RunVasp:
                 #self.addStructName(structure) #bch adds structure to name
                 proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
                 jobid = proc.communicate()[0].split()[3]
-                subprocess.call(['echo', 'Submitted job ' + jobid])
+#                subprocess.call(['echo', 'Submitted job ' + jobid])
                 self.currJobIds.append(jobid)
                 os.chdir(atomDir)
-            
             os.chdir(lastDir)
+        if len(self.currJobIds)>0:
+            subprocess.call(['echo', 'Submitted {}jobs, ranging from ID {} to ID {}.'.format(len(self.currJobIds),self.currJobIds[0],self.currJobIds[-1])])            
 
     def startNormalJobs(self, vstructsToRun):
         """ Submits all the VASP jobs for structures in 'vstructsToRun' to the supercomputer for 

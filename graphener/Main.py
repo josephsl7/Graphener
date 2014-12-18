@@ -166,7 +166,8 @@ def readInitialFolders(atoms,restartTimeout,):
         vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones 
         
         #write structures.in, (or just the header if there is no existing data)
-        structuresInWrite(atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'],'w')
+        structuresWrite('all',atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],\
+                        vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'],'.in','w')
     os.chdir(lastDir)    
     return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
 
@@ -239,6 +240,13 @@ def parseStructsIn(atoms,vstructsFinished):
                 subprocess.call(['echo','\tAtom {}: found finished structure {} not in structures.in. Appending to restart list.'.format(atom,struct)])                    
                 restartStructs.append(struct) 
             elif restartTimeout and not failed and not slurmProblem(vaspDir):
+                #begin cluge
+                os.chdir(vaspDir)
+#                subprocess.call(['echo', 'submitting restarts in parse...']) 
+#                proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
+#                jobid = proc.communicate()[0].split()[3]
+#                subprocess.call(['echo', 'Submitted job ' + jobid])
+                #end cluge
                 restartStructs.append(struct)  
             else:
                 failedStructs.append(struct)
@@ -391,7 +399,7 @@ def getnNew(atoms,vstructsFinished,niid,nPrior,ntot,PriorOrIID):
     for iatom, atom in enumerate(atoms):
         nFinished = len(vstructsFinished[iatom])
         if PriorOrIID == 'I':
-            nNew[iatom] = min(niid,ntot-nFinished)
+            nNew[iatom] = min(niid,ntot-nFinished-1) #uncle 42 crashes when you ask for every structure
         else:
             nNew[iatom] = min(nPrior,ntot-nFinished)
     return nNew
@@ -608,9 +616,15 @@ def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
         os.fsync(failedFile.fileno())
     except IOError:
         subprocess.call(['echo','\n~~~~~~~~~~ Couldn\'t write to failed_vasp file. ~~~~~~~~~~\n'])   
-
-
+        
+        
+        
 # -------------------------------------------- MAIN -----------------------------------------------
+# -------------------------------------------- MAIN -----------------------------------------------
+# -------------------------------------------- MAIN -----------------------------------------------
+# -------------------------------------------- MAIN -----------------------------------------------
+
+
 '''All atom folders must start with the same method:  
 1) structures.in from previous run must exist in each atom folder
 or
@@ -663,6 +677,7 @@ if __name__ == '__main__':
     vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
   
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
+
     subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
 #    enumerator.enumerate() #comment this out for testing
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
@@ -724,7 +739,7 @@ if __name__ == '__main__':
         fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
         if iteration == 1: 
             fitter.makeFitDirectories()
-            if startMethod != 'empty folders': fitter.holdoutFromIn(atoms)
+        fitter.writeHoldout(50,vstructsFinished,vdata)
         fitter.fitVASPData(iteration,maxE)
     
         # Perform a ground state search on the fit for each atom.    
@@ -740,7 +755,7 @@ if __name__ == '__main__':
         #choose new structures while still sorted by priority
         newStructsPrior = getFromPriorities(priorities,vstructsAll,atoms,nNew)       
 
-        #sys.exit('Stop')
+#        sys.exit('Stop')
 
         #test weighted energy difference since last iteration
         # First sort priorities by structure name so we have an unchanging order
@@ -775,8 +790,8 @@ if __name__ == '__main__':
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)
-            elif nNew[iatom] == 0:
-                subprocess.call(['echo','Atom {} has no new structures to run, and has been stopped.:'.format(atom)])
+            elif nNew[iatom] == 0 and len(newlyToRestart[iatom]) == 0:
+                subprocess.call(['echo','Atom {} has no structures to run, and has been stopped.:'.format(atom)])
                 atoms.remove(atom)
                 atomnumbers.remove(iatom)
                 rmAtoms.append(iatom)

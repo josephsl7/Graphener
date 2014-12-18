@@ -27,7 +27,7 @@ class Fitter:
     def filterStructuresIn(self, fitsDir, iteration, maxE):
         '''Remove structs from structures.in, just before fitting, that don't fit criteria here. 
            For now, structures above maxE will be removed'''
-        if maxE < 100: # < the default
+        if maxE < 100: # < the absurd default
             inFile = fitsDir + '/structures.in'
             lines = readfile(inFile)
             subprocess.call(['mv',inFile,inFile + '_{}full'.format(iteration)]) 
@@ -72,7 +72,7 @@ class Fitter:
             #make job files
             os.chdir(lastDir)
             mem = '16' #Gb
-            walltime = 0.75 #hrs
+            walltime = 2.0 #hrs
 
             execString = self.uncleExec + ' 15'
             atomStrings = ['']*natoms
@@ -137,32 +137,13 @@ class Fitter:
                     outfile.write(inlines[i])
             outfile.close()
 
-    def holdoutFromIn(self, atoms):
-        '''Writes structures.holdout for the first iteration, for a given atom
-        If starting from existing struct calculations, takes up to N structs in the top of the 
-        structures.in file.  Useful when starting from existing structs.  In this case, 
-        they would be the lowest N FE structs, since past_structs.dat should be ordered at first.'''            
-     
-        nmax = 100
-        for iatom, atom in enumerate(atoms):
-            atomDir = os.getcwd() + '/' + atom
-            
-            infile = open(atomDir + '/structures.in', 'r')
-            holdoutFile = open(atomDir + '/fits/structures.holdout', 'w')
-#                holdoutFile.write(self.header) #bch why are 2 headers being written if I uncomment this?
-            count = 0
-            for line in infile:
-                if list(line.strip().split()[0])[:2] == ['#', '-']:
-                    if count >= nmax:
-                        break
-                    count += 1    
-                holdoutFile.write(line)
-    
-        infile.close()
-        holdoutFile.close()
-
-
-
-
-
-
+    def writeHoldout(self, N, structs,vdata):
+        '''Writes structures.holdout from a list of struct names for each atom.'''            
+        for iatom in xrange(len(self.atoms)):
+            nmax = min(N,len(structs[iatom]))
+            atomDir = os.path.abspath(self.atoms[iatom])
+            structuresWrite(nmax,atomDir,self.vstructsFinished[iatom],\
+                            vdata[iatom,:nmax]['FE'],vdata[iatom,:nmax]['conc'],\
+                            vdata[iatom,:nmax]['energy'],'.holdout','w')        
+            subprocess.call(['cp', atomDir + '/structures.holdout', atomDir + '/fits/structures.holdout'])
+        

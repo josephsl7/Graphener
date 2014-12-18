@@ -27,6 +27,7 @@ class Enumerator:
         self.enumExec = os.path.abspath('needed_files/enum.x')
         self.uncleOut = uncleOutput
         self.clusterNums = clusterNums
+        self.makeAtomDirectories()
 
     def buildClusters(self):
         """ Uses UNCLE to build the number of each n-body clusters specified in the settings.in
@@ -120,7 +121,7 @@ class Enumerator:
             #make job files
             os.chdir(lastDir)
             mem = '16' #Gb
-            walltime = 1.5 #hrs
+            walltime = 2.0 #hrs
             subdir = 'enumpast'
             execString = self.uncleExec + ' 42 '
             atomStrings = [str(n) for n in nNew]
@@ -172,7 +173,6 @@ class Enumerator:
         subprocess.call(['echo','\nGenerating clusters. . .\n'])
         self.buildClusters()
         
-        self.makeAtomDirectories()
 
     def getNtot(self,dir):
         """Gets total number of structures in enumeration"""
