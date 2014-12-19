@@ -4,7 +4,7 @@ Created on Aug 13, 2014
 @author: eswens13
 '''
 from glob import glob
-from numpy import sqrt
+from numpy import sqrt,dot
 from numpy.linalg import inv,det
 from copy import deepcopy
 import os, subprocess
@@ -185,11 +185,11 @@ class Converter:
                        [2.13128850,   1.23050000,   0.00000000], 
                        [0.00000000,   0.00000000,  15.00000000]])
         primCellVol = det(PLV)
+        dxC = PLV[0,0]*2*0.333333333333333 #distance between 2 C atoms
         
         # Get the number of each type of atom.
         nonCatomCounts = uncleLines[5].strip().split()
-        nonCatomCounts = [int(count) for count in nonCatomCounts]
-        nCatoms = self.atomCounts[0]        
+        nonCatomCounts = [int(count) for count in nonCatomCounts]       
         self.atomCounts = [sum(nonCatomCounts), nonCatomCounts[0], nonCatomCounts[1]]
         if self.atomCounts[1] == 0 or self.atomCounts[2] == 0:
             self.pure = True
@@ -199,19 +199,20 @@ class Converter:
         self.set3dCpositionsFromDirectCoordinates(positionLines)
         self.set3dHpositionsFromDirectCoordinates(positionLines)
         self.set3dMpositionsFromDirectCoordinates(positionLines)
-        if not isequal(nCatoms/cellVol,2/primCellVol): #need another C atom for each site (only one uncle site per cell)
-            self.addCpositions(PLV)
+        nCatoms = self.atomCounts[0]
+        if not isequal(nCatoms/cellVol,2.0/primCellVol): #need another C atom for each site (only one uncle site per cell)
+            self.addCpositions(dxC)
+            self.atomCounts = [2*sum(nonCatomCounts), nonCatomCounts[0], nonCatomCounts[1]]
 
-    def addCpositions(self,PLV):
+    def addCpositions(self,dxC):
         '''Each primitive cell has 2 carbon atoms.  If uncle has only one site/primitive cell, then we have 
-        to add the second carbon, which will not be a site for an adataom.
-        pos =  PLV * mult. So mult = inv(PLV)*pos.   mult will be a vector of 3 floats.  
-        If we take the floor of each we have the '''
-        for pos in self._3dCpos:
-            mults = dot(inv(PLV),pos)
-            print mults
+        to add the second carbon , which will not be a site for an adataom, and is below the plane
+        if the first is above'''
+        Cpos = deepcopy(self._3dCpos)
+        for pos in Cpos:
+            self._3dCpos.append([pos[0] + dxC, pos[1], -pos[2]])
+
             
-                      
     def get2DDistance(self, atom1, atom2):
         """ Returns the two-dimensional distance between two atoms. """
         xcomp = atom2[0] - atom1[0]

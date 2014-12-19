@@ -52,15 +52,12 @@ class Extractor:
         subprocess.call(['echo','\nExtracting structures from struct_enum.out\n'])
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
-        uniqueSet = set()
-        
+        uniqueSet = set()  
         # Only extract the union of all the sets of structures.  (No duplicates)
-        
         for i in xrange(len(vstructsToStart)):
             uniqueSet = uniqueSet.union(vstructsToStart[i])
         for struct in uniqueSet:
-            subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut)
-        
+            subprocess.call([self.extractExec, 'struct_enum.out', struct], stdout=self.uncleOut) 
         os.chdir(lastDir)
     
 #    def setStructsFromGSS(self, alist): # this flattens the list because the pseudo-POSCAR is not unique to an atom

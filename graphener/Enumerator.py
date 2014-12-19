@@ -77,7 +77,7 @@ class Enumerator:
         
         newfile.close()
         
-    def chooseTrainingStructures(self,iteration, startMethod,nNew):
+    def chooseTrainingStructures(self,iteration, startMethod,nNew,ntot):
         """ If startMethod is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
          
             The UNCLE option that we run to choose the training structures should look for a file 
@@ -92,14 +92,18 @@ class Enumerator:
         if (iteration == 1 and startMethod == 'empty folders') or natoms == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
             subprocess.call(['echo','\nChoosing i.i.d. structures for all\n'])                         
             os.chdir('enum')
-            subprocess.call([self.uncleExec, '42', str(nNew[0])], stdout=self.uncleOut)           
+            if nNew[0] < ntot: 
+                subprocess.call([self.uncleExec, '42', str(nNew[0])], stdout=self.uncleOut) 
+            else: #asking for all the structures for small enumerations, so just list them
+                structlines = ['{}   {}\n'.format(str(i+1),str(i+1)) for i in range(ntot)]
+                writefile(structlines,'training_set_structures.dat')                 
             lines = readfile('training_set_structures.dat')
             for iatom,atom in enumerate(self.atoms):
                 atomDir = lastDir + '/' + atom
                 iidList = [line.strip().split()[1] for line in lines]                    
                 subprocess.call(['echo','\nCopying i.i.d. structures for ' + atom + ' . . .\n'])                         
-                vsDir = lastDir + '/' + atom + '/enumpast'
-                subprocess.call(['cp','training_set_structures.dat',vsDir])
+                epDir = lastDir + '/' + atom + '/enumpast'
+                subprocess.call(['cp','training_set_structures.dat',epDir])
                 iidStructs[iatom] = iidList 
             os.chdir(lastDir)                                       
         else: # must get separate iid structures for each atom, so parallelize        

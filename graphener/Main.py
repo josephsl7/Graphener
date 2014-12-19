@@ -370,7 +370,7 @@ def getFromPriorities(priorities, vstructsAll, atoms,nNew):
                 sublist.append(struct)
                 nNewStruct += 1
             istruct += 1
-        subprocess.call(['echo','/tAtom {}, lowest priority new struct: {}, {}'.format(atom,str(priorities[iatom,istruct-1]['struct']),str(priorities[iatom,istruct-1]['prior']))])
+        subprocess.call(['echo','\tAtom {}, \tlowest priority new struct: {}, {}'.format(atom,str(priorities[iatom,istruct-1]['struct']),str(priorities[iatom,istruct-1]['prior']))])
             
         newstructs[iatom] = sublist
     return newstructs
@@ -705,7 +705,7 @@ if __name__ == '__main__':
             vstructsRestart = joinLists([vstructsRestart0,vstructsRestart])
         if iteration == 1: 
             if startMethod == 'empty folders': 
-                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew)
+                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)
                 vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
@@ -713,7 +713,7 @@ if __name__ == '__main__':
             contcarToPoscar(vstructsRestart,atoms,iteration) 
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
-            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew)   
+            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)   
             contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
  
