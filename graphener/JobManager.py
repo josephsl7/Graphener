@@ -156,7 +156,7 @@ class JobManager:
     
         s = scheduler(time.time, time.sleep)
         
-        if vstructsToStart != [[]]*len(self.atoms):
+        if len(flat(vstructsToStart)) != 0:
             subprocess.call(['echo','\nStarting low-precision ionic relaxation. . .\n'])
             self.vaspRunner.run(1,vstructsToStart,vstructsToRun)
         

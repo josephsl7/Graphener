@@ -180,7 +180,7 @@ class RunVasp:
 
     def makeLowINCARs(self,dir):
         """ Creates a standard INCAR file and puts it in each different structure's top 
-            directory. Need to have ediffs increasing with atom count, since it's a measure
+            directory. Ediffs increase with atom count, since it's a measure
             for total energy change, not per atom"""
         self.setAtomCounts(dir)
         natoms = sum(self.atomCounts)

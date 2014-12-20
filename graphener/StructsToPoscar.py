@@ -4,7 +4,7 @@ Created on Aug 13, 2014
 @author: eswens13
 '''
 from glob import glob
-from numpy import sqrt,dot
+from numpy import sqrt,dot,rint
 from numpy.linalg import inv,det
 from copy import deepcopy
 import os, subprocess
@@ -186,23 +186,23 @@ class Converter:
                        [0.00000000,   0.00000000,  15.00000000]])
         primCellVol = det(PLV)
         dxC = PLV[0,0]*2*0.333333333333333 #distance between 2 C atoms
-        
+        nCatoms = 2 * int(rint(cellVol/primCellVol))
         # Get the number of each type of atom.
-        nonCatomCounts = uncleLines[5].strip().split()
-        nonCatomCounts = [int(count) for count in nonCatomCounts]       
-        self.atomCounts = [sum(nonCatomCounts), nonCatomCounts[0], nonCatomCounts[1]]
+        adatomCounts = uncleLines[5].strip().split()
+        adatomCounts = [int(count) for count in adatomCounts]       
+        self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
         if self.atomCounts[1] == 0 or self.atomCounts[2] == 0:
             self.pure = True
-                
+
         positionLines = uncleLines[7:]
         
         self.set3dCpositionsFromDirectCoordinates(positionLines)
         self.set3dHpositionsFromDirectCoordinates(positionLines)
         self.set3dMpositionsFromDirectCoordinates(positionLines)
-        nCatoms = self.atomCounts[0]
+#        nCatoms = self.atomCounts[0]
         if not isequal(nCatoms/cellVol,2.0/primCellVol): #need another C atom for each site (only one uncle site per cell)
             self.addCpositions(dxC)
-            self.atomCounts = [2*sum(nonCatomCounts), nonCatomCounts[0], nonCatomCounts[1]]
+            self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
 
     def addCpositions(self,dxC):
         '''Each primitive cell has 2 carbon atoms.  If uncle has only one site/primitive cell, then we have 

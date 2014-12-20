@@ -12,7 +12,7 @@ import os, subprocess
 
 class DistanceInfo:
 
-    def __init__(self, atoms):
+    def __init__(self, atoms,pureMetal):
         """ CONSTRUCTOR """
     
         self.atoms = atoms
@@ -29,6 +29,7 @@ class DistanceInfo:
         self.relaxedVecs = []
         self.minOrigPositions = []
         self.relaxedPositions = []
+        self.pureMetal = pureMetal
         
     def setStructureList(self):
         atomDir = os.getcwd() + '/' + self.atoms[0]
@@ -281,7 +282,7 @@ class DistanceInfo:
         
         Ccount = counts[0]
         Mcount = 0
-        if structureDir.split('/')[-1] == '3':
+        if structureDir.split('/')[-1] == self.pureMetal:
             Mcount = counts[1]
         else:
             Mcount = counts[2]
@@ -421,7 +422,7 @@ class DistanceInfo:
         concentration = 0.0
         if structName == '1':
             concentration = 0.0
-        elif structName == '3':
+        elif structName == self.pureMetal:
             concentration = 1.0
         else:
             Hnum = self.structureInfo[1][1]

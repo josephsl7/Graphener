@@ -223,7 +223,7 @@ class GSS:
                         elif i == 5:
                             outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atom + ")\"\n")
                         elif 'plot "' in inlines[i]:         
-                            outfile.write('set yrange [:{}]\n'.format(ymax))
+#                            outfile.write('set yrange [:{}]\n'.format(ymax))
                             outfile.write(inlines[i])
                         else:
                             outfile.write(inlines[i])

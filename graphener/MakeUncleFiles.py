@@ -11,7 +11,7 @@ from comMethods import *
  
 class MakeUncleFiles:
     from comMethods import setAtomCounts
-    def __init__(self, atoms, startMethod, iteration,finalDir,restartTimeout):
+    def __init__(self, atoms, startMethod, iteration,finalDir,restartTimeout,pureMetal):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.startMethod = startMethod
@@ -24,6 +24,7 @@ class MakeUncleFiles:
         self.newlyToRestart = []
         self.pureHenergy = 0.0
         self.pureMenergy = 0.0
+        self.pureMetal = pureMetal
         
         self.infile = None
         self.holdoutFile = None
@@ -88,12 +89,13 @@ class MakeUncleFiles:
                         if os.path.isdir(vaspDir):
                             if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): #finalDir                           
                                # Check for concentration
-                                self.setAtomCounts(struct)                            
+                                self.setAtomCounts(struct) 
+                                nadatoms =  float(self.atomCounts[1] + self.atomCounts[2])                         
                                 concentration = 0.0
-                                if self.atomCounts[0] == 0:
+                                if self.atomCounts[1] == 0:
                                     concentration = 1.0
                                 else:
-                                    concentration = float(float(self.atomCounts[1]) / float(self.atomCounts[0] + self.atomCounts[1]))                           
+                                    concentration = float(float(self.atomCounts[2]) / float(nadatoms))                           
                                 conclist.append([concentration, struct])
                             elif self.restartTimeout and not slurmProblem(vaspDir):
                                 restart.append(struct)
@@ -165,7 +167,7 @@ class MakeUncleFiles:
         dir = lastDir + '/' + self.atoms[iatom]
         os.chdir(dir)
         pureHdir =  dir + '/1'
-        pureMdir =  dir + '/3'
+        pureMdir =  dir + '/' + self.pureMetal
         
         if os.path.exists(pureHdir):
             self.setAtomCounts(pureHdir)
@@ -258,50 +260,6 @@ class MakeUncleFiles:
         self.atomCounts = []
         self.energy = 0.0 
 
-#    def setAtomCounts(self, poscarDir):
-#        """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
-#            the corresponding members. """
-#        self.atomCounts = []
-#
-#        poscar = open(poscarDir + '/POSCAR', 'r')
-#        poscarLines = poscar.readlines()
-#        poscar.close()
-#        
-#        counts = poscarLines[5].strip().split()
-#        
-#        if len(counts) == 3:
-#            self.atomCounts.append(int(counts[1]))
-#            self.atomCounts.append(int(counts[2]))
-#        elif len(counts) == 2:
-#            if poscarLines[0].split()[1] == 'H':
-#                self.atomCounts.append(int(counts[1]))
-#                self.atomCounts.append(0)
-#            elif poscarLines[0].split()[1] == 'M':
-#                self.atomCounts.append(0)
-#                self.atomCounts.append(int(counts[1]))
-
-#    def setAtomPositions(self, poscarDir):
-#        """ Retrieves the positions of each of the atoms.  Appends the x-coordinate to the 
-#            xPositions list, the y-coordinate to the yPositions list.  For a surface in UNCLE the 
-#            z-coordinate is always zero. """
-#        poscar = open(poscarDir + '/POSCAR', 'r')
-#        poscarLines = poscar.readlines()
-#        poscar.close()
-#        
-#        self.atomPositions = []
-#        self.xPositions = []
-#        self.yPositions = []
-#        self.zPositions = []
-#        
-#        self.atomPositions = poscarLines[7 + sum(self.atomCounts):7 + (2 * sum(self.atomCounts))]
-#        self.atomPositions = [line.strip().split() for line in self.atomPositions]
-#           
-#        for pos in self.atomPositions:
-#            self.xPositions.append(float(pos[0]))
-#            self.yPositions.append(float(pos[1]))
-#            self.zPositions.append(0.0)
-
-
     def setEnergy(self, directory):  
         """ Retrieves the energy of the structure from the OSZICAR file and sets the corresponding 
             member. """   
@@ -313,7 +271,7 @@ class MakeUncleFiles:
             energy = 0
         
         energy = float(energy)
-        peratom = energy / sum(self.atomCounts)       
+        peratom = energy / sum(self.atomCounts[1:])       
         self.energy = str(peratom)
         
     def setIDString(self, poscarDir):
@@ -323,43 +281,6 @@ class MakeUncleFiles:
         ID = poscar.readlines()[0].strip()       
         self.idString = ID
         
-#    def setLatticeVectors(self, structDir):
-#        """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
-#            corresponding member components. """
-#        vecFile = open(structDir + '/POSCAR', 'r')
-#        vecFileLines = vecFile.readlines()
-#        vecFile.close()
-#        
-#        vec1 = vecFileLines[2].strip().split()
-#        vec2 = vecFileLines[3].strip().split()
-#        vec3 = vecFileLines[4].strip().split()
-#        
-#        vec1comps = [float(comp) for comp in vec1]
-#        vec2comps = [float(comp) for comp in vec2]
-#        vec3comps = [float(comp) for comp in vec3]
-#            
-#        
-#        self.vec1x = vec1comps[0]
-#        self.vec1y = vec1comps[1]
-#        if vec1comps[2] == 15.0:
-#            self.vec1z = 1000.0
-#        else:
-#            self.vec1z = vec1comps[2]
-#        
-#        self.vec2x = vec2comps[0]
-#        self.vec2y = vec2comps[1]
-#        if vec2comps[2] == 15.0:
-#            self.vec2z = 1000.0
-#        else:
-#            self.vec2z = vec2comps[2]
-#        
-#        self.vec3x = vec3comps[0]
-#        self.vec3y = vec3comps[1]
-#        if vec3comps[2] == 15.0:
-#            self.vec3z = 1000.0
-#        else:
-#            self.vec3z = vec3comps[2]
-
     def singleAtomsEnergies(self,dir1,iteration): 
         self.singleE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
         if iteration == 1: subprocess.call(['echo', '\nReading single atom energies\n'])
@@ -371,23 +292,7 @@ class MakeUncleFiles:
                 file.write('{} atom: {:12.8f} \n'.format(atom,self.getEnergy(dir2)))
                 self.singleE[iatom] = self.getEnergy(dir2)
         file.close()  
-        os.chdir(dir1) 
-
-#    def timeoutCheck(self,structDir):
-#        '''checks the latest slurm file for the words TIME LIMIT'''
-#        slurmlist = []               
-#        structfiles = os.listdir(structDir)
-#        for file in structfiles:
-#            filePath = structDir + '/' + file
-#            if 'slurm' in file and os.stat(filePath).st_size > 0:
-#                slurmlist.append(file)
-#        if len(slurmlist)>0: #only use the last slurm
-#            slurmlist.sort()
-#            lastslurm = slurmlist[-1]
-#            for line in readfile(structDir + '/' + lastslurm):
-#                if 'TIME LIMIT' in line: 
-#                    return True
-#        return False        
+        os.chdir(dir1)      
 
     def vdataToPlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 
@@ -403,26 +308,27 @@ class MakeUncleFiles:
         vaspHFEfile = open('vaspHFE.out','w')  
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = 0 #creating for all finished structs
-        #this does not need to be sorted. 
+        #this does not need to be sorted.
         for j in range(nfinished):
             struct = self.vdata[iatom,istruct]['struct']
             conc = self.vdata[iatom,istruct]['conc']
-            natoms = self.vdata[iatom,istruct]['natoms']
-            nmetal = int(conc*natoms)
-            nH = natoms - nmetal 
-            ncarbon = nH + nmetal #all C sites have an adatom           
-            structEnergy = self.vdata[iatom,istruct]['energy']                 
-            formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
+            nadatoms = self.vdata[iatom,istruct]['nadatoms']
+            nmetal = int(conc*nadatoms)
+            nH = nadatoms - nmetal 
+            ncarbon = self.vdata[iatom,istruct]['nCarbon'] 
+            #multiply stored energy by nadatoms so we have vasp run energy
+            structEnergy = nadatoms * self.vdata[iatom,istruct]['energy'] 
+            formationEnergy = (structEnergy - nmetal*self.pureMenergy - nH*self.pureHenergy)/float(nadatoms)
             self.vdata[iatom,istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            
-            bindEnergy = structEnergy - (nH*eIsolatedH + nmetal*self.singleE[iatom] + ncarbon*energyGraphene/2.0)/ float(natoms) #2 atoms in graphene 
+            bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nH*eIsolatedH - nmetal*self.singleE[iatom])/ float(nadatoms) #2 atoms in graphene 
             self.vdata[iatom,istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))  
             #note that the hex monolayers have one atom per cell
-            hexFormationEnergy = structEnergy - energyGraphene/2  - (conc * self.hexE[iatom] + (1.0 - conc) * eH2)
+            hexFormationEnergy = (structEnergy - energyGraphene*ncarbon/2.0  - nmetal *self.hexE[iatom] - nH*eH2)/float(nadatoms)
             self.vdata[iatom,istruct]['HFE'] = hexFormationEnergy
             vaspHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,hexFormationEnergy))    
-            istruct += 1                          
+            istruct += 1 
         vaspFEfile.close()
         vaspBEfile.close()
         vaspHFEfile.close()                
@@ -447,12 +353,13 @@ class MakeUncleFiles:
             structEnergy = float(self.energy)
             self.vdata[iatom,istruct]['energy'] = structEnergy 
             conc = 0.0
-            natoms =  float(self.atomCounts[0] + self.atomCounts[1])
-            self.vdata[iatom,istruct]['natoms'] = natoms
-            if self.atomCounts[0] == 0:
+            nCarbon =  atomCounts[0]
+            nadatoms =  float(self.atomCounts[1] + self.atomCounts[2])
+            self.vdata[iatom,istruct]['nadatoms'] = nadatoms
+            if self.atomCounts[1] == 0:
                 conc = 1.0
             else:
-                conc = float(float(self.atomCounts[1])/natoms)
+                conc = float(float(self.atomCounts[2])/nadatoms)
             self.vdata[iatom,istruct]['conc'] = conc                       
             formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
             self.vdata[iatom,istruct]['FE'] = formationEnergy
@@ -464,8 +371,3 @@ class MakeUncleFiles:
         self.newlyFinished[iatom] = sortedStructs           
         os.chdir(lastDir)
         return nfinished #the position in vdata before adding the data
-
-
-
-
-

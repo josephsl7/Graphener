@@ -35,6 +35,10 @@ def finishCheck(folder):
     newstring = proc.communicate()
     os.chdir(lastfolder)            
     return newstring[0].find('Voluntary') > -1
+
+def flat(list):
+    '''flattens a list of lists (no further depth allowed'''
+    return sum(list,[])
     
 def getNSW(dir): 
     if os.path.exists(dir+'/INCAR'):
@@ -87,7 +91,7 @@ def writefile(lines,filepath): #need to have \n's inserted already
     return
             
 def setAtomCounts(self,poscarDir):
-    """ Retrieves the number of H atoms and the number of M atoms from the POSCAR file and sets 
+    """ Retrieves the number of C, H and M atoms from the POSCAR file and sets 
         the corresponding members. 
         Also fixes "new" POSCAR/CONTCAR format (comes from CONTCAR) back to old for UNCLE use (removes the 6th line if it's text """
     self.atomCounts = []
@@ -98,9 +102,11 @@ def setAtomCounts(self,poscarDir):
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
     if len(counts) == 3:
+        self.atomCounts.append(int(counts[0]))
         self.atomCounts.append(int(counts[1]))
         self.atomCounts.append(int(counts[2]))
     elif len(counts) == 2:
+        self.atomCounts.append(int(counts[0]))
         if poscarLines[0].split()[1] == 'H':
             self.atomCounts.append(int(counts[1]))
             self.atomCounts.append(0)
@@ -110,7 +116,7 @@ def setAtomCounts(self,poscarDir):
     natoms = sum(self.atomCounts)
     if fixPOSCAR:
         del(poscarLines[5])
-        writefile(poscarLines[:7+natoms*2],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want          
+        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want          
 
 def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outType,writeType):
     '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
