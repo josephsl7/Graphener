@@ -4,7 +4,7 @@ Created on Aug 26, 2014
 @author: eswens13
 '''
 
-import os, subprocess,sys,re, time
+import os, subprocess,sys,re,time
 from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
 from numpy import dot,rint
@@ -137,8 +137,10 @@ def readInitialFolders(atoms,restartTimeout,):
                 failed = True 
             if outcarWarn(vaspDir): 
                 failed = True
-                failedStructs.append(struct)
-                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
+#                failedStructs.append(struct)
+#                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
+                restartStructs.append(struct)
+                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
 #            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
@@ -262,6 +264,8 @@ def parseStructsIn(atoms,vstructsFinished):
                     atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
                 except:
                     failed = True
+            if outcarWarn(vaspDir): 
+                failed = True
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
                 failed = True 
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
@@ -678,7 +682,7 @@ if __name__ == '__main__':
 
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1' 
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -748,11 +752,11 @@ if __name__ == '__main__':
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
-            contcarToPoscar(vstructsRestart,atoms,iteration) 
+#            contcarToPoscar(vstructsRestart,atoms,iteration) 
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
             vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)   
-            contcarToPoscar(vstructsRestart,atoms,iteration)
+#            contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         pastStructsUpdate(vstructsToStart,atoms)
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
@@ -783,7 +787,7 @@ if __name__ == '__main__':
         # Perform a ground state search on the fit for each atom.    
         gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput)
         gss.makeGSSDirectories()
-        if not graphsOnly: gss.performGroundStateSearch(iteration)
+        gss.performGroundStateSearch(iteration)   
         gss.makePlots(iteration)
         if graphsOnly: sys.exit('Done with graphs. Stopping')
         #determine how many new structures to get for each atom, for any method

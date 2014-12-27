@@ -5,6 +5,7 @@ Created on Aug 29, 2014
 '''
 import os,sys,subprocess,time,shutil
 from comMethods import *
+from numpy import ceil
 
 class Fitter:
     """ This class performs the UNCLE fits to the VASP data that has been gathered so far.  It also
@@ -62,8 +63,8 @@ class Fitter:
                         struct = lines[j + 1].strip().split()[3]
                         FE = float(lines[j+1].strip().split()[6].strip(','))
                         nstructs += 1
-                        FEdata[nstruct]['FE'] = FE
-                        FEdata[nstruct]['struct'] = struc
+                        FEdata[nstructs]['FE'] = FE
+                        FEdata[nstructs]['struct'] = struct
             sort(FEdata,order = ['FE','struct']) #from low to high
             #keep only part of them
             nkeep = ceil((1-cullFrac)*nstructs)
@@ -88,11 +89,11 @@ class Fitter:
     def fitVASPData(self, iteration, maxE):
         """ Performs the UNCLE fit to the VASP data. """
         natoms = len(self.atoms)
-        nfinished = len(self.vstructsFinished[iatom])
         lastDir = os.getcwd()
         subdir = 'fits'
         #prep for all
         for iatom, atom in enumerate(self.atoms):
+            nfinished = len(self.vstructsFinished[iatom])
             if nfinished > 1: #don't try fitting if structures.in is too small
                 atomDir = lastDir + '/' + atom
                 if nfinished < 100:
@@ -105,8 +106,7 @@ class Fitter:
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
                         subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here 
-#                        self.filterStructuresIn(fitsDir,iteration, maxE) #remove structures above a certain energy from the fit.                   
-                        self.filterStructuresInFrac(fitsDir,iteration, cullFrac) #remove some structures at the top of the FE list.                   
+#                        self.filterStructuresInFrac(fitsDir,iteration, cullFrac) #remove some structures at the top of the FE list.                   
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
         if natoms ==1:

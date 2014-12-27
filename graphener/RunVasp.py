@@ -16,6 +16,7 @@ class RunVasp:
         
         self.currJobIds = []
         self.ediffg = ediffg 
+        self.neMetal = 0
         
     def clearCurrentJobIds(self):
         """ Clears the list of current job IDs. """
@@ -170,7 +171,8 @@ class RunVasp:
             directory. Ediffs increase with atom count, since it's a measure
             for total energy change, not per atom"""
         self.setAtomCounts(dir)
-        natoms = sum(self.atomCounts)
+        nelectrons = atomCounts[0]*6 + atomCounts[1] + atomCounts[2] * self.neMetal
+        natoms = sum(self.atomCounts)  
         incar = open(dir + '/INCAR','w')    
         incar.write("IBRION=2\n")
         incar.write("ISIF=4\n")
@@ -185,7 +187,8 @@ class RunVasp:
         incar.write("LREAL=Auto\n")
         incar.write("SIGMA=0.1\n")
         incar.write("LWAVE=.TRUE.\n")
-        incar.write("LCHARG=.TRUE.\n")    
+        incar.write("LCHARG=.TRUE.\n")
+        incar.write("NBANDS={}\n".format(nelectrons)) #note: default Nbands = 0.6*NELECT + NMAG (spin-polarized).  Need more than this
         incar.close()
 
     def makeNormalDirectories(self, vstructsToStart):
@@ -232,7 +235,8 @@ class RunVasp:
 
     def makePOTCARs(self):
         """ Creates a POTCAR file for each atom in the member 'atoms'. Concatenates the 
-            individual POTCAR files to make a single POTCAR file for the multi-atom structure. """
+            individual POTCAR files to make a single POTCAR file for the multi-atom structure. 
+            Returns the number of electrons in the metal atom"""
         for atom in self.atoms:
             CPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR"
             HPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/H/POTCAR"
@@ -249,6 +253,7 @@ class RunVasp:
                 atomPotcar = open(atomPotcarDir,'r')
                 atomLines = atomPotcar.readlines()
                 atomPotcar.close()
+                neMetal = int(atomLines[1].strip()[0])
             
                 potcar = open(atom + '/POTCAR', 'w')
                 for line in CLines:
@@ -267,7 +272,7 @@ class RunVasp:
                 subprocess.call(['echo','Removing POTCAR . . .'])
                 potcar.close()
                 subprocess.call(['rm','POTCAR'])
-                return
+            return neMetal
 
     def makePurePOTCARs(self):
         """ Some of the structures that need to be submitted to VASP for relaxation are what we 
@@ -416,7 +421,7 @@ class RunVasp:
             given structure.  This includes concatenating the POTCARS for the pure and non-pure
             cases. """
         self.makePurePOTCARs()
-        self.makePOTCARs()
+        self.neMetal = self.makePOTCARs()
         self.makeKPOINTS(6, 6)
         self.linkVaspExec()
         self.fillDirectories(vstructsToStart)

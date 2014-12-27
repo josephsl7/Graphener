@@ -201,7 +201,7 @@ def parallelJobFiles(atoms,subdir,walltime,mem,execString,atomStrings):
         jobFile.write('#SBATCH --mail-user=hess.byu@gmail.com\n')
         jobFile.write('#SBATCH --mail-type=FAIL\n\n')
         jobFile.write('#SBATCH --mail-type=end\n\n')
-        jobFile.write("#SBATCH --job-name=%s\n\n" % atom+subdir)  
+        jobFile.write("#SBATCH --job-name={}.{}\n\n".format(atom,subdir)) 
         jobFile.write(execString + ' ' + atomStrings[iatom] + ' > {}job.out'.format(subdir))
         jobFile.close()
 #        except:

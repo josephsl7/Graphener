@@ -326,8 +326,8 @@ class MakeUncleFiles:
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            
 
             bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nH*eIsolatedH - nmetal*self.singleE[iatom])/ float(nadatoms) #2 atoms in graphene 
-            print 'struct',struct, 'Energy',structEnergy,'BE',bindEnergy,'nadatoms',nadatoms
-            print ncarbon*energyGraphene/2.0,nH*eIsolatedH,nmetal*self.singleE[iatom]
+#            print 'struct',struct, 'Energy',structEnergy,'BE',bindEnergy,'nadatoms',nadatoms
+#            print ncarbon*energyGraphene/2.0,nH*eIsolatedH,nmetal*self.singleE[iatom]
             self.vdata[iatom,istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))  
             #note that the hex monolayers have one atom per cell
