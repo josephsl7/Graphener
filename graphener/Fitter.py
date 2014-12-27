@@ -45,23 +45,68 @@ class Fitter:
                             struct = lines[j + 1].strip().split()[3]
                             subprocess.call(['echo','\tNot including struct {} in fit (exceeds maxE)'.format(struct)])
             outFile.close() 
+            
+    def filterStructuresInFrac(self, fitsDir, iteration, cullFrac):
+        '''Remove structs from structures.in, just before fitting, that don't fit criteria here. 
+           For now, the top cullFrac of uncle formation energies will be removed'''
+        if cullFrac > 0: 
+            # Get the structs and FE ordered by energy 
+            FEdata = zeros(20000,dtype = [('struct', int32),('FE', float),('keep',bool)])
+            inFile = fitsDir + '/structures.in'
+            lines = readfile(inFile)
+            subprocess.call(['mv',inFile,inFile + '_{}full'.format(iteration)])
+            nstructs = 0
+            for j in xrange(len(lines)):
+                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                    if j != len(lines) - 1:
+                        struct = lines[j + 1].strip().split()[3]
+                        FE = float(lines[j+1].strip().split()[6].strip(','))
+                        nstructs += 1
+                        FEdata[nstruct]['FE'] = FE
+                        FEdata[nstruct]['struct'] = struc
+            sort(FEdata,order = ['FE','struct']) #from low to high
+            #keep only part of them
+            nkeep = ceil((1-cullFrac)*nstructs)
+            FEdata[0:nkeep]['keep'] = [True]*nkeep
+            FEdata[nkeep:nstructs-nkeep+1]['keep'] = [False]*(nstructs-nkeep)
+            #scan lines again and write only the ones to keep
+            outFile = open(fitsDir + '/structures.in','w')
+            outFile.write("peratom\nnoweights\nposcar\n")
+            for j in xrange(len(lines)):
+                if list(lines[j].strip().split()[0])[:2] == ['#','-']:
+                    if j != len(lines) - 1:
+                        struct = int(lines[j + 1].strip().split()[3])
+                        istruct = next(i for i in FEdata[:nstructs+1]['struct'] if i == struct)
+                        if FEdata[istruct]['keep']:
+                            natomsList = [int(i) for i in lines[j+6].strip().split()]
+                            natoms = natomsList[0]+natomsList[1]
+                            outFile.writelines(lines[j:j+10+natoms])
+                        else:                       
+                            subprocess.call(['echo','\tNot including struct {} in fit (removing top {} in FE))'.format(struct,cullFrac)])
+            outFile.close()
                 
     def fitVASPData(self, iteration, maxE):
         """ Performs the UNCLE fit to the VASP data. """
         natoms = len(self.atoms)
+        nfinished = len(self.vstructsFinished[iatom])
         lastDir = os.getcwd()
         subdir = 'fits'
         #prep for all
         for iatom, atom in enumerate(self.atoms):
-            if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small
+            if nfinished > 1: #don't try fitting if structures.in is too small
                 atomDir = lastDir + '/' + atom
+                if nfinished < 100:
+                    cullFrac = 0
+                else:
+                    cullFrac = 0.01
                 if os.path.isdir(atomDir):
                     subprocess.call(['echo','\nFitting VASP data for ' + atom + '. . .\n'])
                     fitsDir = atomDir + '/fits'
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
                         subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here 
-                        self.filterStructuresIn(fitsDir,iteration, maxE) #remove structures above a certain energy from the fit.                   
+#                        self.filterStructuresIn(fitsDir,iteration, maxE) #remove structures above a certain energy from the fit.                   
+                        self.filterStructuresInFrac(fitsDir,iteration, cullFrac) #remove some structures at the top of the FE list.                   
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
         if natoms ==1:

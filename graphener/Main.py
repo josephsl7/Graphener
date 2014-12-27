@@ -127,8 +127,7 @@ def readInitialFolders(atoms,restartTimeout,):
         for istruct,struct in enumerate(structlist):
             failed = False
             vaspDir = atomDir + '/'+ str(struct)
-            if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
-                subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
+            if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
                     atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
@@ -136,7 +135,12 @@ def readInitialFolders(atoms,restartTimeout,):
                     failed = True
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
                 failed = True 
-            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+            if outcarWarn(vaspDir): 
+                failed = True
+                failedStructs.append(struct)
+                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
+#            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
                 ifinished += 1
                 vdata[iatom,ifinished]['struct'] = struct
@@ -159,8 +163,11 @@ def readInitialFolders(atoms,restartTimeout,):
                 vdata[iatom,ifinished]['FE'] = formationEnergy
             elif restartTimeout and not failed and not slurmProblem(vaspDir):
                 restartStructs.append(struct)  
+                subprocess.call(['echo','\tStruct {}: restart'.format(struct)])
             else:
                 failedStructs.append(struct)
+                subprocess.call(['echo','\tStruct {}: failed'.format(struct)])
+
         vstructsFinished[iatom] =  finishedStructs 
         vstructsRestart[iatom] = restartStructs
         vstructsFailed[iatom] = failedStructs 
@@ -434,7 +441,7 @@ def multiDelete(list_, args):
     for index in indexes:
         del list_[index]
     return list_
- 
+
 def pastStructsUpdate(structs,atoms):
     lastDir = os.getcwd()
     for iatom,atom in enumerate(atoms):

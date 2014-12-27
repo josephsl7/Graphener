@@ -17,19 +17,6 @@ class RunVasp:
         self.currJobIds = []
         self.ediffg = ediffg 
         
-
-#    def addStructName(self,nameadd):
-#        jobfile = open('job','r')
-#        lines = jobfile.readlines()
-#        jobfile.close()
-#        jobfile = open('job','w')
-#        for line in lines:
-#            if 'job-name' in line: 
-#                jobfile.write(line.strip('\n') + '_'+ nameadd + '\n')
-#            else:
-#                jobfile.write(line)
-#        jobfile.close()
-
     def clearCurrentJobIds(self):
         """ Clears the list of current job IDs. """
         self.currJobIds = []

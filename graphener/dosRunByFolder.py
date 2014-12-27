@@ -18,7 +18,7 @@ def makeDOSDirectories(structlist,atom,NkDiv,walltime):
             subprocess.call(['echo','No folder for {}, struct {}'.format(atom,struct)])
         elif finishCheck(structDir) and  convergeCheck(structDir, getNSW(structDir)):
             if not os.path.exists(dosDir):
-                subprocess.call(['echo','Preparing {}, struct {} for DOS run'.format(atom,struct)]) 
+                subprocess.call(['echo','Preparing {} struct {} for DOS run'.format(atom,struct)]) 
                 os.chdir(structDir)
                 subprocess.call(['mkdir', dosDir])
                 subprocess.call(['ln','-s','/fslhome/bch/bin/vasp533',dosDir+'/vasp533'])
@@ -108,7 +108,7 @@ def startJobs(toStart,atomDir):
         low-precision relaxation and records their job IDs. """
     lastDir = os.getcwd()
     for structure in toStart:
-        os.chdir(atomDir + '/' + structure)
+        os.chdir(atomDir + '/' + structure + '/DOS')
         proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
         jobid = proc.communicate()[0].split()[3]
         subprocess.call(['echo', 'Submitted job ' + jobid])
@@ -119,7 +119,7 @@ def startJobs(toStart,atomDir):
 #======================================= Script =====================================
 #======================================= Script =====================================
 
-maindir = '/fslhome/bch/cluster_expansion/graphene/analysis/Ti.11Dec2014' 
+maindir = '/fslhome/bch/cluster_expansion/graphene/analysis/top.tm_row1/Ti/'
  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
@@ -141,7 +141,7 @@ sstring = '';
 for struct in structlist: 
     sstring += struct + ' '
 subprocess.call(['echo','found structures '+ sstring])
-dirname = maindir.split('/')[-1]
+dirname = maindir.split('/')[-2]
 toStart = makeDOSDirectories(structlist,dirname,NkDiv,int(rint(walltime)))
 startJobs(toStart,maindir)
 print "Done submitting jobs"

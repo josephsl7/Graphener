@@ -84,25 +84,27 @@ class MakeUncleFiles:
                 for istruct, struct in enumerate(vstructsToRun[iatom]):
                     if mod(istruct+1,100) == 0 or istruct+1 == len(vstructsToRun[iatom]): 
                         subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(vstructsToRun[iatom]),atom)])
-                    if os.path.isdir(atomDir + '/' + struct):
-                        vaspDir = atomDir + '/' + struct + self.finalDir
-                        if os.path.isdir(vaspDir):
-                            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): #finalDir                           
-                               # Check for concentration
-                                self.setAtomCounts(struct) 
-                                nadatoms =  float(self.atomCounts[1] + self.atomCounts[2])                         
-                                concentration = 0.0
-                                if self.atomCounts[1] == 0:
-                                    concentration = 1.0
-                                else:
-                                    concentration = float(float(self.atomCounts[2]) / float(nadatoms))                           
-                                conclist.append([concentration, struct])
-                            elif self.restartTimeout and not slurmProblem(vaspDir):
-                                restart.append(struct)
+                    vaspDir = atomDir + '/' + struct + self.finalDir
+#                            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+                    if outcarWarn(vaspDir): 
+                        subprocess.call(['echo','\tOUTCAR warning for struct{}: failed'.format(struct)])
+                        failed.append(struct)
+                    else:
+                        if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)):                           
+                           # Check for concentration
+                            self.setAtomCounts(struct) 
+                            nadatoms =  float(self.atomCounts[1] + self.atomCounts[2])                         
+                            concentration = 0.0
+                            if self.atomCounts[1] == 0:
+                                concentration = 1.0
                             else:
-                                failed.append(struct)
+                                concentration = float(float(self.atomCounts[2]) / float(nadatoms))                           
+                            conclist.append([concentration, struct])
+                        elif self.restartTimeout and not slurmProblem(vaspDir):
+                            restart.append(struct)
                         else:
-                            subprocess.call(['echo', '\nERROR: directory does not exist: ' + struct]) 
+                            failed.append(struct)
+                            subprocess.call(['echo','\tStruct {}: failed'.format(struct)])
                 self.newlyFailed[iatom] = failed #for atom i                
                 conclist.sort()                
                 for i in xrange(len(conclist)): finished.append(conclist[i][1]) 
@@ -173,12 +175,14 @@ class MakeUncleFiles:
             self.setAtomCounts(pureHdir)
             self.setEnergy(pureHdir)
             self.pureHenergy = float(self.energy)
+            subprocess.call(['echo','Pure H energy: {}'.format(self.pureHenergy) ]) 
         else:
             subprocess.call(['echo','Missing pure H energy folder'])
         if os.path.exists(pureMdir):        
             self.setAtomCounts(pureMdir)
             self.setEnergy(pureMdir)
             self.pureMenergy = float(self.energy)
+            subprocess.call(['echo','Pure M energy: {}'.format(self.pureMenergy) ]) 
         else:
             subprocess.call(['echo','Missing pure M energy folder']) 
 #                    if etest != 999999:
@@ -224,7 +228,6 @@ class MakeUncleFiles:
                     structuresWrite('all',atomDir,vdata[iatom,i1:i2]['struct'], vdata[iatom,i1:i2]['FE'],\
                                     vdata[iatom,i1:i2]['conc'],vdata[iatom,i1:i2]['energy'],'.in','a')                                                 
                 self.vdataToPlotFiles(iatom) #record vasp formation/binding energies and write to files for plotting in gss
-            subprocess.call(['cp','needed_files/structures.holdout',atomDir + '/fits/'])
     
         return self.newlyFinished, self.newlyToRestart, self.newlyFailed, self.vdata
 
@@ -321,7 +324,10 @@ class MakeUncleFiles:
             formationEnergy = (structEnergy - nmetal*self.pureMenergy - nH*self.pureHenergy)/float(nadatoms)
             self.vdata[iatom,istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            
+
             bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nH*eIsolatedH - nmetal*self.singleE[iatom])/ float(nadatoms) #2 atoms in graphene 
+            print 'struct',struct, 'Energy',structEnergy,'BE',bindEnergy,'nadatoms',nadatoms
+            print ncarbon*energyGraphene/2.0,nH*eIsolatedH,nmetal*self.singleE[iatom]
             self.vdata[iatom,istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))  
             #note that the hex monolayers have one atom per cell

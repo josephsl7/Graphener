@@ -77,6 +77,13 @@ def joinLists(toJoin):
             sublist += toJoin[ilist][isublist]
         joinedList[isublist] = sublist
     return joinedList
+
+def outcarWarn(dir):
+    lines = readfile(dir+'/OUTCAR')
+    for line in lines:
+        if 'W    AA    RRRRR   N    N  II  N    N   GGGG   !!!' in line:
+            return True
+    return False
     
 def readfile(filepath):
     file1 = open(filepath,'r')
