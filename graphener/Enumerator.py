@@ -94,12 +94,14 @@ class Enumerator:
             os.chdir('enum')
             if 2 <= nNew[0] < ntot:  #uncle requires at least 2 iid structures.
                 subprocess.call([self.uncleExec, '42', str(nNew[0])], stdout=self.uncleOut) 
+                lines = readfile('training_set_structures.dat')
             elif nNew[0] == ntot: #asking for all the structures for small enumerations, so just list them
                 structlines = ['{}   {}\n'.format(str(i+1),str(i+1)) for i in range(ntot)]
-                writefile(structlines,'training_set_structures.dat')                 
+                writefile(structlines,'training_set_structures.dat')
+                lines = readfile('training_set_structures.dat')                 
             else: 
-                subprocess.call(['echo','\t Number of iid structures chosen in not acceptable.' + atom + ' . . .\n'])
-            lines = readfile('training_set_structures.dat')
+                subprocess.call(['echo','\t Number of iid structures requested is less than 2...skipping iids\n']) 
+                lines = []  
             for iatom,atom in enumerate(self.atoms):
                 atomDir = lastDir + '/' + atom
                 iidList = [line.strip().split()[1] for line in lines]                    

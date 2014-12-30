@@ -256,7 +256,7 @@ def parseStructsIn(atoms,vstructsFinished):
             failed = False
             vaspDir = atomDir + '/'+ str(struct)
             if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): 
-                subprocess.call(['printf','\tChecked {} of {} structures in {}\n'.format(istruct+1,len(structlist),atom)])
+                subprocess.call(['printf','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
@@ -480,6 +480,7 @@ def readSettingsFile():
     runTypes = ['low']
     PriorOrIID = 'p'
     niid = 0
+    maxiid = 2e6 
     mfitStructs = 0
     nfitSubsets = 0
     nPrior = 0
@@ -522,7 +523,10 @@ def readSettingsFile():
 
         elif line.split()[0] == 'N_IID:':
             niid = int(line.split()[1])
-          
+
+        elif line.split()[0] == 'MAX_IID:':
+            maxiid = int(line.split()[1])
+         
         elif line.split()[0] == 'M_FITTING_STRUCTS:':
             mfitStructs = int(line.split()[1])
             
@@ -564,7 +568,7 @@ def readSettingsFile():
             pureMetal = line.split()[1] # structure number (string) of the pure metal case
     
     
-    return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
+    return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal]
 
 def removeStructs(list1,list2):
@@ -686,7 +690,7 @@ if __name__ == '__main__':
 
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1' 
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     
@@ -700,7 +704,7 @@ if __name__ == '__main__':
         sys.exit('Stop')
     seed()
 
-    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
+    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
              ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
     natoms = len(atoms)
@@ -722,11 +726,11 @@ if __name__ == '__main__':
     #assign all existing struct folders to either finished, restart, or failed
     [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal)    
     vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
- 
+       
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
 
-    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-#    enumerator.enumerate() #commented out for testing
+#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+    enumerator.enumerate() #commented out for testing
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 
@@ -747,6 +751,9 @@ if __name__ == '__main__':
         enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput) 
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod,pureMetal)           
+        nFinishedmin = min([len(vstructsFinished[iatom]) for iatom in range(len(atoms))])
+        if PriorOrIID == 'i' and Finishedmin >= maxiid: 
+            PriorOrIID = 'p'
         if iteration == 1: 
             if startMethod == 'empty folders': 
                 vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)
