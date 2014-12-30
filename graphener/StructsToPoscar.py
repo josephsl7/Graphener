@@ -189,7 +189,8 @@ class Converter:
         nCatoms = 2 * int(rint(cellVol/primCellVol))
         # Get the number of each type of atom.
         adatomCounts = uncleLines[5].strip().split()
-        adatomCounts = [int(count) for count in adatomCounts]       
+        adatomCounts = [int(count) for count in adatomCounts] 
+        nadatoms = sum(adatomCounts)      
         self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
         if self.atomCounts[1] == 0 or self.atomCounts[2] == 0:
             self.pure = True
@@ -199,8 +200,8 @@ class Converter:
         self.set3dCpositionsFromDirectCoordinates(positionLines)
         self.set3dHpositionsFromDirectCoordinates(positionLines)
         self.set3dMpositionsFromDirectCoordinates(positionLines)
-#        nCatoms = self.atomCounts[0]
-        if not isequal(nCatoms/cellVol,2.0/primCellVol): #need another C atom for each site (only one uncle site per cell)
+#        print 'test', nCatoms, cellVol, primCellVol,nCatoms/cellVol,2.0/primCellVol
+        if not isequal(nadatoms/cellVol,2.0/primCellVol): #need another C atom for each site (only one uncle site per cell)
             self.addCpositions(dxC)
             self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
 

@@ -16,7 +16,7 @@ class RunVasp:
         
         self.currJobIds = []
         self.ediffg = ediffg 
-        self.neMetal = 0
+        self.neAtom = 0
         
     def clearCurrentJobIds(self):
         """ Clears the list of current job IDs. """
@@ -171,7 +171,7 @@ class RunVasp:
             directory. Ediffs increase with atom count, since it's a measure
             for total energy change, not per atom"""
         self.setAtomCounts(dir)
-        nelectrons = atomCounts[0]*6 + atomCounts[1] + atomCounts[2] * self.neMetal
+        nelectrons = self.atomCounts[0]*4 + self.atomCounts[1] + self.atomCounts[2] * self.neAtom
         natoms = sum(self.atomCounts)  
         incar = open(dir + '/INCAR','w')    
         incar.write("IBRION=2\n")
@@ -253,8 +253,7 @@ class RunVasp:
                 atomPotcar = open(atomPotcarDir,'r')
                 atomLines = atomPotcar.readlines()
                 atomPotcar.close()
-                neMetal = int(atomLines[1].strip()[0])
-            
+                self.neAtom = int(float(atomLines[1].strip()))                      
                 potcar = open(atom + '/POTCAR', 'w')
                 for line in CLines:
                     potcar.write(line)
@@ -272,7 +271,6 @@ class RunVasp:
                 subprocess.call(['echo','Removing POTCAR . . .'])
                 potcar.close()
                 subprocess.call(['rm','POTCAR'])
-            return neMetal
 
     def makePurePOTCARs(self):
         """ Some of the structures that need to be submitted to VASP for relaxation are what we 
@@ -421,7 +419,7 @@ class RunVasp:
             given structure.  This includes concatenating the POTCARS for the pure and non-pure
             cases. """
         self.makePurePOTCARs()
-        self.neMetal = self.makePOTCARs()
+        self.makePOTCARs()
         self.makeKPOINTS(6, 6)
         self.linkVaspExec()
         self.fillDirectories(vstructsToStart)

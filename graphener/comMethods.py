@@ -80,8 +80,10 @@ def joinLists(toJoin):
 
 def outcarWarn(dir):
     lines = readfile(dir+'/OUTCAR')
-    for line in lines:
-        if 'W    AA    RRRRR   N    N  II  N    N   GGGG   !!!' in line:
+
+    for i,line in enumerate(lines):
+        if 'W    W  A    A  R    R  N    N  II  N    N   GGGG   !!!' in line\
+          and 'The number of bands has been changed' not in lines[i+2]: #this is OK 
             return True
     return False
     

@@ -4,9 +4,8 @@ surface
 0.0   2.1312885187 -1.23050000          # a2 parent lattice vector
 0.0    2.1312885187  1.23050000         # a3 parent lattice vector          
  2 -nary case
-    2 # Number of points in the multilattice
+    1 # Number of points in the multilattice
  0.1 1.4208590125 0.0    0/1   # d01 d-vector
--0.1 2.841718025  0.0     0/1   # d02 d-vector
     1 8   # Starting and ending cell sizes for search
 .001 # Epsilon (finite precision parameter)
 full list of labelings
