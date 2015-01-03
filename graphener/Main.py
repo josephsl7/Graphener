@@ -765,11 +765,11 @@ if __name__ == '__main__':
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
-#            contcarToPoscar(vstructsRestart,atoms,iteration) 
+            contcarToPoscar(vstructsRestart,atoms,iteration) 
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
             vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)   
-#            contcarToPoscar(vstructsRestart,atoms,iteration)
+            contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         pastStructsUpdate(vstructsToStart,atoms)
         
