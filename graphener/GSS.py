@@ -232,8 +232,13 @@ class GSS:
                     subprocess.call(['gnuplot', 'gss_plot.gp'])
                     subprocess.call(['gnuplot', 'BE_plot.gp'])
                     subprocess.call(['gnuplot', 'HFE_plot.gp'])
+                    
+                    subprocess.call(['convert','-density','300','gss.pdf','resize','1800x2700', 'gss_' + str(iteration) + '.pdf'])
+                    subprocess.call(['convert','-density','300','BE_plot.pdf','resize','1800x2700','BE_plot_' + str(iteration) + '.pdf'])
+                    subprocess.call(['convert','-density','300','HFE_plot.pdf','resize','1800x2700','HFE_plot_' + str(iteration) + '.pdf'])                 
+
                     subprocess.call(['mv','gss.out','gss_' + str(iteration) + '.out'])
-                    subprocess.call(['mv','gss.pdf','gss_' + str(iteration) + '.pdf'])
+
                     os.chdir(lastDir)
     
     def performGroundStateSearch(self, iteration):

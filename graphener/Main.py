@@ -690,9 +690,12 @@ if __name__ == '__main__':
 
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8' 
+    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
 
     subprocess.call(['echo','Starting in ' + maindir])
+    #make sure the latest version of uncle is used
+    subprocess.call(['rm',maindir+'/needed_files/uncle.x'])
+    subprocess.call(['ln','-s','/fslhome/bch/bin/uncle',maindir+'/needed_files/uncle.x'])
     
     os.chdir(maindir)
     pathMax = maindir + '/needed_files/diffMax'
@@ -729,8 +732,8 @@ if __name__ == '__main__':
        
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
 
-#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-    enumerator.enumerate() #commented out for testing
+    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+#    enumerator.enumerate() #commented out for testing
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 
@@ -750,9 +753,10 @@ if __name__ == '__main__':
         #since atoms may have changed, have to reinitialize this
         enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput) 
         # Extract the pseudo-POSCARs from struct_enum.out
-        extractor = Extractor.Extractor(atoms, uncleOutput, startMethod,pureMetal)           
-        nFinishedmin = min([len(vstructsFinished[iatom]) for iatom in range(len(atoms))])
-        if PriorOrIID == 'i' and Finishedmin >= maxiid: 
+        extractor = Extractor.Extractor(atoms, uncleOutput, startMethod,pureMetal)   
+        # If enough iid structs have been submitted, go to priority method        
+        nAllmin = min([len(vstructsAll[iatom]) for iatom in range(len(atoms))])
+        if PriorOrIID == 'i' and nAllmin >= maxiid: 
             PriorOrIID = 'p'
         if iteration == 1: 
             if startMethod == 'empty folders': 

@@ -16,7 +16,7 @@ class clustersjob:
         """  """
         self.currJobIds = []
 
-    def buildClusters(self):
+    def clustBuild(self):
         '''Runs the process of building clusters'''
         self.makeRunClusters()
         self.waitclustersjob()

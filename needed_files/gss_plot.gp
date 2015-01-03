@@ -4,8 +4,8 @@ set output "gss.eps"
 set xlabel "Metal concentration x"
 set ylabel "Energy (eV)"
 set title "Ground State Search"
-set nokey
-plot "gss.out" using 3:8 lt 3, "vaspFE.out" using 2:3 lt 1 pt 6, "gssFailedVasp.out" using 2:3 lt rgb "violet"
+
+plot "gss.out" using 3:8 lt 3 lw 2 title "Fit" , "vaspFE.out" using 2:3 lt 1 lw 2  pt 12 title "VASP"  #, "gssFailedVasp.out" using 2:3 lt rgb "violet"
 
 !ps2pdf gss.eps && rm gss.eps
 

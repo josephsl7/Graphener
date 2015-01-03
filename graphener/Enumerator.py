@@ -52,10 +52,10 @@ class Enumerator:
         if sum(self.clusterNums)<=1500: #the 1500 assumes you are running Main with 16G. 
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
-#            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
-            clustersjob = ClustersBuild.clustersjob()
-            clustersjob.buildClusters()
-        
+            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
+#            clustersjob = ClustersBuild.clustersjob()
+#            clustersjob.clustBuild()
+#        
         os.chdir(lastDir)
 
     def changeEnumFile(self):
@@ -178,14 +178,17 @@ class Enumerator:
         os.chdir(lastDir + '/enum')
         subprocess.call(['echo','\nEnumerating symmetrically unique structures. . .\n'])
         subprocess.call([self.enumExec,'struct_enum.in'], stdout=self.uncleOut)
-        
-        os.chdir(lastDir)
-        
+               
         self.changeEnumFile() #writes 'bulk' in place of surface
-        
+        os.chdir(lastDir)
         subprocess.call(['echo','\nGenerating clusters. . .\n'])
         self.buildClusters()
-        
+        os.chdir(lastDir + '/enum')
+        #Run the smallest iid job possible to calculate enum_PI_matrix.out.  All the atoms need it.
+        subprocess.call(['echo','\nCalculating enum_PI_matrix.out\n']) 
+        subprocess.call(['rm', 'enum_PI_matrix.out'])        
+        subprocess.call([self.uncleExec, '42', '2'], stdout=self.uncleOut) 
+        os.chdir(lastDir)
 
     def getNtot(self,dir):
         """Gets total number of structures in enumeration"""

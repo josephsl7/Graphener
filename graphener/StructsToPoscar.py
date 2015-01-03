@@ -37,20 +37,21 @@ class structsToPoscar:
             the information for that structure. """
         for name in glob('enum/vasp.0*'):
             structNum = str(self.retrieveStructNum(name))
-            self.changeToPoscar(name)           
-            for i in xrange(len(self.s2pStructList)):
-                if self.contains(structNum, self.s2pStructList[i]):
-                    structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
-                    if os.path.isdir(structDir):
-                        subprocess.call('rm -r ' + structDir + '/*', shell=True)
-                    else:
-                        subprocess.call(['mkdir', structDir])                    
-                    
-                    subprocess.call(['cp','POSCAR',structDir])
-                    self.s2pStructList[i].remove(str(structNum))
-            
-            subprocess.call(['rm',name])
-            subprocess.call(['rm','POSCAR'])
+            if structNum>0:
+                self.changeToPoscar(name)           
+                for i in xrange(len(self.s2pStructList)):
+                    if self.contains(structNum, self.s2pStructList[i]):
+                        structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
+                        if os.path.isdir(structDir):
+                            subprocess.call('rm -r ' + structDir + '/*', shell=True)
+                        else:
+                            subprocess.call(['mkdir', structDir])                    
+                        
+                        subprocess.call(['cp','POSCAR',structDir])
+                        self.s2pStructList[i].remove(str(structNum))
+                
+                subprocess.call(['rm',name])
+                subprocess.call(['rm','POSCAR'])
 
             
     def retrieveStructNum(self, structFile):
@@ -60,7 +61,11 @@ class structsToPoscar:
         i = len(fileChars) - 1
         while fileChars[i] != '.':
             i -= 1
-        return int(''.join(fileChars[i + 1:]))
+        try:
+            structNum = int(''.join(fileChars[i + 1:]))
+        except:
+            structNum = 0
+        return structNum
 
     def contains(self, struct, alist):
         """ Retuns true if the list 'alist' contains the structure 'struct', false otherwise. """
