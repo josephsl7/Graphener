@@ -105,9 +105,13 @@ def readInitialFolders(atoms,restartTimeout,):
         #pure energies
         pureHdir =  atomDir + '/1'
         pureMdir =  atomDir + '/' + pureMetal
-        pureAtomCounts = setAtomCounts(pureHdir) #in this case gives the number of adatom sites
-        pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/float(pureAtomCounts[1])  
-        pureMenergy = float(readfile(pureMdir + '/OSZICAR')[-1].split()[2])/float(pureAtomCounts[1])
+        pureHCounts = setAtomCounts(pureHdir) 
+        pureMCounts = setAtomCounts(pureMdir)
+        if pureHCounts[1]>0:
+            pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/float(pureHCounts[1])  
+        else:
+            pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2]) #for the vacancy case
+        pureMenergy = float(readfile(pureMdir + '/OSZICAR')[-1].split()[2])/float(pureMCounts[2])
         subprocess.call(['echo','\n\n{}'.format(atom)])
         subprocess.call(['echo','\tpure H system energy {}'.format(pureHenergy)]) 
         subprocess.call(['echo','\tpure M system energy {}'.format(pureMenergy)])     
@@ -136,10 +140,10 @@ def readInitialFolders(atoms,restartTimeout,):
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
                 failed = True 
             if (not os.path.exists(vaspDir + '/OUTCAR')) or outcarWarn(vaspDir): 
-                failedStructs.append(struct)
-                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
-#                restartStructs.append(struct)
-#                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
+#                failedStructs.append(struct)
+#                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
+                restartStructs.append(struct)
+                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
 #            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
@@ -158,7 +162,7 @@ def readInitialFolders(atoms,restartTimeout,):
                 vdata[iatom,ifinished]['conc'] = conc
                 #energy and formation energy
                 structEnergy = float(readfile(vaspDir + '/OSZICAR')[-1].split()[2])
-                structEnergy = structEnergy/float(nadatoms) #per adatom                     
+                structEnergy = structEnergy/max(1,float(nadatoms)) #per adatom                     
                 vdata[iatom,ifinished]['energy'] = structEnergy 
                 formationEnergy = structEnergy - (conc * pureMenergy + (1.0 - conc) * pureHenergy)
                 vdata[iatom,ifinished]['FE'] = formationEnergy
@@ -264,10 +268,10 @@ def parseStructsIn(atoms,vstructsFinished):
                 except:
                     failed = True
             if (not os.path.exists(vaspDir + '/OUTCAR')) or outcarWarn(vaspDir):  
-                failedStructs.append(struct)
-                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
-#                restartStructs.append(struct)
-#                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
+                #                failedStructs.append(struct)
+#                subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
+                restartStructs.append(struct)
+                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
             elif not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
                 failed = True 
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
@@ -620,31 +624,30 @@ def setAtomCounts(poscarDir):
     """ Retrieves the number of C, H and M atoms from the POSCAR file and sets 
         the corresponding members. 
         Also fixes "new" POSCAR/CONTCAR format (comes from CONTCAR) back to old for UNCLE use (removes the 6th line if it's text """
-    atomCounts = []
+    atomCounts = [0]*3
     fixPOSCAR = False
     poscarLines = readfile(poscarDir + '/POSCAR')
     counts = poscarLines[5].strip().split() 
-    if not counts[0][0].isdigit(): #have the "new" POSCAR format that gives the atom types in text on line 6 (5-python)
+    if not counts[0][0].isdigit(): #this is the "new" POSCAR format that gives the atom types in text on line 6 (5-python)
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
-    if len(counts) == 3:
-        atomCounts.append(int(counts[0]))
-        atomCounts.append(int(counts[1]))
-        atomCounts.append(int(counts[2]))
-    elif len(counts) == 2:
-        atomCounts.append(int(counts[0]))
+    atomCounts[0] = int(counts[0]) #carbon
+    if len(counts) == 3:     
+        atomCounts[1] = int(counts[1])
+        atomCounts[2] = int(counts[2])
+    elif len(counts) == 2:          
         if poscarLines[0].split()[1] == 'H':
-            atomCounts.append(int(counts[1]))
-            atomCounts.append(0)
+            atomCounts[1] = int(counts[1])
         elif poscarLines[0].split()[1] == 'M':
-            atomCounts.append(0)
-            atomCounts.append(int(counts[1]))
+            atomCounts[2] = int(counts[1])
+        else: #vacancy C M case, so nH remains zero 
+            atomCounts[2] = int(counts[1])
     natoms = sum(atomCounts)
     if fixPOSCAR:
         del(poscarLines[5])
-        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want. The factor of 2 is because carbon atoms are not included in natoms      
-    return atomCounts
-
+        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want. The factor of 2 is because carbon atoms are not included in natoms
+    return atomCounts        
+        
 def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):
     try:
         failedFile.write('==============================================================\n')
@@ -686,11 +689,8 @@ or
 if __name__ == '__main__':
     maindir = os.getcwd() # leave this as default!
     
-# override default maindir   
+    maindir = '/fslhome/bch/cluster_expansion/graphene/vac.top.tm_row1.v15' 
 
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     #make sure the latest version of uncle is used

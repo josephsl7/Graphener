@@ -25,7 +25,7 @@ def changePOSCAR(poscarDir,):
     natoms1 = nC + nH + nM
     natoms2 = nC + nM
     poscarLines[5] = '{} {}\n'.format(nC,nM)
-    del poscarLines[nC:nC+nH] #remove H atoms
+    del poscarLines[7+nC:7+nC+nH] #remove H atoms
     writefile(poscarLines,poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want. The factor of 2 is because carbon atoms are not included in natoms      
 
 #======================================= Script =====================================
@@ -50,6 +50,7 @@ for item in os.listdir(maindir):
     if os.path.isdir(itempath) and item[0].isupper(): #look only at dirs whose names are capitalized. These are the atoms
         atomlist.append(item)
 for atom in atomlist:
+    print
     print atom
     atomdir = maindir + '/' + atom
     finalatomdir = finaldir + '/' + atom
@@ -60,20 +61,21 @@ for atom in atomlist:
         if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
             structlist.append(item)        
     for struct in structlist:
-        print struct
-        structdir = atomdir + '/' + struct
-        finalstructdir = finalatomdir + '/' + struct
-        subprocess.call(['mkdir',finalstructdir])
-        subprocess.call(['cp',structdir+'/POSCAR', finalstructdir])
-        if struct not in ['1','2']:changePOSCAR(finalstructdir) 
-        subprocess.call(['cp',atomdir + '/' + 'C' + atom + '_POTCAR',finalstructdir + '/POTCAR'])
-        subprocess.call(['cp',structdir+'/KPOINTS', finalstructdir])
-        subprocess.call(['cp',structdir+'/INCAR', finalstructdir])
-        subprocess.call(['cp',structdir+'/job', finalstructdir])
-        os.chdir(finalstructdir)
-        proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
-        jobid = proc.communicate()[0].split()[3]
-        subprocess.call(['echo','Submitted job ' + jobid])
+        if int(struct) <= 191:
+            print struct
+            structdir = atomdir + '/' + struct
+            finalstructdir = finalatomdir + '/' + struct
+            subprocess.call(['mkdir',finalstructdir])
+            subprocess.call(['cp',structdir+'/POSCAR', finalstructdir])
+            if struct not in ['1','2']:changePOSCAR(finalstructdir) 
+            subprocess.call(['cp',atomdir + '/' + 'C' + atom + '_POTCAR',finalstructdir + '/POTCAR'])
+            subprocess.call(['cp',structdir+'/KPOINTS', finalstructdir])
+            subprocess.call(['cp',structdir+'/INCAR', finalstructdir])
+            subprocess.call(['cp',structdir+'/job', finalstructdir])
+            os.chdir(finalstructdir)
+            proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
+            jobid = proc.communicate()[0].split()[3]
+            subprocess.call(['echo','Submitted job ' + jobid])
 
 print "Done submitting jobs"
 
