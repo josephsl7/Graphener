@@ -88,7 +88,13 @@ class Enumerator:
         lastDir = os.getcwd()
         natoms = len(self.atoms)
         iidStructs = [[]]*natoms
-       
+        
+#        subprocess.call(['echo','Warning: BLOCKING IID selection  to save time'])
+#            for iatom,atom in enumerate(self.atoms):
+#                if 2 <= nNew[iatom] < ntot:
+#                    lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
+#                    iidStructs[iatom] = [line.strip().split()[1] for line in lines]           
+
         if (iteration == 1 and startMethod == 'empty folders') or natoms == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
             subprocess.call(['echo','\nChoosing i.i.d. structures for all\n'])                         
             os.chdir('enum')
@@ -129,7 +135,7 @@ class Enumerator:
             jobIds = []
             if sum(nNew[1:])>0:
                 mem = '16' #Gb
-                walltime = 2.0 #hrs
+                walltime = 4.0 #hrs
                 subdir = 'enumpast'
                 execString = self.uncleExec + ' 42 '
                 atomStrings = [str(n) for n in nNew]

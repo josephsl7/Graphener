@@ -10,7 +10,8 @@ from Main import slurmProblem
 from comMethods import *
  
 class MakeUncleFiles:
-    from comMethods import setAtomCounts
+    from comMethods import setAtomCounts,hexMonolayerEnergies,singleAtomsEnergies,getPureEs,\
+                    contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,setEnergy
     def __init__(self, atoms, startMethod, iteration,finalDir,restartTimeout,pureMetal):
         """ CONSTRUCTOR """
         self.atoms = atoms
@@ -111,101 +112,8 @@ class MakeUncleFiles:
                 self.newlyFinished[iatom]= finished
                 self.newlyToRestart[iatom]= restart #sorted by concentration, for atomi
                 subprocess.call(['echo','\tAtom {} vasp calcs: {} finished, {} to restart, {} failed\n'.format(atom,len(self.newlyFinished[iatom]),len(self.newlyToRestart[iatom]),len(self.newlyFailed[iatom]))])
-
                 os.chdir(lastDir)
-
-    def contains(self, struct, alist):
-        """ Returns True if the list 'alist' contains the structure 'struct', False otherwise. """
-        if len(alist) <= 0:
-            return False
-
-        for elem in alist:
-            if str(struct) == str(elem):
-                return True
-
-        return False
-
-    def elConvergeCheck(self,folder,NELM):  
-        """Tests electronic convergence is done by whether the electronic step is less than NELM."""
-        try:
-            value = self.getElSteps(folder)
-            return value < NELM #True/False
-        except:
-            return False #True/False
-                        
-    def electronicConvergeFinish(self,dir): 
-        '''Test requires electronic convergence AND vasp finishing'''
-        #get NELM, the max electronic steps allowed in the run.  Using first directory in dirslist
-        proc = subprocess.Popen(['grep','-i','NELM',dir+'/INCAR'],stdout=subprocess.PIPE)
-        result =  proc.communicate()[0]
-        NELM = int(result.split('=')[1].split()[0])
-        return self.elConvergeCheck(dir,NELM) and finishCheck(dir)   
-
-    def getElSteps(self,folder): 
-        '''number of electronic steps for isolated runs'''
-        lastfolder = os.getcwd()
-        os.chdir(folder)
-        try:
-            oszicar = open('OSZICAR','r') 
-            laststep = oszicar.readlines()[-2].split()[1] # Next to last line, 2nd entry
-            oszicar.close()
-            os.chdir(lastfolder) 
-            value = int(laststep)
-            return value         
-        except:
-            os.chdir(lastfolder)         
-            return 9999    
         
-    def getEnergy(self,dir): 
-        lines = readfile(dir+'/OSZICAR')
-        if len(lines[-1].split())>1:
-            energy = float(lines[-1].split()[2])  #Free energy
-        else: 
-            energy = 0.0
-        return energy
-
-    def getPureEs(self,iatom):
-        lastDir = os.getcwd()
-        dir = lastDir + '/' + self.atoms[iatom]
-        os.chdir(dir)
-        pureHdir =  dir + '/1'
-        pureMdir =  dir + '/' + self.pureMetal
-        
-        if os.path.exists(pureHdir):
-            self.setAtomCounts(pureHdir)
-            self.setEnergy(pureHdir)
-            self.pureHenergy = float(self.energy)
-            subprocess.call(['echo','Pure H energy: {}'.format(self.pureHenergy) ]) 
-        else:
-            subprocess.call(['echo','Missing pure H energy folder'])
-        if os.path.exists(pureMdir):        
-            self.setAtomCounts(pureMdir)
-            self.setEnergy(pureMdir)
-            self.pureMenergy = float(self.energy)
-            subprocess.call(['echo','Pure M energy: {}'.format(self.pureMenergy) ]) 
-        else:
-            subprocess.call(['echo','Missing pure M energy folder']) 
-#                    if etest != 999999:
-#                        self.pureMenergy = etest
-#                    else:
-        os.chdir(lastDir)
-        
-
-
-    def hexMonolayerEnergies(self,dir1,iteration): 
-        file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
-        self.hexE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
-        if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
-        for iatom,atom in enumerate(self.atoms):
-            dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(dir2): #finalDir
-                if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
-                file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
-                self.hexE[iatom] = self.getEnergy(dir2) 
-            else:
-                file.write('{} monolayer not converged \n'.format(atom))
-        os.chdir(dir1)  
-
     def makeUncleFiles(self, iteration, holdoutStructs,vstructsToRun,vdata):
         """ Runs through the whole process of creating structures.in and structures.holdout files
             for each metal atom. """
@@ -262,20 +170,6 @@ class MakeUncleFiles:
         
         self.atomCounts = []
         self.energy = 0.0 
-
-    def setEnergy(self, directory):  
-        """ Retrieves the energy of the structure from the OSZICAR file and sets the corresponding 
-            member. """   
-        try:
-            oszicar = open(directory + self.finalDir + '/OSZICAR','r')
-            energy = oszicar.readlines()[-1].split()[2]
-            oszicar.close()
-        except:
-            energy = 0
-        
-        energy = float(energy)
-        peratom = energy / sum(self.atomCounts[1:])       
-        self.energy = str(peratom)
         
     def setIDString(self, poscarDir):
         """ Sets the first written line of each structure to the form:
@@ -284,19 +178,6 @@ class MakeUncleFiles:
         ID = poscar.readlines()[0].strip()       
         self.idString = ID
         
-    def singleAtomsEnergies(self,dir1,iteration): 
-        self.singleE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
-        if iteration == 1: subprocess.call(['echo', '\nReading single atom energies\n'])
-        file = open(dir1 +'/single_atoms/single_atom_energies','w')
-        for iatom,atom in enumerate(self.atoms):
-            dir2 = dir1 + '/single_atoms'+'/'+atom
-            if self.electronicConvergeFinish(dir2): 
-                if iteration == 1: subprocess.call(['echo', 'Energy of {} atom: {:8.4f} \n'.format(atom,self.getEnergy(dir2))])
-                file.write('{} atom: {:12.8f} \n'.format(atom,self.getEnergy(dir2)))
-                self.singleE[iatom] = self.getEnergy(dir2)
-        file.close()  
-        os.chdir(dir1)      
-
     def vdataToPlotFiles(self, iatom):
         """ For all finished structs, record the different vasp formation and binding energies to files 
         for plots.  vaspToVdata should be run first"""
@@ -308,7 +189,7 @@ class MakeUncleFiles:
         energyGraphene = -18.456521 #for 2 C atoms 
         vaspFEfile = open('vaspFE.out','w')  
         vaspBEfile = open('vaspBE.out','w')  
-        vaspHFEfile = open('vaspHFE.out','w')  
+        vaspHFEfile = open('vaspHFE.out','w') 
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = 0 #creating for all finished structs
         #this does not need to be sorted.
@@ -337,7 +218,7 @@ class MakeUncleFiles:
             istruct += 1 
         vaspFEfile.close()
         vaspBEfile.close()
-        vaspHFEfile.close()                
+        vaspHFEfile.close()               
         os.chdir(lastDir)
     
     def vaspToVdata(self, iatom):

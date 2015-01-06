@@ -690,7 +690,8 @@ if __name__ == '__main__':
 
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     #make sure the latest version of uncle is used
@@ -801,7 +802,7 @@ if __name__ == '__main__':
             fitter.fitVASPData(iteration,maxE)
     
         # Perform a ground state search on the fit for each atom.    
-        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput)
+        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput,pureMetal,finalDir)
         gss.makeGSSDirectories()
 #        subprocess.call(['echo','Warning: BLOCKING GSS to save time' ])   
         gss.performGroundStateSearch(iteration)

@@ -5,7 +5,8 @@ set xlabel "Metal concentration x"
 set ylabel "Energy (eV)"
 set title ""
  
-plot "vaspHFE.out" using 2:3 lt 1 lw 2  pt 12 title "VASP"
+plot "uncleHFE.out" using 2:3 lt 3 lw 2 title "Fit" , "vaspHFE.out" using 2:3 lt 1 lw 2 pt 12 title "VASP"
+
 
 !ps2pdf HFE.eps && rm HFE.eps
 

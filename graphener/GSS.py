@@ -4,7 +4,7 @@ Created on Aug 29, 2014
 @author: eswens13
 '''
 import os, subprocess, sys
-from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32
+from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32, mod
 from copy import deepcopy
 from comMethods import *
 class GSS:
@@ -13,8 +13,10 @@ class GSS:
         corresponding formation energy as predicted by UNCLE. We use this list to decide which new
         structures to add into the model. We also keep track of the list and the plots of the list
         from iteration to iteration. """
+    from comMethods import setAtomCounts,hexMonolayerEnergies,singleAtomsEnergies,getPureEs,\
+                    contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,setEnergy
 
-    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput):
+    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput,pureMetal,finalDir):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
@@ -31,6 +33,38 @@ class GSS:
         self.uncleOut = uncleOutput
         self.Ncs = []
         self.priorities = []
+        
+        self.pureHenergy = 0.0
+        self.pureMenergy = 0.0
+        self.pureMetal = pureMetal
+    
+        self.energy = 0.0   
+        self.singleE = [] 
+        self.hexE = [] 
+        self.finalDir = finalDir 
+
+    def collate_plots(self,plotType):  
+        '''Creates an HTML page with the plots and labels. plotType: gss,BE,HFE'''
+        lastDir = os.getcwd()
+        plotsDir = lastDir + '/plots'
+        if not os.path.exists(plotsDir):
+            subprocess.call(['mkdir',plotsDir])
+            
+        nRow = 5  # number of plots in row
+        collatefile  = open(plotsDir +'/{}plots.htm'.format(plotType),'w')
+        collatefile.write(' <html>\n <HEAD>\n<TITLE> {} </TITLE>\n</HEAD>\n'.format(plotType))
+        collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+        iImage = 0
+        for iatom, atom in enumerate(self.atoms):
+            gssDir = lastDir + '/' + atom + '/gss'
+            path = gssDir + '/{}.png'.format(plotType) 
+            iImage += 1            
+            collatefile.write('<td><p><img src="{}" ></p><p>{}</p></td>\n'.format(path,atom.strip('_')[0]))#Image and element under it
+            if num.mod(iImage,nRow) == 0: 
+                collatefile.write('</tr>\n<tr>\n') #end of row, begin new
+        collatefile.write(' </tr></table> \n') #end of row and table                
+        collatefile.write(' </BODY> </html>') #end of file 
+        collatefile.close() 
 
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
@@ -40,35 +74,6 @@ class GSS:
             if str(struct) == str(alist[i]):
                 return True
         return False
-
-#    def getAllGSSStructures(self, iteration, newlyFailed):
-#        """ Returns a list of all the structures sorted by their predicted formation energies.
-#            It does this for each metal atom that has been specified by the user so this will 
-#            actually return a list of lists--a list for each atom. """
-#        allStructs = []
-#        for n in xrange(len(self.atoms)):
-#            atomStructs = []
-#            structsByEnergy = []
-#            gssFile = os.getcwd() + '/' + self.atoms[n] + '/gss/gss_' + str(iteration) + '.out'
-#            infile = open(gssFile, 'r')
-#            
-#            for i,line in enumerate(infile):
-#                if i >= 2:
-#                    formEnergy = float(line.strip().split()[7])
-#                    struct = int(line.strip().split()[0])                    
-#                    # Do not include structures that failed VASP calculations.
-#                    if not self.contains(struct, newlyFailed[n]):
-#                        structsByEnergy.append([formEnergy, struct])
-#            infile.close()
-#            
-#            structsByEnergy.sort()
-#            
-#            for struct in structsByEnergy:
-#                atomStructs.append(str(struct[1]))
-#            
-#            allStructs.append(atomStructs)
-#            
-#        return allStructs
     
     def getGssInfo(self,iteration,vstructsFailed):   
         '''Get structure,Uncle formation energy, concentration into gssInfo.
@@ -186,7 +191,9 @@ class GSS:
             enumerated. Adds the iteration number onto the end of the filenames for the plots and
             the lists. """
         lastDir = os.getcwd() 
+        self.writeUncleBE_HFE(iteration)
         for iatom, atom in enumerate(self.atoms):
+            atomtext = atom.split('_')[0] #remove _suffixes
             if len(self.vstructsFinished[iatom]) > 1:
                 subprocess.call(['echo', '\nMaking plots for ' + atom + '. . .\n'])
                 gssDir = os.getcwd() + '/' + atom + '/gss'
@@ -200,7 +207,7 @@ class GSS:
                     outfile = open(gssDir + '/BE_plot.gp','w')
                     for i in xrange(len(inlines)):
                         if i == 3:
-                            outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
+                            outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atomtext) + "\"\n")#bch
                         elif i == 4:
                             outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                         elif i == 5:
@@ -217,11 +224,11 @@ class GSS:
                     outfile = open(gssDir + '/HFE_plot.gp','w')
                     for i in xrange(len(inlines)):
                         if i == 3:
-                            outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atom) + "\"\n")#bch
+                            outfile.write("set xlabel \"" + self.xlabel.replace('Metal',atomtext) + "\"\n")#bch
                         elif i == 4:
                             outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                         elif i == 5:
-                            outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atom + ")\"\n")
+                            outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atomtext + ")\"\n")
                         elif 'plot "' in inlines[i]:         
 #                            outfile.write('set yrange [:{}]\n'.format(ymax))
                             outfile.write(inlines[i])
@@ -233,13 +240,24 @@ class GSS:
                     subprocess.call(['gnuplot', 'BE_plot.gp'])
                     subprocess.call(['gnuplot', 'HFE_plot.gp'])
                     
-                    subprocess.call(['convert','-density','300','gss.pdf','resize','1800x2700', 'gss_' + str(iteration) + '.pdf'])
-                    subprocess.call(['convert','-density','300','BE_plot.pdf','resize','1800x2700','BE_plot_' + str(iteration) + '.pdf'])
-                    subprocess.call(['convert','-density','300','HFE_plot.pdf','resize','1800x2700','HFE_plot_' + str(iteration) + '.pdf'])                 
+                    subprocess.call(['convert -density 300 gss.pdf -resize 1800x2700 gss_' + str(iteration) + '.png'],shell = True)
+                    subprocess.call(['convert -density 300 BE.pdf -resize 1800x2700 BE_' + str(iteration) + '.png'],shell = True)
+                    subprocess.call(['convert -density 300 HFE.pdf -resize 1800x2700 HFE_' + str(iteration) + '.png'],shell = True)
+#                    subprocess.call(['convert','-density','300','gss.pdf','-resize','1800x2700', 'gss_' + str(iteration) + '.png'],shell = True)
+#                    subprocess.call(['convert','-density','300','BE.pdf','resize','1800x2700','BE_' + str(iteration) + '.png'])
+#                    subprocess.call(['convert','-density','300','HFE.pdf','resize','1800x2700','HFE_' + str(iteration) + '.png'])                 
 
-                    subprocess.call(['mv','gss.out','gss_' + str(iteration) + '.out'])
+                    subprocess.call(['cp','gss.out','gss_' + str(iteration) + '.out'])
+                    subprocess.call(['cp','vaspBE.out','vaspBE_' + str(iteration) + '.out'])
+                    subprocess.call(['cp','vaspFE.out','vaspFE_' + str(iteration) + '.out'])
+                    subprocess.call(['cp','vaspHFE.out','vaspHFE_' + str(iteration) + '.out'])
+                    subprocess.call(['cp','uncleBE.out','uncleBE_' + str(iteration) + '.out'])
+                    subprocess.call(['cp','uncleHFE.out','uncleHFE_' + str(iteration) + '.out'])
 
                     os.chdir(lastDir)
+        self.collate_plots('gss')
+        self.collate_plots('BE')
+        self.collate_plots('HFE')
     
     def performGroundStateSearch(self, iteration):
         """ Performs the ground state search with the current fit from UNCLE. """
@@ -274,11 +292,48 @@ class GSS:
             os.chdir(lastDir)
             #wait for others
             parallelAtomsWait(jobIds)
-            os.chdir(lastDir)             
-                          
+            os.chdir(lastDir)                                       
 
-
-
+    def writeUncleBE_HFE(self,iteration):
+        '''Using vasp atomic,moleculat and vasp hex monolayer reference energies, find the fitted
+        values for binding energy (vs atomic) and HFE (vs hexagonal monolayer and H2)'''
+        lastDir = os.getcwd()
+        self.singleAtomsEnergies(os.getcwd(),iteration)
+        self.hexMonolayerEnergies(os.getcwd(),iteration)   
+        eIsolatedH = -1.1073   
+        eIsolatedC = -1.3179 
+        eH2 = -6.7591696/2.0 
+        energyGraphene = -18.456521 #for 2 C atoms         
+ 
+        for iatom, atom in enumerate(self.atoms):
+            self.getPureEs(iatom)
+            gssDir = lastDir + '/' + atom + '/gss'
+            lines = readfile(gssDir + '/gss.out')
+#            lines = readfile(gssDir + '/gss_' + str(iteration) + '.out')
+            uncleBEfile = open(gssDir + '/uncleBE.out','w')  
+            uncleHFEfile = open(gssDir + '/uncleHFE.out','w')
+#            #get the volume factor of structure 3
+#            vol3 = lines[5].strip().split()[3]
+#            nsites = 3-vol3 #number of sites in smallest structure, either 1 or 2
+            for i,line in enumerate(lines[2:]): #first 2 lines are headers
+                struct = int(line.strip().split()[0])
+                x = float(line.strip().split()[2]) #metal concentration
+                vol  = int(line.strip().split()[3])
+                nH  = int(line.strip().split()[4])
+                nmetal  = int(line.strip().split()[5])
+                nadatoms = nH + nmetal
+                
+                ncarbon = vol * 2  #always 2 C atoms in smallest cell
+                
+                FE = float(line.strip().split()[7]) #formation energy
+                structEnergy = FE + x*self.pureMenergy + (1-x)*self.pureHenergy #uncle fit energy per adatom
+                structEnergy = structEnergy * nadatoms #total
+                bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nH*eIsolatedH - nmetal*self.singleE[iatom])/ float(nadatoms) #2 atoms in graphene 
+                uncleBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,bindEnergy))
+                hexFormationEnergy = (structEnergy - energyGraphene*ncarbon/2.0  - nmetal *self.hexE[iatom] - nH*eH2)/float(nadatoms)
+                uncleHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,hexFormationEnergy))    
+            uncleBEfile.close()
+            uncleHFEfile.close() 
 
 
 
