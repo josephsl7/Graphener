@@ -179,7 +179,7 @@ def setEnergy(self, directory):
         energy = 0
     
     energy = float(energy)
-    peratom = energy / sum(self.atomCounts[1:])       
+    peratom = energy / float(sum(self.atomCounts[1:]))      
     self.energy = str(peratom)
 
 def singleAtomsEnergies(self,dir1,iteration): 

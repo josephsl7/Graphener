@@ -150,16 +150,16 @@ class Fitter:
         """ Creates the 'fits' directories for each atom and populates the directories with the 
             files that UNCLE needs to perform a fit.  These files are lat.in, CS.in, clusters.out, 
             and the current structures.in and structures.holdout files. """
-        for iatom in xrange(len(self.atoms)):
-            atomDir = os.path.abspath(self.atoms[iatom])
+        for iatom, atom in enumerate(self.atoms):
+            atomDir = os.path.abspath(atom)
             fitsDir = atomDir + '/fits'
             if os.path.isdir(fitsDir): #remove it...start clean because must have current files
-#               print 'removing fits dir'
+
                 try:
                     check = subprocess.check_output(['rm','-r',fitsDir])
                 except:
-                    subprocess.call(['echo','rmFits feedback'+ check])
-#                subprocess.call(['rm','-r',fitsDir])
+                    subprocess.call(['echo','ERROR in removing /fits for atom {}'.format(atom)])
+
             subprocess.call(['mkdir',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/struct_enum.out',fitsDir])
             subprocess.call(['ln','-s',self.enumFolder + '/lat.in',fitsDir])

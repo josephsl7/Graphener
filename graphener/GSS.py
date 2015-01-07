@@ -43,28 +43,36 @@ class GSS:
         self.hexE = [] 
         self.finalDir = finalDir 
 
-    def collate_plots(self,plotType):  
+    def collate_plots(self,plotType,iteration):  
         '''Creates an HTML page with the plots and labels. plotType: gss,BE,HFE'''
         lastDir = os.getcwd()
-        plotsDir = lastDir + '/plots'
-        if not os.path.exists(plotsDir):
-            subprocess.call(['mkdir',plotsDir])
-            
+        plots1Dir = lastDir + '/plots'
+        if not os.path.exists(plots1Dir):
+            subprocess.call(['mkdir',plots1Dir]) 
+        plots2Dir = plots1Dir + '/plots{}'.format(plotType)
+        if not os.path.exists(plots2Dir):
+            subprocess.call(['mkdir',plots2Dir])        
         nRow = 5  # number of plots in row
-        collatefile  = open(plotsDir +'/{}plots.htm'.format(plotType),'w')
+        width = 1350
+        height  = 900
+        collatefile  = open(plots2Dir +'/plots{}_{}.htm'.format(plotType,iteration),'w')
         collatefile.write(' <html>\n <HEAD>\n<TITLE> {} </TITLE>\n</HEAD>\n'.format(plotType))
         collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+    #    images = []
         iImage = 0
-        for iatom, atom in enumerate(self.atoms):
-            gssDir = lastDir + '/' + atom + '/gss'
-            path = gssDir + '/{}.png'.format(plotType) 
-            iImage += 1            
-            collatefile.write('<td><p><img src="{}" ></p><p>{}</p></td>\n'.format(path,atom.strip('_')[0]))#Image and element under it
-            if num.mod(iImage,nRow) == 0: 
+        for atom in self.atoms:
+            path = lastDir + '/' + atom + '/gss/{}_{}.png'.format(plotType,iteration)
+            iImage += 1  
+            atomtext = atom.split('_')[0] 
+            name = '{}{}.png'.format(atomtext,plotType)       
+            subprocess.call(['cp',path,plots2Dir + '/{}'.format(name)])
+    #        images.append()
+            collatefile.write('<td><p><img src="{}" width "{}" height "{}" ></p><p>{}</p></td>\n'.format(name,width,height,''))#Image and element under it
+            if mod(iImage,nRow) == 0: 
                 collatefile.write('</tr>\n<tr>\n') #end of row, begin new
         collatefile.write(' </tr></table> \n') #end of row and table                
         collatefile.write(' </BODY> </html>') #end of file 
-        collatefile.close() 
+        collatefile.close()  
 
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
@@ -229,6 +237,8 @@ class GSS:
                             outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                         elif i == 5:
                             outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atomtext + ")\"\n")
+                            outfile.write("set title ''\n")
+
                         elif 'plot "' in inlines[i]:         
 #                            outfile.write('set yrange [:{}]\n'.format(ymax))
                             outfile.write(inlines[i])
@@ -255,9 +265,9 @@ class GSS:
                     subprocess.call(['cp','uncleHFE.out','uncleHFE_' + str(iteration) + '.out'])
 
                     os.chdir(lastDir)
-        self.collate_plots('gss')
-        self.collate_plots('BE')
-        self.collate_plots('HFE')
+        self.collate_plots('gss',iteration)
+        self.collate_plots('BE',iteration)
+        self.collate_plots('HFE',iteration)
     
     def performGroundStateSearch(self, iteration):
         """ Performs the ground state search with the current fit from UNCLE. """

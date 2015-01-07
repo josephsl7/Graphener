@@ -274,7 +274,11 @@ class MakeUncleFiles:
             energy = 0
         
         energy = float(energy)
-        peratom = energy / sum(self.atomCounts[1:])       
+        nadatoms = sum(self.atomCounts[1:])
+        if nadatoms>0:
+            peratom = energy / float(nadatoms) #per adatom   
+        else:
+            peratom  = energy 
         self.energy = str(peratom)
         
     def setIDString(self, poscarDir):
@@ -320,7 +324,10 @@ class MakeUncleFiles:
             nH = nadatoms - nmetal 
             ncarbon = self.vdata[iatom,istruct]['nCarbon'] 
             #multiply stored energy by nadatoms so we have vasp run energy
-            structEnergy = nadatoms * self.vdata[iatom,istruct]['energy'] 
+            if nadatoms !=0:
+                structEnergy = nadatoms * self.vdata[iatom,istruct]['energy'] 
+            else:
+                structEnergy = self.vdata[iatom,istruct]['energy'] 
             formationEnergy = (structEnergy - nmetal*self.pureMenergy - nH*self.pureHenergy)/float(nadatoms)
             self.vdata[iatom,istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            

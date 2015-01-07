@@ -792,13 +792,13 @@ if __name__ == '__main__':
         # should be sorted by formation energy during the work done by makeUncleFiles()
                 
         # Perform a fit to the VASP data in structures.in for each atom.
-        if not graphsOnly:
-            fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
-            if iteration == 1: 
-                fitter.makeFitDirectories()
-            fitter.writeHoldout(50,vstructsFinished,vdata)
+
+        fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
+        if iteration == 1: 
+            fitter.makeFitDirectories()
+        fitter.writeHoldout(50,vstructsFinished,vdata)
 #            subprocess.call(['echo','Warning: BLOCKING FITS to save time' ])
-            fitter.fitVASPData(iteration,maxE)
+        fitter.fitVASPData(iteration,maxE)
     
         # Perform a ground state search on the fit for each atom.    
         gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput)
