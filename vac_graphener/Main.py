@@ -66,7 +66,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     if startMethod == 'structures.in':
         [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = parseStructsIn(atoms,restartTimeout)          
     elif startMethod == 'struct folders': 
-           [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = readInitialFolders(atoms,restartTimeout)           
+           [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = readInitialFolders(atoms,restartTimeout,pureMetal)           
     else:
         natoms = len(atoms)
         vstructsFinished = [[]]*natoms #every structure vasp has finished before this iteration, a list for each atom
@@ -80,8 +80,16 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     return  vstructsFinished, vstructsRestart, vstructsFailed, startMethod, vdata               
     os.chdir(lastDir)
 
+def getnSitesPerC(atoms,pureMetal):
+    lastDir = os.getcwd()
+    puredir = lastDir + '/' + atoms[0] + '/' + pureMetal #this will have the right number of sites as adatoms
+    pureCounts = setAtomCounts(puredir)
+    nsites = pureCounts[2]
+    nsitesPerC = nsites/float(pureCounts[0])
+    subprocess.call(['echo','Number of sites per carbon: {}\n'.format(nsitesPerC)])
+    return nsitesPerC
         
-def readInitialFolders(atoms,restartTimeout,):
+def readInitialFolders(atoms,restartTimeout,pureMetal):
     '''assigns all struct folders to either finished, restart, or failed.  Restart is optional.
     Initializes and writes structures.in and vdata.  Uncle formation energy is calculated (the other energies
     will be calculated in vdataToPlotFiles)
@@ -100,6 +108,7 @@ def readInitialFolders(atoms,restartTimeout,):
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), \
         ('energy', float), ('nadatoms', int), ('nCarbon', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
+    nsitesPerC = getnSitesPerC(atoms,pureMetal)
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom     
         #pure energies
@@ -107,11 +116,11 @@ def readInitialFolders(atoms,restartTimeout,):
         pureMdir =  atomDir + '/' + pureMetal
         pureHCounts = setAtomCounts(pureHdir) 
         pureMCounts = setAtomCounts(pureMdir)
-        if pureHCounts[1]>0:
-            pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/float(pureHCounts[1])  
-        else:
-            pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2]) #for the vacancy case
-        pureMenergy = float(readfile(pureMdir + '/OSZICAR')[-1].split()[2])/float(pureMCounts[2])
+        # we want to write all energies in terms of energy/(enumeration site).We can get the number of sites/carbon atom from the pure cases.
+        nCarbon = pureMCounts[0]
+        nsites = nCarbon * nsitesPerC
+        pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/float(nsites)  
+        pureMenergy = float(readfile(pureMdir + '/OSZICAR')[-1].split()[2])/float(nsites)
         subprocess.call(['echo','\n\n{}'.format(atom)])
         subprocess.call(['echo','\tpure H system energy {}'.format(pureHenergy)]) 
         subprocess.call(['echo','\tpure M system energy {}'.format(pureMenergy)])     
@@ -150,6 +159,7 @@ def readInitialFolders(atoms,restartTimeout,):
                 ifinished += 1
                 vdata[iatom,ifinished]['struct'] = struct
                 nCarbon =  atomCounts[0]
+                nsites = nCarbon * nsitesPerC
                 nadatoms =  float(atomCounts[1] + atomCounts[2]) 
                 vdata[iatom,ifinished]['nadatoms'] = nadatoms
                 vdata[iatom,ifinished]['nCarbon'] = nCarbon
@@ -158,11 +168,11 @@ def readInitialFolders(atoms,restartTimeout,):
                 if atomCounts[1] == 0:
                     conc = 1.0
                 else:
-                    conc = float(float(atomCounts[2])/nadatoms)#metal conc
+                    conc = float(float(atomCounts[2])/nsites)#metal conc
                 vdata[iatom,ifinished]['conc'] = conc
                 #energy and formation energy
                 structEnergy = float(readfile(vaspDir + '/OSZICAR')[-1].split()[2])
-                structEnergy = structEnergy/max(1,float(nadatoms)) #per adatom                     
+                structEnergy = structEnergy/nsites #per site                     
                 vdata[iatom,ifinished]['energy'] = structEnergy 
                 formationEnergy = structEnergy - (conc * pureMenergy + (1.0 - conc) * pureHenergy)
                 vdata[iatom,ifinished]['FE'] = formationEnergy
@@ -204,6 +214,7 @@ def parseStructsIn(atoms,vstructsFinished):
     maxvstructs = 20000 #maximum number of structures for each atom
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), \
         ('energy', float), ('nadatoms', int), ('nCarbon', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
+    nSitesPerC = getnSitesPerC(atoms)
     for iatom,atom in enumerate(atoms):
         istruct = 0
         subList = []
@@ -229,7 +240,8 @@ def parseStructsIn(atoms,vstructsFinished):
                                    [1000.00000,    0.00000000,    0.00000000]])
                     primCellVol = det(PLV)
                     dxC = PLV[0,0]*2*0.333333333333333 #distance between 2 C atoms
-                    nCarbon = 2 * int(rint(cellVol/primCellVol))       
+                    nCarbon = 2 * int(rint(cellVol/primCellVol))
+                    nsites = nCarbon * nsitesPerC       
                     structLine = lines[j + 1].strip().split()
                     if structLine[0].lower() == 'pure':
                         subList.append(structLine[5])
@@ -241,7 +253,7 @@ def parseStructsIn(atoms,vstructsFinished):
                     nadatoms = nadatomsList[0]+nadatomsList[1]
                     vdata[iatom,istruct]['nadatoms'] = nadatoms 
                     vdata[iatom,istruct]['nCarbon'] = nCarbon
-                    vdata[iatom,istruct]['conc'] = float(nadatomsList[1]/float(nadatoms))
+                    vdata[iatom,istruct]['conc'] = float(nadatomsList[1]/float(nsites))
                     vdata[iatom,istruct]['energy'] = float(lines[j+9+nadatoms].strip().split()[0])  
                     istruct += 1                        
         vstructsFinished[iatom] = subList

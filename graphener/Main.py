@@ -711,7 +711,7 @@ if __name__ == '__main__':
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
              ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal] = readSettingsFile()
-    uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.
+    uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
     vstructsToStart = [[]]*natoms #the structures vasp must create folders for and start this iteration, a list for each atom   
