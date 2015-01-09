@@ -22,6 +22,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     subprocess.call(['echo','Checking structure folders for existing vasp data. . . \n'])
     nexistsStructsIn = 0
     nfoldersOK = 0
+    nsitesPerC = getnSitesPerC()
     #find starting method
     for iatom, atom in enumerate(atoms):
         nstruct = 0
@@ -64,9 +65,9 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
         sys.exit('Stop')    
     #read data
     if startMethod == 'structures.in':
-        [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = parseStructsIn(atoms,restartTimeout)          
+        [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = parseStructsIn(atoms,restartTimeout,nsitesPerC)          
     elif startMethod == 'struct folders': 
-           [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = readInitialFolders(atoms,restartTimeout,pureMetal)           
+           [vstructsFinished, vstructsRestart, vstructsFailed, vdata] = readInitialFolders(atoms,restartTimeout,pureMetal,nsitesPerC)           
     else:
         natoms = len(atoms)
         vstructsFinished = [[]]*natoms #every structure vasp has finished before this iteration, a list for each atom
@@ -77,19 +78,26 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
         vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), \
             ('energy', float), ('nadatoms', int), ('nCarbon', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
    
-    return  vstructsFinished, vstructsRestart, vstructsFailed, startMethod, vdata               
+    return  vstructsFinished, vstructsRestart, vstructsFailed, startMethod, vdata, nsitesPerC                
     os.chdir(lastDir)
 
-def getnSitesPerC(atoms,pureMetal):
+#def getnSitesPerCFolders(atoms,pureMetal):
+#    lastDir = os.getcwd()
+#    puredir = lastDir + '/' + atoms[0] + '/' + pureMetal #this will have the right number of sites as adatoms
+#    pureCounts = setAtomCounts(puredir)
+#    nsites = pureCounts[2]
+#    nsitesPerC = nsites/float(pureCounts[0])
+#    subprocess.call(['echo','Number of sites per carbon: {}\n'.format(nsitesPerC)])
+#    return nsitesPerC
+
+def getnSitesPerC():
     lastDir = os.getcwd()
-    puredir = lastDir + '/' + atoms[0] + '/' + pureMetal #this will have the right number of sites as adatoms
-    pureCounts = setAtomCounts(puredir)
-    nsites = pureCounts[2]
-    nsitesPerC = nsites/float(pureCounts[0])
+    lines = readfile(lastDir + '/enum/struct_enum.in') #this will have the right number of sites as adatoms
+    nsitesPerC = int(lines[6].split()[0])/2.0
     subprocess.call(['echo','Number of sites per carbon: {}\n'.format(nsitesPerC)])
     return nsitesPerC
         
-def readInitialFolders(atoms,restartTimeout,pureMetal):
+def readInitialFolders(atoms,restartTimeout,pureMetal,nsitesPerC):
     '''assigns all struct folders to either finished, restart, or failed.  Restart is optional.
     Initializes and writes structures.in and vdata.  Uncle formation energy is calculated (the other energies
     will be calculated in vdataToPlotFiles)
@@ -108,15 +116,13 @@ def readInitialFolders(atoms,restartTimeout,pureMetal):
     #in vdata,unlike the other arrays, the struct field needs to be an integer, so I can count how many finished structures there are by count_nonzero
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), \
         ('energy', float), ('nadatoms', int), ('nCarbon', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
-    nsitesPerC = getnSitesPerC(atoms,pureMetal)
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom     
         #pure energies
         pureHdir =  atomDir + '/1'
         pureMdir =  atomDir + '/' + pureMetal
-        pureHCounts = setAtomCounts(pureHdir) 
-        pureMCounts = setAtomCounts(pureMdir)
         # we want to write all energies in terms of energy/(enumeration site).We can get the number of sites/carbon atom from the pure cases.
+        pureMCounts = setAtomCounts(pureMdir) #in this case gives the number of adatom sites
         nCarbon = pureMCounts[0]
         nsites = nCarbon * nsitesPerC
         pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/float(nsites)  
@@ -164,11 +170,7 @@ def readInitialFolders(atoms,restartTimeout,pureMetal):
                 vdata[iatom,ifinished]['nadatoms'] = nadatoms
                 vdata[iatom,ifinished]['nCarbon'] = nCarbon
                 #metal concentration
-                conc = 0.0               
-                if atomCounts[1] == 0:
-                    conc = 1.0
-                else:
-                    conc = float(float(atomCounts[2])/nsites)#metal conc
+                conc = float(float(atomCounts[2])/nsites)#metal conc
                 vdata[iatom,ifinished]['conc'] = conc
                 #energy and formation energy
                 structEnergy = float(readfile(vaspDir + '/OSZICAR')[-1].split()[2])
@@ -195,9 +197,9 @@ def readInitialFolders(atoms,restartTimeout,pureMetal):
         structuresWrite('all',atomDir,vdata[iatom,:nfinished]['struct'], vdata[iatom,:nfinished]['FE'],\
                         vdata[iatom,:nfinished]['conc'],vdata[iatom,:nfinished]['energy'],'.in','w')
     os.chdir(lastDir)    
-    return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
+    return  vstructsFinished, vstructsRestart, vstructsFailed, vdata      
 
-def parseStructsIn(atoms,vstructsFinished):
+def parseStructsIn(atoms,vstructsFinished,nsitesPerC):
     """ Returns the structures, energies, concentrations from structures.in, 
     
     This method assumes that the structures.in file will have all of the pure
@@ -214,7 +216,6 @@ def parseStructsIn(atoms,vstructsFinished):
     maxvstructs = 20000 #maximum number of structures for each atom
     vdata = zeros((natoms,maxvstructs),dtype = [('struct', int32),('conc', float), \
         ('energy', float), ('nadatoms', int), ('nCarbon', int),('FE', float),('BE', float),('HFE', float)]) #data from vasp
-    nSitesPerC = getnSitesPerC(atoms)
     for iatom,atom in enumerate(atoms):
         istruct = 0
         subList = []
@@ -306,7 +307,7 @@ def parseStructsIn(atoms,vstructsFinished):
         nfinished = count_nonzero(vdata[iatom,:]['struct'])
         vdata[iatom,:nfinished] = sort(vdata[iatom,:nfinished],order = ['FE']) #must sort only the filled ones  
     os.chdir(lastDir)
-    return  vstructsFinished, vstructsRestart, vstructsFailed, vdata               
+    return  vstructsFinished, vstructsRestart, vstructsFailed, vdata             
 
 def hasVaspFiles(dir):
     return os.path.exists(dir+'/KPOINTS') and os.path.exists(dir+'/INCAR') and os.path.exists(dir+'/POSCAR') and os.path.exists(dir+'/POTCAR')
@@ -739,7 +740,7 @@ if __name__ == '__main__':
         manager1 = JobManager.JobManager(atoms,ediffg)
         manager1.runHexMono()
     #assign all existing struct folders to either finished, restart, or failed
-    [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal)    
+    [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata,nsitesPerC] = initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal)    
     vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
        
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
@@ -793,7 +794,7 @@ if __name__ == '__main__':
 
         finalDir = extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart)           
         os.chdir(maindir) #test this...shouldn't need it.
-        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startMethod, iteration, finalDir, restartTimeout,pureMetal) 
+        uncleFileMaker = MakeUncleFiles.MakeUncleFiles(atoms, startMethod, iteration, finalDir, restartTimeout,pureMetal,nsitesPerC) 
         [newlyFinished, newlyToRestart, newlyFailed,vdata] = uncleFileMaker.makeUncleFiles(iteration, holdoutStructs,vstructsToRun,vdata) 
         vstructsFinished = joinLists([vstructsFinished,newlyFinished])
         vstructsFailed = joinLists([vstructsFailed,newlyFailed])
@@ -809,7 +810,7 @@ if __name__ == '__main__':
         if iteration == 1: 
             fitter.makeFitDirectories()
         fitter.writeHoldout(50,vstructsFinished,vdata)
-#            subprocess.call(['echo','Warning: BLOCKING FITS to save time' ])
+#        subprocess.call(['echo','Warning: BLOCKING FITS to save time' ])
         fitter.fitVASPData(iteration,maxE)
     
         # Perform a ground state search on the fit for each atom.    
