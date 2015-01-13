@@ -1,7 +1,7 @@
 '''
 Created on Aug 13, 2014
 
-@author: eswens13
+
 '''
 from glob import glob
 from numpy import sqrt,dot,rint

@@ -1,7 +1,7 @@
 '''
-Created on Aug 26, 2014
 
-@author: eswens13
+
+
 '''
 
 import os, subprocess,sys,re,time
@@ -19,7 +19,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''
     lastDir = os.getcwd()
     natoms = len(atoms)
-    subprocess.call(['echo','Checking structure folders for existing vasp data. . . \n'])
+    subprocess.call(['echo','Checking structure folders for existing Vasp data. . . \n'])
     nexistsStructsIn = 0
     nfoldersOK = 0
     nsitesPerC = getnSitesPerC()

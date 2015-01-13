@@ -1,7 +1,7 @@
 '''
 Created on Aug 29, 2014
 
-@author: eswens13
+
 '''
 import os,sys,subprocess,time,shutil
 from comMethods import *

@@ -1,7 +1,7 @@
 '''
 Created on Aug 29, 2014
 
-@author: eswens13
+
 '''
 import os, subprocess, sys
 from numpy import amax, amin, zeros, sort, array, floor, exp, ceil, median, int32, mod
@@ -73,7 +73,7 @@ class GSS:
         collatefile.write(' </tr></table> \n') #end of row and table                
         collatefile.write(' </BODY> </html>') #end of file 
         collatefile.close()  
-
+        
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
         if len(alist) == 0:
@@ -188,7 +188,8 @@ class GSS:
                     elif i == 4:
                         outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                     elif i == 5:
-                        outfile.write("set title \"" + self.plotTitle + " (" + atom + ")\"\n")
+#                        outfile.write("set title \"" + self.plotTitle + " (" + atom + ")\"\n")
+                        outfile.write("set title \ \"\n")
                     else:
                         outfile.write(inlines[i])
                 outfile.close()

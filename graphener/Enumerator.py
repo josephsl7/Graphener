@@ -1,7 +1,4 @@
 '''
-Created on Aug 26, 2014
-
-@author: eswens13
 '''
 import os, subprocess
 import ClustersBuild

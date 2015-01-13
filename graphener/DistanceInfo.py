@@ -1,7 +1,7 @@
 '''
 Created on Aug 20, 2014
 
-@author: eswens13
+
 '''
 
 from math import sqrt

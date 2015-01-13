@@ -1,7 +1,4 @@
 '''
-Created on Aug 26, 2014
-
-@author: eswens13
 '''
 
 import os, subprocess,sys,re,time
@@ -13,7 +10,7 @@ from copy import deepcopy
 
 from comMethods import *
 
-import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo     
+import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo, PlotStructures     
 
 def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''
@@ -334,23 +331,6 @@ def createEnumPastDir(atoms):
         if os.path.isdir(epDir): subprocess.call(['rm','-r' ,epDir])                    
         subprocess.call(['mkdir', epDir])                
         file = open(epDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
-
-def equals(alist, blist):
-    clist = deepcopy(alist)
-    dlist = deepcopy(blist)
-    while len(clist) > 0:
-        if len(dlist) == 0:
-            return False
-        if not contains(clist[0], dlist):
-            return False
-        else:
-            toRemove = clist[0]
-            clist.remove(toRemove)
-            dlist.remove(toRemove)    
-    if len(dlist) > 0:
-        return False
-    else:
-        return True
 
 def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
@@ -690,9 +670,9 @@ if __name__ == '__main__':
 
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
-    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/vac.top.tm_row1.v15' 
+    maindir = '/fslhome/bch/cluster_expansion/graphene/iid.top.tm_row1.v15' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     #make sure the latest version of uncle is used

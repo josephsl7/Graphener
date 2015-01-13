@@ -1,7 +1,7 @@
 '''
 Created on Aug 29, 2014
 
-@author: eswens13
+
 '''
 from numpy import zeros, mod, count_nonzero,sort
 import os, subprocess, sys
@@ -320,27 +320,25 @@ class MakeUncleFiles:
         for j in range(nfinished):
             struct = self.vdata[iatom,istruct]['struct']
             conc = self.vdata[iatom,istruct]['conc']
-            nadatoms = self.vdata[iatom,istruct]['nadatoms']
-            nmetal = int(conc*nadatoms)
-            nH = nadatoms - nmetal 
+#            nadatoms = self.vdata[iatom,istruct]['nadatoms']
+#            nH = nadatoms - nmetal 
             ncarbon = self.vdata[iatom,istruct]['nCarbon'] 
             nsites = ncarbon * self.nsitesPerC
+            nmetal = int(conc*nsites)
+            nvac = nsites - nmetal
             #multiply stored energy by nadatoms so we have vasp run energy
-            if nadatoms !=0:
-                structEnergy = nadatoms * self.vdata[iatom,istruct]['energy'] 
-            else:
-                structEnergy = self.vdata[iatom,istruct]['energy'] 
-            formationEnergy = (structEnergy - nmetal*self.pureMenergy - nH*self.pureHenergy)/float(nsites)
+            structEnergy = nsites * self.vdata[iatom,istruct]['energy'] 
+            formationEnergy = structEnergy/nsites - conc*self.pureMenergy - (1-conc)*self.pureHenergy
             self.vdata[iatom,istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            
 
-            bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nH*eIsolatedH - nmetal*self.singleE[iatom])/ float(nsites) #2 atoms in graphene 
+            bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nmetal*self.singleE[iatom])/ float(nsites) #2 atoms in graphene 
 #            print 'struct',struct, 'Energy',structEnergy,'BE',bindEnergy,'nadatoms',nadatoms
 #            print ncarbon*energyGraphene/2.0,nH*eIsolatedH,nmetal*self.singleE[iatom]
             self.vdata[iatom,istruct]['BE'] = bindEnergy
             vaspBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,bindEnergy))  
             #note that the hex monolayers have one atom per cell
-            hexFormationEnergy = (structEnergy - energyGraphene*ncarbon/2.0  - nmetal *self.hexE[iatom] - nH*eH2)/float(nsites)
+            hexFormationEnergy = (structEnergy - energyGraphene*ncarbon/2.0  - nmetal *self.hexE[iatom])/float(nsites)
             self.vdata[iatom,istruct]['HFE'] = hexFormationEnergy
             vaspHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,hexFormationEnergy))    
             istruct += 1 
@@ -372,10 +370,7 @@ class MakeUncleFiles:
             nsites = ncarbon * self.nsitesPerC
             nadatoms =  float(self.atomCounts[1] + self.atomCounts[2])
             self.vdata[iatom,istruct]['nadatoms'] = nadatoms
-            if self.atomCounts[1] == 0:
-                conc = 1.0
-            else:
-                conc = float(float(self.atomCounts[2])/nsites)
+            conc = self.atomCounts[2]/nsites
             self.vdata[iatom,istruct]['conc'] = conc                       
             formationEnergy = structEnergy - (conc * self.pureMenergy + (1.0 - conc) * self.pureHenergy)
             self.vdata[iatom,istruct]['FE'] = formationEnergy
