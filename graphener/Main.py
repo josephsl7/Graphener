@@ -672,7 +672,7 @@ if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
-    maindir = '/fslhome/bch/cluster_expansion/graphene/iid.top.tm_row1.v15' 
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/iid.top.tm_row1.v15' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     #make sure the latest version of uncle is used

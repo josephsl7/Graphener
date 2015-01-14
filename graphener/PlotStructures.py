@@ -1,10 +1,14 @@
 import sys, os, subprocess
 import matplotlib.pyplot as plt
 import numpy as np
+from comMethods import *
+import StructsToPoscar
+#from StructsToPoscar import *
 
-def collate_structs(self,plotType,iteration):  
-    '''Creates an HTML page with the plots and labels. plotType: gss,BE,HFE'''
-    lastDir = os.getcwd()
+def collateStructsConc(self,atom,iteration):  
+    '''Creates an HTML page with structure plots for each concentration, with the highest priority
+    structs at the top.  Labels include atom, conc, FE'''
+    lastDir = os.getcwd() 
     plots1Dir = lastDir + '/plots'
     if not os.path.exists(plots1Dir):
         subprocess.call(['mkdir',plots1Dir]) 
@@ -33,6 +37,21 @@ def collate_structs(self,plotType,iteration):
     collatefile.write(' </BODY> </html>') #end of file 
     collatefile.close() 
     
+def plotByPrior(atoms,minPrior,iteration):  
+    ''''''
+    lastDir = os.getcwd()
+    for iatom, atom in enumerate(atoms):
+        priorPath = lastDir + '/' + atom + '/priorities_{}.out'.format(iteration)
+        lines = readfile(priorPath)
+        toPlot = []
+        for line in lines[1:]:
+            prior = float(line.split()[1])
+            if prior > minPrior:
+                toPlot.append(int(line.split()[0]))
+        plot_structs(toPlot)
+    os.chdir(lastDir)
+
+    
 def plot_structs(structs):  
     '''If plot of structure is not in structsdir, then create it'''
     lastDir = os.getcwd()
@@ -40,26 +59,35 @@ def plot_structs(structs):
     if not os.path.exists(structsDir):
         subprocess.call(['mkdir',structsDir])
     done = []
-#    PlotGraphene()
     #find the existing plots
     os.chdir(structsDir)
     for item in os.listdir(structsDir):
         if '.png' in item and item[0].isdigit(): 
-            done.append(item)
+            done.append(int(item.split('.')[0]))
     #make new plots
+    toPoscar = StructsToPoscar.structsToPoscar([],[])
     for struct in structs:
         if struct not in done:
             #make psuedoPoscar
+            #need the full POSCAR if we want to show empty C sites
             subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
             vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
-            print vfile                      
-            plotter = PlotGraphene('.',vfile,'-u','')
+            toPoscar.convertOne(vfile)
+            print struct 
+#            print 'Init'                     
+#            plotter = PlotGraphene('.',vfile,'-u','')
+            plotter = PlotGraphene('.','POSCAR','-p','')
+#            print 'fillByVecs'
             plotter.fillByVecs(10)
+#            print 'addLines'
             plotter.addLines()
-            plotter.saveFigure()             
-#            PlotGraphene('.',vfile,'-u','')
-#    subprocess.call(['rm vasp.0*'],shell=True)
-    os.chdir(lastDir)     
+#            print 'saveFigure'
+            plotter.saveFigure()
+            subprocess.call(['mv', 'POSCAR_plot.png', str(struct)+ '.png'])
+            subprocess.call(['rm',vfile])             
+    os.chdir(lastDir)  
+    
+   
 
 class PlotGraphene:
     """ This plots either a POSCAR file or an output file (vasp.000xxx) from UNCLE.  When calling this class from
@@ -118,6 +146,8 @@ class PlotGraphene:
     
         self.Hnum = 0
         self.Mnum = 0
+        
+        self.plotSize = 0
         
     def readPOSCAR(self):
         
@@ -230,7 +260,9 @@ class PlotGraphene:
     def initializeFigure(self):
         self.figure = plt.gcf()
         self.figure.gca().set_aspect('equal')
-        plt.axis([0, 15, 0, 15])
+#        plt.axis([0, 15, 0, 15])
+        self.plotSize = 22
+        plt.axis([0, self.plotSize, 0, self.plotSize]) #determines number of atoms in plot... Roughly N/4 hexagons across
        
     def periodicByVecs(self, vec1num, vec2num):
         
@@ -308,7 +340,8 @@ class PlotGraphene:
         else:
             slope2 = self.lattVec2[1] / self.lattVec2[0]
         
-        xPoints = np.arange(-20, 20, .1)
+        xPoints = np.arange(-self.plotSize*3, self.plotSize*3, .1) #make big enough that lines will cover larger structs
+
         
         for i in range(10):
             self.shiftLineByVec1(i, xPoints, slope2)
@@ -320,7 +353,7 @@ class PlotGraphene:
         if slope == 0:
             plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec1[1]), color='k')
         elif slope == 'vertical':
-            plt.plot(((ntimes * self.lattVec1[0]), (ntimes * self.lattVec1[0])), (0, 15), color='k')
+            plt.plot(((ntimes * self.lattVec1[0]), (ntimes * self.lattVec1[0])), (0, self.plotSize), color='k')
         else:
             plt.plot(xPoints, 
                     (slope * xPoints) + (slope * (-ntimes * self.lattVec1[0])) + (ntimes * self.lattVec1[1]), color='k')
@@ -329,15 +362,16 @@ class PlotGraphene:
         if slope == 0:
             plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec2[1]), color='k')
         elif slope == 'vertical':
-            plt.plot(((ntimes * self.lattVec2[0]), (ntimes * self.lattVec2[0])), (0, 15), color='k')
+            plt.plot(((ntimes * self.lattVec2[0]), (ntimes * self.lattVec2[0])), (0, self.plotSize), color='k')
         else:
             plt.plot(xPoints, 
                      (slope * xPoints) + (slope * (-ntimes * self.lattVec2[0])) + (ntimes * self.lattVec2[1]), color='k')
         
     def saveFigure(self):
-        plt.plot()
-        #plt.gca().axes.get_xaxis().set_visible(False)
-        #plt.gca().axes.get_yaxis().set_visible(False)
+        plt.plot()           
+        plt.gca().axes.get_xaxis().set_visible(False)
+        plt.gca().axes.get_yaxis().set_visible(False)
         plt.savefig(self.poscarFile + "_plot.png", bbox_inches='tight')
+#        plt.savefig(self.poscarFile + "_plot.png")
   
     

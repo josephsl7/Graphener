@@ -24,13 +24,6 @@ class structsToPoscar:
         self.atoms = atoms
         self.s2pStructList = deepcopy(s2pStructList)
     
-    def makePlots(self, plotDir):
-        """ NOT WORKING CURRENTLY.  This method puts a visual representation of each structure in 
-            its directory. """
-        toPlot = os.listdir(self.getExportDir())
-        for struct in toPlot:
-            subprocess.call(['python', 'PlotGraphene.py', self.getPlotDir(), struct, '-u'])
-    
     def convertOutputsToPoscar(self):
         """ Converts all the pseudo-POSCARs created by the Extractor class into POSCAR files that
             VASP can use to run calculations and puts them in a directory that will contain all
@@ -52,8 +45,10 @@ class structsToPoscar:
                 
                 subprocess.call(['rm',name])
                 subprocess.call(['rm','POSCAR'])
+    
+    def convertOne(self,name):
+        self.changeToPoscar(name)
 
-            
     def retrieveStructNum(self, structFile):
         """ Returns the structure number from the name of the pseudo-POSCAR file.  For example,
             the file "vasp.000478" would return 478 as the structure number. """
@@ -127,8 +122,7 @@ class structsToPoscar:
         for pos in Mpos:
             poscar.write('%12.8f %12.8f %12.8f\n' % (pos[0], pos[1], pos[2]))
         
-        poscar.close()
-        
+        poscar.close()       
 
 class Converter:
     """ Converts one of the files made from the 'makestr.x' routine in UNCLE to a POSCAR file
@@ -212,12 +206,11 @@ class Converter:
 
     def addCpositions(self,dxC):
         '''Each primitive cell has 2 carbon atoms.  If uncle has only one site/primitive cell, then we have 
-        to add the second carbon , which will not be a site for an adataom, and is below the plane
+        to add the second carbon , which will not be a site for an adatom, and is below the plane
         if the first is above'''
         Cpos = deepcopy(self._3dCpos)
         for pos in Cpos:
             self._3dCpos.append([pos[0] + dxC, pos[1], -pos[2]])
-
             
     def get2DDistance(self, atom1, atom2):
         """ Returns the two-dimensional distance between two atoms. """
@@ -320,9 +313,3 @@ class Converter:
     def isPure(self):
         """ Returns true if the structure is a pure structure, false otherwise. """
         return self.pure
-    
-    
-
-
-
-    

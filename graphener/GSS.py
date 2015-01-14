@@ -93,9 +93,10 @@ class GSS:
         numberCs = len(self.Ncs)
         Ntot = sum(self.Ncs) #total number of structures              
         if iteration==1: subprocess.call(['echo',  'Number of concentrations: '+ str(numberCs)])     
-        self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', int32),('FE', float), ('prior', float)])
+        self.priorities = zeros((len(self.atoms),Ntot),dtype = [('struct', int32),('FE', float), ('conc', float), ('prior', float)])
 #        e_cutoff = zeros(numberCs,dtype = float)
         for iatom, atom in enumerate(self.atoms):
+            atomDir = lastDir + '/' + atom
             if len(self.vstructsFinished[iatom]) > 1:
                 gssDir = dir + '/' + self.atoms[iatom] + '/gss'
                 gfvfile = open(gssDir + '/gssFailedVasp.out','w')
@@ -124,13 +125,24 @@ class GSS:
                         istr = iplace+n
                         self.priorities[iatom,istr]['struct'] = gssInfo[istr]['struct']
                         self.priorities[iatom,istr]['FE'] = gssInfo[istr]['FE']
+                        self.priorities[iatom,istr]['conc'] = gssInfo[istr]['conc']
                         self.priorities[iatom,istr]['prior'] = 100 * exp(-(istr-imin)/width)  
                     iplace += Nc
                 #sort highest to lowest
                 self.priorities[iatom,:] = sort(self.priorities[iatom,:], order=['prior']) # sorted low to high 
                 self.priorities[iatom,:]= self.priorities[iatom,::-1] # reversed: now highest to lowest
                 os.chdir(lastDir)                  
+                priorfile = open(atomDir+'/priorities_{}.out'.format(iteration),'w')  
+                priorfile.write('structure,priority,concentration,FEnergy\n')
+                for i in range(Ntot):
+                    print i, self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'],gssInfo[i]['conc'],gssInfo[i]['FE']
+                    priorfile.write('{:7d}   {:10.6f}{:8.4f}{:10.6f}\n'.format( \
+                    self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
+                    self.priorities[iatom,i]['conc'],self.priorities[iatom,i]['FE']))
+                priorfile.close()
         os.chdir(lastDir)
+
+        
         return self.priorities                
             
     def getNcs(self,iteration): #bch
@@ -189,7 +201,7 @@ class GSS:
                         outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                     elif i == 5:
 #                        outfile.write("set title \"" + self.plotTitle + " (" + atom + ")\"\n")
-                        outfile.write("set title \ \"\n")
+                        outfile.write("set title '' \n")
                     else:
                         outfile.write(inlines[i])
                 outfile.close()
@@ -220,7 +232,8 @@ class GSS:
                         elif i == 4:
                             outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                         elif i == 5:
-                            outfile.write("set title \"" + 'Binding energy vs graphene'+ " (" + atom + ")\"\n")
+#                            outfile.write("set title \"" + 'Binding energy vs graphene'+ " (" + atom + ")\"\n")
+                            outfile.write("set title \"\" \n")
                         else:
                             outfile.write(inlines[i])
                     outfile.close()
@@ -237,8 +250,8 @@ class GSS:
                         elif i == 4:
                             outfile.write("set ylabel \"" + self.ylabel + "\"\n")
                         elif i == 5:
-                            outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atomtext + ")\"\n")
-                            outfile.write("set title ''\n")
+#                            outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atomtext + ")\"\n")
+                         outfile.write("set title \"\" \n")
 
                         elif 'plot "' in inlines[i]:         
 #                            outfile.write('set yrange [:{}]\n'.format(ymax))
