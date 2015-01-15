@@ -54,7 +54,7 @@ class Extractor:
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
         uniqueSet = set()  
-        # Only extract the union of all the sets of structures.  (No duplicates)
+        # Only extract the union of all the sets of structures. (No duplicates)
         for i in xrange(len(vstructsToStart)):
             uniqueSet = uniqueSet.union(vstructsToStart[i])
         for struct in uniqueSet:

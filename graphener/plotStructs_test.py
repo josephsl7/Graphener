@@ -4,9 +4,7 @@ from comMethods import convergeCheck,finishCheck,getNSW,getSteps,readfile,writef
 from numpy import rint
 import PlotStructures
 from PlotStructures import plotByPrior
-
-
-    
+   
 #======================================= Script =====================================
 #======================================= Script =====================================
 #======================================= Script =====================================

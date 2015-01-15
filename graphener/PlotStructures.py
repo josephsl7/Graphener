@@ -3,18 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from comMethods import *
 import StructsToPoscar
+from matplotlib.lines import Line2D 
+from matplotlib.axes import Axes 
 #from StructsToPoscar import *
 
-def collateStructsConc(self,atom,iteration):  
+def collateStructsConc(self,iteration):  
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
-    structs at the top.  Labels include atom, conc, FE'''
+    structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder'''
     lastDir = os.getcwd() 
     plots1Dir = lastDir + '/plots'
-    if not os.path.exists(plots1Dir):
-        subprocess.call(['mkdir',plots1Dir]) 
-    plots2Dir = plots1Dir + '/plots{}'.format(plotType)
-    if not os.path.exists(plots2Dir):
-        subprocess.call(['mkdir',plots2Dir])        
+#    if not os.path.exists(plots1Dir):
+#        subprocess.call(['mkdir',plots1Dir]) 
+        
     nRow = 5  # number of plots in row
     width = 1350
     height  = 900
@@ -24,7 +24,10 @@ def collateStructsConc(self,atom,iteration):
 #    images = []
     iImage = 0
     for atom in self.atoms:
-        path = lastDir + '/' + atom + '/gss/{}_{}.png'.format(plotType,iteration)
+        plotsDir = lastDir + '/' + atom + '/struct_plots'
+        if not os.path.exists(plotsDir):
+            subprocess.call(['mkdir',plotsDir])
+        path = '/gss/{}_{}.png'.format(plotType,iteration)
         iImage += 1  
         atomtext = atom.split('_')[0] 
         name = '{}{}.png'.format(atomtext,plotType)       
@@ -40,15 +43,15 @@ def collateStructsConc(self,atom,iteration):
 def plotByPrior(atoms,minPrior,iteration):  
     ''''''
     lastDir = os.getcwd()
+    toPlot = []
     for iatom, atom in enumerate(atoms):
         priorPath = lastDir + '/' + atom + '/priorities_{}.out'.format(iteration)
         lines = readfile(priorPath)
-        toPlot = []
         for line in lines[1:]:
             prior = float(line.split()[1])
             if prior > minPrior:
                 toPlot.append(int(line.split()[0]))
-        plot_structs(toPlot)
+    plot_structs(set(toPlot))
     os.chdir(lastDir)
 
     
@@ -68,27 +71,21 @@ def plot_structs(structs):
     toPoscar = StructsToPoscar.structsToPoscar([],[])
     for struct in structs:
         if struct not in done:
-            #make psuedoPoscar
             #need the full POSCAR if we want to show empty C sites
             subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
             vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
             toPoscar.convertOne(vfile)
-            print struct 
-#            print 'Init'                     
-#            plotter = PlotGraphene('.',vfile,'-u','')
-            plotter = PlotGraphene('.','POSCAR','-p','')
-#            print 'fillByVecs'
-            plotter.fillByVecs(10)
-#            print 'addLines'
-            plotter.addLines()
-#            print 'saveFigure'
+            print struct
+            plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across
+            
+            plotter = PlotGraphene('.','POSCAR','-p','',plotSize) 
+            plotter.fillByVecs(int(plotSize*0.75))
+            plotter.addLines(int(plotSize*0.75))
             plotter.saveFigure()
             subprocess.call(['mv', 'POSCAR_plot.png', str(struct)+ '.png'])
             subprocess.call(['rm',vfile])             
     os.chdir(lastDir)  
     
-   
-
 class PlotGraphene:
     """ This plots either a POSCAR file or an output file (vasp.000xxx) from UNCLE.  When calling this class from
         the command line, call it as follows:
@@ -100,8 +97,9 @@ class PlotGraphene:
         path to the folder containing the file we want to read and the filename is the name of the 
         actual file we want to read.  The -z tag enables differentiation between points above and 
         below the plane. """
-        
-    def __init__(self, poscarDir, poscarFile, kindTag, zTag):
+    from comMethods import setAtomCounts    
+    def __init__(self, poscarDir, poscarFile, kindTag, zTag, plotSize):
+
         if kindTag == "-u":
             self.uncle = True
         else:
@@ -126,7 +124,7 @@ class PlotGraphene:
         self.atomCounts = []
         self.xshift = 4.26257704
         self.yshift = 2.461
-        
+       
         self.origXlist = []
         self.origYlist = []
         self.origZlist = []
@@ -134,20 +132,21 @@ class PlotGraphene:
         self.xlist = []
         self.ylist = []
         self.zlist = []
-        
+         
         self.readPOSCAR()
-        
+         
         self.Ccirclelist = []
         self.Hcirclelist = []
         self.Mcirclelist = []
-        
+        self.plotSize = plotSize #determines number of atoms in plot... Roughly N/4 hexagons across   
         self.figure = None
         self.initializeFigure()
     
         self.Hnum = 0
         self.Mnum = 0
+        self.ax = []
         
-        self.plotSize = 0
+
         
     def readPOSCAR(self):
         
@@ -202,8 +201,9 @@ class PlotGraphene:
             
             self.atomCounts = [sum(nonCatomCounts), nonCatomCounts[0], nonCatomCounts[1]]
         else:
-            self.atomCounts = poscarLines[5].strip().split()
-            self.atomCounts = [int(count) for count in self.atomCounts]
+            self.setAtomCounts('.') # this is from comMethods...handles the pure cases right 
+#            self.atomCounts = poscarLines[5].strip().split()
+#            self.atomCounts = [int(count) for count in self.atomCounts]
         
         # Determine whether to compute atom positions in direct or cartesian coordinates.
         if poscarLines[6].strip().lower() == "d" or poscarLines[6].strip().lower() == "direct":
@@ -260,10 +260,9 @@ class PlotGraphene:
     def initializeFigure(self):
         self.figure = plt.gcf()
         self.figure.gca().set_aspect('equal')
-#        plt.axis([0, 15, 0, 15])
-        self.plotSize = 22
-        plt.axis([0, self.plotSize, 0, self.plotSize]) #determines number of atoms in plot... Roughly N/4 hexagons across
-       
+#        plt.axis([0, self.plotSize, 0, self.plotSize]) 
+        self.ax = Axes(self.figure,[0, self.plotSize, 0, self.plotSize])
+
     def periodicByVecs(self, vec1num, vec2num):
         
         self.Ccirclelist = []
@@ -329,7 +328,7 @@ class PlotGraphene:
                     self.periodicByVecs(i, -j)
                     self.periodicByVecs(-i, -j)
     
-    def addLines(self):
+    def addLines(self,reps):
         if self.lattVec1[0] == 0:
             slope1 = 'vertical'
         else:
@@ -339,39 +338,91 @@ class PlotGraphene:
             slope2 = 'vertical'
         else:
             slope2 = self.lattVec2[1] / self.lattVec2[0]
-        
-        xPoints = np.arange(-self.plotSize*3, self.plotSize*3, .1) #make big enough that lines will cover larger structs
+            
+#        xpoints = array([-self.plotSize*2,-self.plotSize*2]) #make big enough that lines will cover larger structs
 
-        
-        for i in range(10):
-            self.shiftLineByVec1(i, xPoints, slope2)
-            self.shiftLineByVec1(-i, xPoints, slope2)
-            self.shiftLineByVec2(i, xPoints, slope1)
-            self.shiftLineByVec2(-i, xPoints, slope1)
-    
-    def shiftLineByVec1(self, ntimes, xPoints, slope):
+        for i in range(reps):
+            self.shiftLineByVec1(i, slope2)
+            self.shiftLineByVec1(-i, slope2)
+            self.shiftLineByVec2(i, slope1)
+            self.shiftLineByVec2(-i, slope1)
+               
+#        xPoints = np.arange(-self.plotSize*2.0, self.plotSize*2.0, .1) #make big enough that lines will cover larger structs
+
+#        for i in range(reps):
+#            self.shiftLineByVec1(i, xPoints, slope2)
+#            self.shiftLineByVec1(-i, xPoints, slope2)
+#            self.shiftLineByVec2(i, xPoints, slope1)
+#            self.shiftLineByVec2(-i, xPoints, slope1)
+#    
+#    def shiftLineByVec1(self, ntimes, xPoints, slope):
+#        if slope == 0:
+#            plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec1[1]), color='k')
+#        elif slope == 'vertical':
+#            plt.plot(((ntimes * self.lattVec1[0]), (ntimes * self.lattVec1[0])), (0, self.plotSize), color='k')
+#        else:
+#            plt.plot(xPoints, 
+#                    (slope * xPoints) + (slope * (-ntimes * self.lattVec1[0])) + (ntimes * self.lattVec1[1]), color='k')
+#
+#    def shiftLineByVec2(self, ntimes, xPoints, slope):
+#        if slope == 0:
+#            plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec2[1]), color='k')
+#        elif slope == 'vertical':
+#            plt.plot(((ntimes * self.lattVec2[0]), (ntimes * self.lattVec2[0])), (0, self.plotSize), color='k')
+#        else:
+#            plt.plot(xPoints, 
+#                     (slope * xPoints) + (slope * (-ntimes * self.lattVec2[0])) + (ntimes * self.lattVec2[1]), color='k')            
+
+    def getIntercepts(self,slope,b):
+        '''Find four intercepts of a line with the lines that define the square.  Only two of these
+        will lie on the edges of the square'''
+        a = self.plotSize
+        points = []
+        #x constant intercepts
+        if 0 >= b >= a:
+            points.append([0,b])
+        elif 0 >= slope*a+b >= a:
+            points.append([a,slope*a+b])
+        #y=constant intercepts
+        if 0 >= -b/m >= a:
+            points.append([-b/m,0])
+        elif 0 >= a-b/slope >= a:
+            points.append([a-b/slope,a])           
+        return interc
+            
+    def shiftLineByVec1(self, ntimes, slope):
         if slope == 0:
-            plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec1[1]), color='k')
+            dy = -ntimes * self.lattVec1[1]
+            if 0 <= dy <= self.plotSize:
+                plt.axhline(y=dy,color='k')
         elif slope == 'vertical':
-            plt.plot(((ntimes * self.lattVec1[0]), (ntimes * self.lattVec1[0])), (0, self.plotSize), color='k')
+            dx = ntimes * self.lattVec1[0]
+            if 0 <= dx <= self.plotSize:
+                plt.axvline(x=dx,color='k')
         else:
-            plt.plot(xPoints, 
-                    (slope * xPoints) + (slope * (-ntimes * self.lattVec1[0])) + (ntimes * self.lattVec1[1]), color='k')
-    
-    def shiftLineByVec2(self, ntimes, xPoints, slope):
+            pts = interc(slope,slope * -ntimes * self.lattVec1[0] + ntimes * self.lattVec1[1])
+            if len(pts) == 2:         
+                self.ax.add_line(Line2D([pts[0][0],pts[1][0]],[pts[0][1],pts[1][1]], color='k')) 
+            
+            
+    def shiftLineByVec2(self, ntimes, slope):
         if slope == 0:
-            plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec2[1]), color='k')
+            dy = -ntimes * self.lattVec2[1]
+            if 0 <= dy <= self.plotSize:
+                plt.axhline(y=dy,color='k')
         elif slope == 'vertical':
-            plt.plot(((ntimes * self.lattVec2[0]), (ntimes * self.lattVec2[0])), (0, self.plotSize), color='k')
+            dx = ntimes * self.lattVec2[0]
+            if 0 <= dx <= self.plotSize:
+                plt.axvline(x=dx,color='k')
         else:
-            plt.plot(xPoints, 
-                     (slope * xPoints) + (slope * (-ntimes * self.lattVec2[0])) + (ntimes * self.lattVec2[1]), color='k')
+            pts = interc(slope,slope * -ntimes * self.lattVec2[0] + ntimes * self.lattVec2[1])
+            if len(pts) == 2:         
+                self.ax.add_line(Line2D([pts[0][0],pts[1][0]],[pts[0][1],pts[1][1]], color='k'))   
         
     def saveFigure(self):
         plt.plot()           
         plt.gca().axes.get_xaxis().set_visible(False)
         plt.gca().axes.get_yaxis().set_visible(False)
         plt.savefig(self.poscarFile + "_plot.png", bbox_inches='tight')
-#        plt.savefig(self.poscarFile + "_plot.png")
   
     

@@ -63,7 +63,7 @@ class structsToPoscar:
         return structNum
 
     def contains(self, struct, alist):
-        """ Retuns true if the list 'alist' contains the structure 'struct', false otherwise. """
+        """ Returns true if the list 'alist' contains the structure 'struct', false otherwise. """
         for i in xrange(len(alist)):
             if struct == alist[i]:
                 return True
@@ -180,7 +180,7 @@ class Converter:
         LV[:,1] = self.lattVec2
         LV[:,2] = self.lattVec3 
         cellVol = det(LV)
-        PLV = array(  [[2.13128850,  -1.23050000,   0.00000000], 
+        PLV = array(  [[2.13128850,  -1.23050000,   0.00000000],  #parent lattice vectors
                        [2.13128850,   1.23050000,   0.00000000], 
                        [0.00000000,   0.00000000,  15.00000000]])
         primCellVol = det(PLV)
