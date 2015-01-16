@@ -6,39 +6,50 @@ import StructsToPoscar
 from matplotlib.lines import Line2D 
 from copy import deepcopy
 
-def collateStructsConc(self,iteration):  
+def collateStructsConc(atoms,minPrior,iteration):  
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
     structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder'''
-    lastDir = os.getcwd() 
-    plots1Dir = lastDir + '/plots'
-#    if not os.path.exists(plots1Dir):
-#        subprocess.call(['mkdir',plots1Dir]) 
-        
+    lastDir = os.getcwd()         
     nRow = 5  # number of plots in row
-    width = 1350
-    height  = 900
-    collatefile  = open(plots2Dir +'/plots{}_{}.htm'.format(plotType,iteration),'w')
-    collatefile.write(' <html>\n <HEAD>\n<TITLE> {} </TITLE>\n</HEAD>\n'.format(plotType))
-    collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
-#    images = []
+    width = 500
+    height  = 500
     iImage = 0
-    for atom in self.atoms:
-        plotsDir = lastDir + '/' + atom + '/struct_plots'
+    for iatom, atom in enumerate(atoms):
+        print atom
+        atomDir = lastDir + '/' + atom 
+        plotsDir = atomDir + '/struct_plots'       
         if not os.path.exists(plotsDir):
             subprocess.call(['mkdir',plotsDir])
-        path = '/gss/{}_{}.png'.format(plotType,iteration)
-        iImage += 1  
-        atomtext = atom.split('_')[0] 
-        name = '{}{}.png'.format(atomtext,plotType)       
-        subprocess.call(['cp',path,plots2Dir + '/{}'.format(name)])
-#        images.append()
-        collatefile.write('<td><p><img src="{}" width "{}" height "{}" ></p><p>{}</p></td>\n'.format(name,width,height,''))#Image and element under it
-        if mod(iImage,nRow) == 0: 
-            collatefile.write('</tr>\n<tr>\n') #end of row, begin new
-    collatefile.write(' </tr></table> \n') #end of row and table                
-    collatefile.write(' </BODY> </html>') #end of file 
-    collatefile.close() 
-    
+        plines = readfile(atomDir + '/priorities_{}.out'.format(iteration))
+        if iatom == 0: #get list of concentrations 
+            conclist = []
+            for line in plines[1:]:
+                conc = line.split()[2]
+                if conc not in conclist:
+                    conclist.append(conc)
+            subprocess.call(['echo','Found {} concentrations'.format(len(conclist))])
+        for conc in conclist:
+            print '   ',conc
+            collatefile  = open(plotsDir +'/{}_{}.htm'.format(conc,iteration),'w')
+            collatefile.write(' <html>\n <HEAD>\n<TITLE> {} Conc {}, Iteration {} </TITLE>\n</HEAD>\n'.format(atom,conc,iteration))
+            collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+            iImage = 0 
+            for line in plines[1:]:
+                struct = line.split()[0] 
+                conc2 = line.split()[2]
+                prior = line.split()[1]
+                path = '/structs/{}.png'.format(struct,iteration)
+                if conc2 == conc and prior >= minPrior and os.path.exists(plotsDir+'/'+path):
+                    FE = line.split()[3]
+                    label = '<b>{}</b>    {}: <b>FE</b> {}, prior {}, <b>conc</b> {}'.format(struct,atom,FE,prior,conc)           
+                    collatefile.write('<td><p>{}</p><p><img src="../../{}" width "{}" height "{}" ></p></td>\n'.format(label,path,width,height))#Image and element under it
+                    iImage += 1 
+                    if mod(iImage,nRow) == 0: 
+                        collatefile.write('</tr>\n<tr>\n') #end of row, begin new
+            collatefile.write(' </tr></table> \n') #end of row and table                
+            collatefile.write(' </BODY> </html>') #end of file 
+            collatefile.close()
+
 def plotByPrior(atoms,minPrior,iteration):  
     ''''''
     lastDir = os.getcwd()
@@ -107,40 +118,6 @@ def plot_structs(structs):
             subprocess.call(['mv', 'POSCAR_plot.png', str(struct)+ '.png'])
             subprocess.call(['rm',vfile])             
     os.chdir(lastDir) 
-    
-def plot_structs_parallel(structs):  
-    '''If plot of structure plot is not in structsdir, then create it.
-    Create jobs to find N of these per job'''
-    lastDir = os.getcwd()
-    N = 10
-    structsDir = lastDir + '/structs'
-    if not os.path.exists(structsDir):
-        subprocess.call(['mkdir',structsDir])
-    done = []
-    #find the existing plots
-    os.chdir(structsDir)
-    for item in os.listdir(structsDir):
-        if '.png' in item and item[0].isdigit(): 
-            done.append(int(item.split('.')[0]))
-    #make new plots
-    StoPoscar = StructsToPoscar.structsToPoscar([],[])
-    toPlot = [i if i not in done else [] for i in structs]
-    print 'toPlot',toPlot
-    for struct in toPlot:
-        #need the full POSCAR if we want to show empty C sites
-        subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
-        vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
-        StoPoscar.convertOne(vfile)
-        print struct
-        plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across
-        
-        plotter = PlotGraphene('.','POSCAR','-p','',plotSize) 
-        plotter.fillByVecs(int(plotSize*0.75))
-        plotter.addLines(int(plotSize*2.0))
-        plotter.saveFigure()
-        subprocess.call(['mv', 'POSCAR_plot.png', str(struct)+ '.png'])
-        subprocess.call(['rm',vfile])             
-    os.chdir(lastDir)  
     
 class PlotGraphene:
     """ This plots either a POSCAR file or an output file (vasp.000xxx) from UNCLE.  When calling this class from
