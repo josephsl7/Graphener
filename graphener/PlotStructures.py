@@ -4,8 +4,7 @@ import numpy as np
 from comMethods import *
 import StructsToPoscar
 from matplotlib.lines import Line2D 
-from matplotlib.axes import Axes 
-#from StructsToPoscar import *
+from copy import deepcopy
 
 def collateStructsConc(self,iteration):  
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
@@ -43,15 +42,39 @@ def collateStructsConc(self,iteration):
 def plotByPrior(atoms,minPrior,iteration):  
     ''''''
     lastDir = os.getcwd()
+    structsDir = lastDir + '/structs'
+    if not os.path.exists(structsDir):
+        subprocess.call(['mkdir',structsDir])
+    done = []
+    #find the existing plots
+    os.chdir(structsDir)
+    for item in os.listdir(structsDir):
+        if '.png' in item and item[0].isdigit(): 
+            done.append(int(item.split('.')[0]))
     toPlot = []
+    skipped = []
+
+#    print done
+    os.chdir(lastDir)
     for iatom, atom in enumerate(atoms):
         priorPath = lastDir + '/' + atom + '/priorities_{}.out'.format(iteration)
         lines = readfile(priorPath)
         for line in lines[1:]:
             prior = float(line.split()[1])
-            if prior > minPrior:
-                toPlot.append(int(line.split()[0]))
-    plot_structs(set(toPlot))
+            struct = int(line.split()[0])
+#            if prior >0: print struct,prior
+            if os.path.isdir(lastDir + '/' + atom + '/' + str(struct)): # want to plot only calculated ones for now 
+                if prior > minPrior and struct not in done:
+                    toPlot.append(struct)
+                elif prior > minPrior:
+                    skipped.append(struct)
+    toPlot = set(toPlot) #remove duplicates
+    skipped = set(skipped)
+    print 'Number of structures in priority range (priority > {}):  {}'.format(minPrior,len(toPlot)+len(skipped))
+    print 'Number of structures already in structs folder:   {}'.format(len(done))
+    print 'Number of structures left to plot:  {}'.format(len(toPlot))
+#    print 'toPlot',toPlot
+    plot_structs(toPlot)
     os.chdir(lastDir)
 
     
@@ -69,21 +92,54 @@ def plot_structs(structs):
             done.append(int(item.split('.')[0]))
     #make new plots
     toPoscar = StructsToPoscar.structsToPoscar([],[])
-    for struct in structs:
+    for i,struct in enumerate(structs):
         if struct not in done:
             #need the full POSCAR if we want to show empty C sites
             subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
             vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
             toPoscar.convertOne(vfile)
-            print struct
-            plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across
-            
-            plotter = PlotGraphene('.','POSCAR','-p','',plotSize) 
-            plotter.fillByVecs(int(plotSize*0.75))
-            plotter.addLines(int(plotSize*0.75))
+            print i+1,struct
+            plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across           
+            plotter = PlotGraphene('.','POSCAR','-p','',plotSize)
+            plotter.fillByVecs(int(plotSize*2.0))            
+            plotter.addLines(int(plotSize*2.0))
             plotter.saveFigure()
             subprocess.call(['mv', 'POSCAR_plot.png', str(struct)+ '.png'])
             subprocess.call(['rm',vfile])             
+    os.chdir(lastDir) 
+    
+def plot_structs_parallel(structs):  
+    '''If plot of structure plot is not in structsdir, then create it.
+    Create jobs to find N of these per job'''
+    lastDir = os.getcwd()
+    N = 10
+    structsDir = lastDir + '/structs'
+    if not os.path.exists(structsDir):
+        subprocess.call(['mkdir',structsDir])
+    done = []
+    #find the existing plots
+    os.chdir(structsDir)
+    for item in os.listdir(structsDir):
+        if '.png' in item and item[0].isdigit(): 
+            done.append(int(item.split('.')[0]))
+    #make new plots
+    StoPoscar = StructsToPoscar.structsToPoscar([],[])
+    toPlot = [i if i not in done else [] for i in structs]
+    print 'toPlot',toPlot
+    for struct in toPlot:
+        #need the full POSCAR if we want to show empty C sites
+        subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
+        vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
+        StoPoscar.convertOne(vfile)
+        print struct
+        plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across
+        
+        plotter = PlotGraphene('.','POSCAR','-p','',plotSize) 
+        plotter.fillByVecs(int(plotSize*0.75))
+        plotter.addLines(int(plotSize*2.0))
+        plotter.saveFigure()
+        subprocess.call(['mv', 'POSCAR_plot.png', str(struct)+ '.png'])
+        subprocess.call(['rm',vfile])             
     os.chdir(lastDir)  
     
 class PlotGraphene:
@@ -140,12 +196,12 @@ class PlotGraphene:
         self.Mcirclelist = []
         self.plotSize = plotSize #determines number of atoms in plot... Roughly N/4 hexagons across   
         self.figure = None
+#        self.ax = None
         self.initializeFigure()
     
         self.Hnum = 0
         self.Mnum = 0
-        self.ax = []
-        
+
 
         
     def readPOSCAR(self):
@@ -258,13 +314,12 @@ class PlotGraphene:
             self.zlist.append(float(positions[2]))
     
     def initializeFigure(self):
+        plt.clf() #don't carry over anything from previous figure!
         self.figure = plt.gcf()
         self.figure.gca().set_aspect('equal')
-#        plt.axis([0, self.plotSize, 0, self.plotSize]) 
-        self.ax = Axes(self.figure,[0, self.plotSize, 0, self.plotSize])
+        plt.axis([0, self.plotSize, 0, self.plotSize]) 
 
     def periodicByVecs(self, vec1num, vec2num):
-        
         self.Ccirclelist = []
         self.Hcirclelist = []
         self.Mcirclelist = []
@@ -288,41 +343,41 @@ class PlotGraphene:
         Mxlist = self.xlist[numOfC + numOfH:sum(self.atomCounts)]
         Mylist = self.ylist[numOfC + numOfH:sum(self.atomCounts)]
         Mzlist = self.zlist[numOfC + numOfH:sum(self.atomCounts)]
-    
+
+        eps = 0.001
+
         for i in range(0,numOfC):
-            self.Ccirclelist = self.Ccirclelist + [plt.Circle((Cxlist[i], Cylist[i]), .7, color='#2B65EC')]
-    
-        for i in range(0,numOfC):
+            if 0-eps <= Cxlist[i] <= self.plotSize + eps  and 0-eps <= Cylist[i] <= self.plotSize + eps: 
+                self.Ccirclelist = self.Ccirclelist + [plt.Circle((Cxlist[i], Cylist[i]), .7, color='#2B65EC')]    
+        for i in range(len(self.Ccirclelist)):
             self.figure.gca().add_artist(self.Ccirclelist[i])
-            
-        for i in range(0,numOfH):
-            if Hzlist[i] < 0 and self.zFunc:
-                self.Hcirclelist = self.Hcirclelist + [plt.Circle((Hxlist[i], Hylist[i]), .5, facecolor='#FFD801', edgecolor='black', lw = 3)]
-                self.Hnum += 1
-            else:
-                self.Hcirclelist = self.Hcirclelist + [plt.Circle((Hxlist[i], Hylist[i]), .5, color='#FFD801')]
-                self.Hnum += 1
         
         for i in range(0,numOfH):
+            if 0-eps <= Hxlist[i] <= self.plotSize + eps  and 0-eps <= Hylist[i] <= self.plotSize + eps:
+                if Hzlist[i] < 0 and self.zFunc:
+                    self.Hcirclelist = self.Hcirclelist + [plt.Circle((Hxlist[i], Hylist[i]), .5, facecolor='#FFD801', edgecolor='black', lw = 3)]
+                else:
+                    self.Hcirclelist = self.Hcirclelist + [plt.Circle((Hxlist[i], Hylist[i]), .5, color='#FFD801')]      
+        for i in range(len(self.Hcirclelist)):
             self.figure.gca().add_artist(self.Hcirclelist[i])
-
+ 
         for i in range(0,numOfM):
-            if Mzlist[i] < 0 and self.zFunc:
-                self.Mcirclelist = self.Mcirclelist + [plt.Circle((Mxlist[i], Mylist[i]), .5, facecolor='r', edgecolor='black', lw = 3)]
-                self.Mnum += 1
-            else:
-                self.Mcirclelist = self.Mcirclelist + [plt.Circle((Mxlist[i], Mylist[i]), .5, color='r')]
-                self.Mnum += 1
-                
-        for i in range(0,numOfM):
+            if 0-eps <= Mxlist[i] <= self.plotSize + eps  and 0-eps <= Mylist[i] <= self.plotSize + eps:
+                if Mzlist[i] < 0 and self.zFunc:
+                    self.Mcirclelist = self.Mcirclelist + [plt.Circle((Mxlist[i], Mylist[i]), .5, facecolor='r', edgecolor='black', lw = 3)]
+                else:
+                    self.Mcirclelist = self.Mcirclelist + [plt.Circle((Mxlist[i], Mylist[i]), .5, color='r')]                   
+        for i in range(len(self.Mcirclelist)):
             self.figure.gca().add_artist(self.Mcirclelist[i])
-    
+        
     def fillByVecs(self, num):
+#        print 'vec1',self.lattVec1
+#        print 'vec2',self.lattVec2
         if num == 0:
             self.periodicByVecs(0, 0)
         else:
-            for i in xrange(0, num + 1):
-                for j in xrange(0, num + 1):
+            for i in xrange(-1, num + 1):
+                for j in xrange(-1, num + 1):
                     self.periodicByVecs(i, j)
                     self.periodicByVecs(-i, j)
                     self.periodicByVecs(i, -j)
@@ -338,6 +393,7 @@ class PlotGraphene:
             slope2 = 'vertical'
         else:
             slope2 = self.lattVec2[1] / self.lattVec2[0]
+#        print 'slope1, slope2',slope1, slope2
             
 #        xpoints = array([-self.plotSize*2,-self.plotSize*2]) #make big enough that lines will cover larger structs
 
@@ -346,32 +402,6 @@ class PlotGraphene:
             self.shiftLineByVec1(-i, slope2)
             self.shiftLineByVec2(i, slope1)
             self.shiftLineByVec2(-i, slope1)
-               
-#        xPoints = np.arange(-self.plotSize*2.0, self.plotSize*2.0, .1) #make big enough that lines will cover larger structs
-
-#        for i in range(reps):
-#            self.shiftLineByVec1(i, xPoints, slope2)
-#            self.shiftLineByVec1(-i, xPoints, slope2)
-#            self.shiftLineByVec2(i, xPoints, slope1)
-#            self.shiftLineByVec2(-i, xPoints, slope1)
-#    
-#    def shiftLineByVec1(self, ntimes, xPoints, slope):
-#        if slope == 0:
-#            plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec1[1]), color='k')
-#        elif slope == 'vertical':
-#            plt.plot(((ntimes * self.lattVec1[0]), (ntimes * self.lattVec1[0])), (0, self.plotSize), color='k')
-#        else:
-#            plt.plot(xPoints, 
-#                    (slope * xPoints) + (slope * (-ntimes * self.lattVec1[0])) + (ntimes * self.lattVec1[1]), color='k')
-#
-#    def shiftLineByVec2(self, ntimes, xPoints, slope):
-#        if slope == 0:
-#            plt.plot(xPoints, (slope * xPoints) + (-ntimes * self.lattVec2[1]), color='k')
-#        elif slope == 'vertical':
-#            plt.plot(((ntimes * self.lattVec2[0]), (ntimes * self.lattVec2[0])), (0, self.plotSize), color='k')
-#        else:
-#            plt.plot(xPoints, 
-#                     (slope * xPoints) + (slope * (-ntimes * self.lattVec2[0])) + (ntimes * self.lattVec2[1]), color='k')            
 
     def getIntercepts(self,slope,b):
         '''Find four intercepts of a line with the lines that define the square.  Only two of these
@@ -379,46 +409,59 @@ class PlotGraphene:
         a = self.plotSize
         points = []
         #x constant intercepts
-        if 0 >= b >= a:
-            points.append([0,b])
-        elif 0 >= slope*a+b >= a:
-            points.append([a,slope*a+b])
-        #y=constant intercepts
-        if 0 >= -b/m >= a:
-            points.append([-b/m,0])
-        elif 0 >= a-b/slope >= a:
-            points.append([a-b/slope,a])           
-        return interc
+#        print slope
+#        print b,slope*a+b,-b/slope,(a-b)/slope
+        if slope == 1.0 and b == 0: #diagonal line:
+            points = [[0,0],[a,a]]
+        elif  slope == -1.0 and b == a: #diagonal line:
+            points = [[a,0],[0,a]]
+        else:
+            if 0 < b <= a:
+                points.append([0,b])
+            if 0 < slope*a+b <= a:
+                points.append([a,slope*a+b])
+            #y=constant intercepts
+            if 0 <= -b/slope < a:
+                points.append([-b/slope,0])
+            if 0 <= (a-b)/slope < a:
+                points.append([(a-b)/slope,a])         
+        return points
             
-    def shiftLineByVec1(self, ntimes, slope):
+    def shiftLineByVec1(self, n, slope):
         if slope == 0:
-            dy = -ntimes * self.lattVec1[1]
+            dy = -n * self.lattVec1[1]
             if 0 <= dy <= self.plotSize:
                 plt.axhline(y=dy,color='k')
         elif slope == 'vertical':
-            dx = ntimes * self.lattVec1[0]
+            dx = n * self.lattVec1[0]
             if 0 <= dx <= self.plotSize:
                 plt.axvline(x=dx,color='k')
         else:
-            pts = interc(slope,slope * -ntimes * self.lattVec1[0] + ntimes * self.lattVec1[1])
-            if len(pts) == 2:         
-                self.ax.add_line(Line2D([pts[0][0],pts[1][0]],[pts[0][1],pts[1][1]], color='k')) 
-            
-            
-    def shiftLineByVec2(self, ntimes, slope):
+            b = n*(self.lattVec1[1] - slope*self.lattVec1[0])
+            pts = self.getIntercepts(slope,b)
+            if len(pts) == 2:
+                xPoints = np.arange(pts[0][0],pts[1][0], 0.1*np.sign(pts[1][0]-pts[0][0])) 
+                yPoints = slope * xPoints  + b   
+                self.figure.gca().add_artist(Line2D([pts[0][0],pts[1][0]],[pts[0][1],pts[1][1]], color='k'))
+
+
+    def shiftLineByVec2(self, n, slope):
         if slope == 0:
-            dy = -ntimes * self.lattVec2[1]
+            dy = -n * self.lattVec2[1]
             if 0 <= dy <= self.plotSize:
                 plt.axhline(y=dy,color='k')
         elif slope == 'vertical':
-            dx = ntimes * self.lattVec2[0]
+            dx = n * self.lattVec2[0]
             if 0 <= dx <= self.plotSize:
                 plt.axvline(x=dx,color='k')
         else:
-            pts = interc(slope,slope * -ntimes * self.lattVec2[0] + ntimes * self.lattVec2[1])
-            if len(pts) == 2:         
-                self.ax.add_line(Line2D([pts[0][0],pts[1][0]],[pts[0][1],pts[1][1]], color='k'))   
-        
+            b = n*(self.lattVec2[1] - slope*self.lattVec2[0])
+            pts = self.getIntercepts(slope,b)
+            if len(pts) == 2:
+                xPoints = np.arange(pts[0][0],pts[1][0], 0.1*np.sign(pts[1][0]-pts[0][0])) 
+                yPoints = slope * xPoints  + b
+                self.figure.gca().add_artist(Line2D([pts[0][0],pts[1][0]],[pts[0][1],pts[1][1]], color='k'))
+                
     def saveFigure(self):
         plt.plot()           
         plt.gca().axes.get_xaxis().set_visible(False)

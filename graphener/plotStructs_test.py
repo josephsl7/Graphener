@@ -17,7 +17,7 @@ for item in os.listdir(maindir):
     if os.path.isdir(itempath) and item[0].isupper(): #look only at dirs whose names are capitalized. These are the atoms
         atoms.append(item)
 print atoms
-minPrior = 99.0
+minPrior = 10.0
 iteration = 4
 plotByPrior(atoms,minPrior,iteration)
 
