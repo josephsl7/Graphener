@@ -1,6 +1,6 @@
 '''
 '''
-import os, subprocess
+import os, subprocess, shutil
 import ClustersBuild
 from comMethods import *
 
@@ -25,6 +25,7 @@ class Enumerator:
         self.uncleOut = uncleOutput
         self.clusterNums = clusterNums
         self.makeAtomDirectories()
+	self.case = len(atoms[0].split(','))
 
     def buildClusters(self):
         """ Uses UNCLE to build the number of each n-body clusters specified in the settings.in
@@ -36,10 +37,12 @@ class Enumerator:
         
         newFile = open('enum/lat.in','w')
         for i in xrange(len(oldLines)):
-            if 'Number pairs' in oldLines[i-1] and i>=1: #bch use label on previous line
+            if i>=1 and 'Number pairs' in oldLines[i-1]: #bch use label on previous line
                 for num in self.clusterNums:
                     newFile.write(str(num) + " ")
                 newFile.write("\n")
+            elif '#case' in oldLines[i]:
+                newFile.write(str(self.case) + "  #case\n")
             else:
                 newFile.write(oldLines[i])
         newFile.close()
@@ -160,7 +163,11 @@ class Enumerator:
     def enumerate(self):
         """ Runs through the whole process of enumeration, cluster building, and choosing an
             i.i.d. set of training structures. """
-        if not os.path.isdir('enum'): subprocess.call(['mkdir','enum'])
+        if os.path.isdir('enum'):
+            shutil.rmtree('enum')
+
+        subprocess.call(['mkdir','enum'])
+
         infile = open('needed_files/struct_enum.in','r')
         inlines = []
         for line in infile:
@@ -173,6 +180,17 @@ class Enumerator:
             if i == 7 + npoints: 
                 structFile.write(str(self.volRange[0]) + " " + str(self.volRange[1]) + " ")
                 structFile.write("# Starting and ending cell sizes for search\n")
+            elif i == 5:
+                structFile.write(" " + str(self.case) + " -nary case\n")
+            elif i in range(7, 8 + npoints):
+                structFile.write(inlines[i].split()[0]+" ")
+                structFile.write(inlines[i].split()[1]+" ")
+                structFile.write(inlines[i].split()[2]+"    ")
+                for num in range(self.case):
+                    structFile.write(str(num))
+                    if num < self.case-1:
+                        structFile.write("/")
+                structFile.write("   # d0" + str(i-6) + " d-vector\n")
             else:
                 structFile.write(inlines[i])
         structFile.close()
