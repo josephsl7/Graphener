@@ -39,10 +39,10 @@ def collateStructsConc(atoms,minPrior,iteration):
                 conc2 = line.split()[2]
                 prior = line.split()[1]
                 path = '/structs/{}.png'.format(struct,iteration)
-                if conc2 == conc and prior >= minPrior and os.path.exists(plotsDir+'/'+path):
+                if conc2 == conc and float(prior) >= minPrior and os.path.exists(plotsDir+'/'+path):
                     FE = line.split()[3]
-                    label = '<b>{}</b>    {}: <b>FE</b> {}, prior {}, <b>conc</b> {}'.format(struct,atom,FE,prior,conc)           
-                    collatefile.write('<td><p>{}</p><p><img src="../../{}" width "{}" height "{}" ></p></td>\n'.format(label,path,width,height))#Image and element under it
+                    label = '  <b>{}</b>    {}: <b>FE</b> {}, prior {}, <b>conc</b> {}'.format(struct,atom,FE,prior,conc)           
+                    collatefile.write('<td><p><img src="../../{}" width "{}" height "{}" ></p><p>{}</p><p></p></td>\n'.format(path,width,height,label,))#Image and element under it
                     iImage += 1 
                     if mod(iImage,nRow) == 0: 
                         collatefile.write('</tr>\n<tr>\n') #end of row, begin new

@@ -338,7 +338,7 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
 #    vstructsToStart = extractor.getStructList()
    
     if len(flat(vstructsToStart))>0:
-        extractor.extract(vstructsToStart)
+        extractor.extract(vstructsToStart) # Extract the pseudo-POSCARs from struct_enum.out
         subprocess.call(['echo','\nConverting outputs to VASP inputs. . .\n'])
 #        print 'BLOCKING toPoscar, .convert'
         toPoscar = StructsToPoscar.structsToPoscar(atoms, vstructsToStart)
@@ -546,10 +546,13 @@ def readSettingsFile():
                
         elif line.split()[0] == 'PURE_METAL:':
             pureMetal = line.split()[1] # structure number (string) of the pure metal case
-    
+
+        elif line.split()[0] == 'MAX_ITER:':
+            maxIter = line.split()[1] # maximum number of iterations
+        
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -672,7 +675,7 @@ if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/iid.top.tm_row1.v15' 
+    maindir = '/fslhome/bch/cluster_expansion/graphene/iid.top.tm_row1.v15' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     #make sure the latest version of uncle is used
@@ -690,7 +693,7 @@ if __name__ == '__main__':
     seed()
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
@@ -732,9 +735,8 @@ if __name__ == '__main__':
         subprocess.call(['echo','\n========================================================'])
         subprocess.call(['echo','\t\tIteration ' + str(iteration)])
         subprocess.call(['echo','========================================================\n'])
-        #since atoms may have changed, have to reinitialize this
+        #since atoms may have changed, have to reinitialize these
         enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput) 
-        # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod,pureMetal)   
         # If enough iid structs have been submitted, go to priority method        
         nAllmin = min([len(vstructsAll[iatom]) for iatom in range(len(atoms))])
@@ -854,6 +856,9 @@ if __name__ == '__main__':
         if natoms == 0:
             subprocess.call(['echo','\n----------------- All atoms have finished ---------------'])
             converged = True
+        elif iteration == iterMax:
+            subprocess.call(['echo','\n----------------- Finished maximum number of iterations ---------------'])
+            converged = True            
         else:       
             if natoms >1:
                 subprocess.call(['echo','At end of iteration, {} are continuing.'.format(' '.join(atoms))])

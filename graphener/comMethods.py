@@ -197,8 +197,8 @@ def singleAtomsEnergies(self,dir1,iteration):
 
 
 def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outType,writeType):
-    '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
-       Also writes this info as POSCAR_orig in the structure folder.  outType is '.in' or '.holdout'.  writeType is either "w" or "a"
+    '''For writing to structures.in and structures.holdout.  Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
+       Also copies vasp.000xxx as puedoPOSCAR in the structure folder.  outType is '.in' or '.holdout'.  writeType is either "w" or "a"
        depending on whether you are starting the file or appending to it.'''
     if howmany == 'all':
         N = len(structlist)
@@ -212,12 +212,15 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
     subprocess.call(['ln','-s','../enum/struct_enum.out'])
     subprocess.call(['rm vasp.0*'],shell=True) #start clean
     for istruct,struct in enumerate(structlist[:N]): #just take first N for now.  Can change to a slice later
+        
         vaspDir = atomDir + '/'+ str(struct)
         outFile.write("#------------------------------------------------\n")
 
         subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
-        subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
-        poscar = readfile(vaspDir+'/POSCAR_orig')           
+        vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
+        poscar = readfile(atomDir+'/'+vfile)
+        if os.path.exits(vaspdir): subprocess.call(['cp', vfile, vaspDir+'/puedoPOSCAR'])
+        subprocess.call(['rm', vfile])           
         idString = 'graphene str #: ' + str(struct)
         outFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
         outFile.write("1.0\n")
