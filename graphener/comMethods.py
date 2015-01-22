@@ -219,7 +219,7 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
         subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
         vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
         poscar = readfile(atomDir+'/'+vfile)
-        if os.path.exits(vaspdir): subprocess.call(['cp', vfile, vaspDir+'/puedoPOSCAR'])
+        if os.path.exists(vaspDir): subprocess.call(['cp', vfile, vaspDir+'/puedoPOSCAR'])
         subprocess.call(['rm', vfile])           
         idString = 'graphene str #: ' + str(struct)
         outFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")

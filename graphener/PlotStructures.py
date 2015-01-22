@@ -38,7 +38,7 @@ def collateStructsConc(atoms,minPrior,iteration):
                 struct = line.split()[0] 
                 conc2 = line.split()[2]
                 prior = line.split()[1]
-                path = '/structs/{}.png'.format(struct,iteration)
+                path = '/structs/{}.png'.format(struct)
                 if conc2 == conc and float(prior) >= minPrior and os.path.exists(plotsDir+'/'+path):
                     FE = line.split()[3]
                     label = '  <b>{}</b>    {}: <b>FE</b> {}, prior {}, <b>conc</b> {}'.format(struct,atom,FE,prior,conc)           
@@ -49,6 +49,58 @@ def collateStructsConc(atoms,minPrior,iteration):
             collatefile.write(' </tr></table> \n') #end of row and table                
             collatefile.write(' </BODY> </html>') #end of file 
             collatefile.close()
+
+def collateStructsHFE(atoms,NInPlot,iteration):  
+    '''Creates an HTML page with structure plots ordered by hexagonal layer formation energy HFE, with the lowest (most negative) HFE first
+    structs at the top.  Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder'''
+    lastDir = os.getcwd()         
+    nRow = 5  # number of plots in row
+    width = 500
+    height  = 500
+    iImage = 0
+    for iatom, atom in enumerate(atoms):
+        print atom
+        atomDir = lastDir + '/' + atom 
+        plotsDir = atomDir + '/struct_plots'       
+        if not os.path.exists(plotsDir):
+            subprocess.call(['mkdir',plotsDir])
+        plines = readfile(atomDir + '/priorities_{}.out'.format(iteration))
+        hlines = readfile(atomDir + '/gss/vaspHFE_{}.out'.format(iteration))
+        flines = readfile(atomDir + '/gss/vaspFE_{}.out'.format(iteration))
+        nVaspCalc = len(hlines)
+        cdata = zeros(len(plines)-1,dtype = [('struct', int32),('conc', float), \
+            ('FE', float),('HFE', float),('prior', float)]) 
+        cdata['FE'] += 100  #the +100 to move any uncalculated energies away from zero, so we can sort
+        cdata['HFE'] += 100  
+        for i,line in enumerate(plines[1:]):
+            cdata[i]['struct'] = int(line.split()[0]) #struct n is at index i = n-1
+            cdata[i]['prior'] = line.split()[1]
+        for line in hlines[:NInPlot]:
+            struct = int(line.split()[0])
+            cdata[struct-1]['HFE'] = line.split()[2]
+        for line in flines[:NInPlot]:
+            struct = int(line.split()[0])
+            cdata[struct-1]['FE'] = line.split()[2]
+        cdata = sort(cdata,order = ['HFE']) #lowest first
+        N = min(NInPlot,nVaspCalc)
+        collatefile  = open(plotsDir +'/HFEsort_{}.htm'.format(iteration),'w')
+        collatefile.write(' <html>\n <HEAD>\n<TITLE> Sorted by HFE     {}, Iteration {} </TITLE>\n</HEAD>\n'.format(atom,conc,iteration))
+        collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+        iImage = 0
+        for i,struct in enumerate(cdata[:N]['structs']):
+            if os.path.exists(lastDir+'/structs/{}.png'.format(struct)):
+                FE = line.split()[3]
+                label = '  <b>{}</b>    {}: <b>HFE</b> {},<b>FE</b> {}, prior {}, <b>conc</b> {}'\
+                    .format(struct,atom,cdata[struct-1]['HFE'],cdata[struct-1]['FE'],cdata[struct-1]['prior'],cdata[struct-1]['conc'])           
+                collatefile.write('<td><p><img src="../../{}" width "{}" height "{}" ></p><p>{}</p><p></p></td>\n'.format(path,width,height,label,))#Image and element under it
+                iImage += 1 
+                if mod(iImage,nRow) == 0: 
+                    collatefile.write('</tr>\n<tr>\n') #end of row, begin new
+            else:
+                subprocess.call(['echo','No plot found for structure {}'.format(struct)])
+        collatefile.write(' </tr></table> \n') #end of row and table                
+        collatefile.write(' </BODY> </html>') #end of file 
+        collatefile.close()
 
 def plotByPrior(atoms,minPrior,iteration):  
     ''''''

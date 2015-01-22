@@ -9,7 +9,7 @@ from PlotStructures import plotByPrior
 #======================================= Script =====================================
 #======================================= Script =====================================
 
-maindir = '/fslhome/bch/cluster_expansion/graphene//top.tm_row1.v15/'
+maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15/'
 os.chdir(maindir)
 atoms = []
 for item in os.listdir(maindir):
