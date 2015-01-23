@@ -3,7 +3,7 @@ import os, subprocess,sys,re
 from comMethods import convergeCheck,finishCheck,getNSW,getSteps,readfile,writefile
 from numpy import rint
 import PlotStructures
-from PlotStructures import plotByPrior
+from PlotStructures import collateStructsHFE
    
 #======================================= Script =====================================
 #======================================= Script =====================================
@@ -17,9 +17,9 @@ for item in os.listdir(maindir):
     if os.path.isdir(itempath) and item[0].isupper(): #look only at dirs whose names are capitalized. These are the atoms
         atoms.append(item)
 print atoms
-minPrior = 0.1
+NInPlot = 400
 iteration = 4
-plotByPrior(atoms,minPrior,iteration)
+minPrior = 0.1
+collateStructsHFE(atoms,minPrior,NInPlot,iteration)  
 
 print "Done"
-
