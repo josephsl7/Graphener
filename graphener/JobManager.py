@@ -80,6 +80,8 @@ class JobManager:
                     if os.path.isdir(structDir):
                         dosDir = structDir + '/DOS'
                         if os.path.isdir(dosDir):
+			    #if os.path.isdir(dosDir + '/vasp533'):
+                            #    subprocess.call(['rm',dosDir + '/vasp533'])
                             if finishCheck(dosDir) and convergeCheck(dosDir, 2):
                                 total += 1
                                 converged += 1

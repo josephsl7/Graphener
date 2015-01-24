@@ -31,20 +31,75 @@ class structsToPoscar:
         for name in glob('enum/vasp.0*'):
             structNum = str(self.retrieveStructNum(name))
             if structNum>0:
-                self.changeToPoscar(name)           
-                for i in xrange(len(self.s2pStructList)):
-                    if self.contains(structNum, self.s2pStructList[i]):
-                        structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
-                        if os.path.isdir(structDir):
-                            subprocess.call('rm -r ' + structDir + '/*', shell=True)
-                        else:
-                            subprocess.call(['mkdir', structDir])                    
-                        
-                        subprocess.call(['cp','POSCAR',structDir])
-                        self.s2pStructList[i].remove(str(structNum))
-                
-                subprocess.call(['rm',name])
-                subprocess.call(['rm','POSCAR'])
+                self.changeToPoscar(name) 
+          
+            for i in xrange(len(self.structList)):
+                if self.contains(structNum, self.structList[i]):
+                    structDir = os.getcwd() + '/' + self.atoms[i] + '/' + structNum
+                    if os.path.isdir(structDir):
+                        shutil.rmtree(structDir)
+                    subprocess.call(['mkdir', structDir])                    
+            
+                    infile = open('POSCAR', 'r')
+                    inLines = infile.readlines()
+                    infile.close()
+
+                    poscar = open(structDir + '/POSCAR','w')
+
+                    line = inLines[0]
+                    elements = ['C'] + self.atoms[i].split(',')
+
+                    poscar.write(line[:line.find(':') + 1] + ' ')
+
+                    vacancies = 0
+
+                    for num, element in enumerate(elements):
+                        if self.atomCounts[num] != 0 and element.find('Vc') == -1 and num != 0:
+                            poscar.write(str(num) + ' ')
+                        elif element.find('Vc') != -1:
+                            vacancies = self.atomCounts[num]
+
+                    if vacancies == 0:
+                        poscar.write(line[line.find('-'):])
+                    else:
+                        poscar.write(line[line.find('-'):-1].strip() + ' -- ' + 'Vacancies: ' + str(vacancies) + '\n')
+
+                    poscar.write(inLines[1] + inLines[2] + inLines[3] + inLines[4])
+
+                    countLine = ''        
+
+                    for num, count in enumerate(self.atomCounts):
+                        if count != 0 and elements[num].find('Vc') == -1:
+                            countLine = countLine + str(count) + ' '
+                    poscar.write(countLine.strip() + '\n')
+
+                    poscar.write(inLines[6])
+
+                    linenum = 7
+                    for num, count in enumerate(self.atomCounts):
+                        if count != 0:
+                            for line in range(count):
+                                if elements[num].find('Vc') == -1:
+                                    pos = inLines[linenum].strip().split()
+                                    pos = [float(comp) for comp in pos]
+                                    z = pos[2]
+                                    if elements[num] == 'H':
+                                        if z >= 0:
+                                            z += 1.1
+                                        else:
+                                            z += -1.1
+                                    elif elements[num] != 'C':
+                                        if z >= 0:
+                                            z += 2.2
+                                        else:
+                                            z += -2.2
+                                    poscar.write('%12.8f %12.8f %12.8f\n' % (pos[0], pos[1], z))
+                                linenum += 1
+                           
+                    poscar.close()
+                    subprocess.call(['cp', 'POSCAR', structDir + '/struct'])
+            subprocess.call(['rm', name])
+            subprocess.call(['rm','POSCAR'])
     
     def convertOne(self,name):
         self.changeToPoscar(name)
@@ -79,16 +134,20 @@ class structsToPoscar:
         
         converter = Converter(structFile)
         converter.convert()
+
+        self.atomCounts = converter.getAtomCounts()
         
         poscar = open('POSCAR','w')
         
+        poscar.write("Contains atoms: ")
+        for i, count in enumerate(self.atomCounts):
+            if count != 0 and i != 0:
+                poscar.write(str(i) + " ")
+        
         if converter.isPure():
-            if converter.getAtomCounts()[1] == 0:
-                poscar.write("PURE M " + inLines[0])
-            elif converter.getAtomCounts()[2] == 0:
-                poscar.write("PURE H " + inLines[0])
-        else:
-            poscar.write(inLines[0])
+            poscar.write("- (PURE CASE) ")
+
+        poscar.write("- " + inLines[0])
             
         poscar.write('1.0\n')
         
@@ -98,15 +157,12 @@ class structsToPoscar:
         for vec in latticevecs:
             poscar.write('%12.8f %12.8f %12.8f\n' % (vec[1], vec[2], vec[0]))
         
-        atomCounts = converter.getAtomCounts()
-        
-        if converter.isPure():
-            if atomCounts[1] == 0:
-                poscar.write(str(atomCounts[0]) + ' ' + str(atomCounts[2]) + '\n')
-            elif atomCounts[2] == 0:
-                poscar.write(str(atomCounts[0]) + ' ' + str(atomCounts[1]) + '\n')
-        else:
-            poscar.write(str(atomCounts[0]) + ' ' + str(atomCounts[1]) + ' ' + str(atomCounts[2]) + '\n')
+        countLine = ''        
+
+        for count in self.atomCounts:
+            if count != 0:
+                countLine = countLine + str(count) + ' '
+        poscar.write(countLine.strip() + '\n')
         
         poscar.write('Cartesian\n')
         
@@ -114,15 +170,11 @@ class structsToPoscar:
         for pos in Cpos:
             poscar.write('%12.8f %12.8f %12.8f\n' % (pos[0], pos[1], pos[2]))
         
-        Hpos = converter.getHPositions()
-        for pos in Hpos:
+        Pos = converter.getPositions()
+        for pos in Pos:
             poscar.write('%12.8f %12.8f %12.8f\n' % (pos[0], pos[1], pos[2]))
         
-        Mpos = converter.getMPositions()
-        for pos in Mpos:
-            poscar.write('%12.8f %12.8f %12.8f\n' % (pos[0], pos[1], pos[2]))
-        
-        poscar.close()       
+        poscar.close()
 
 class Converter:
     """ Converts one of the files made from the 'makestr.x' routine in UNCLE to a POSCAR file
@@ -189,16 +241,17 @@ class Converter:
         # Get the number of each type of atom.
         adatomCounts = uncleLines[5].strip().split()
         adatomCounts = [int(count) for count in adatomCounts] 
-        nadatoms = sum(adatomCounts)      
-        self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
-        if self.atomCounts[1] == 0 or self.atomCounts[2] == 0:
+        nadatoms = sum(adatomCounts)  
+    
+        self.atomCounts = [nCatoms] + adatomCounts
+        if sum([count != 0 for count in adatomCounts]) == 1:
             self.pure = True
 
         positionLines = uncleLines[7:]
         
         self.set3dCpositionsFromDirectCoordinates(positionLines)
-        self.set3dHpositionsFromDirectCoordinates(positionLines)
-        self.set3dMpositionsFromDirectCoordinates(positionLines)
+        self.set3dpositionsFromDirectCoordinates(positionLines)
+
 #        print 'test', nCatoms, cellVol, primCellVol,nCatoms/cellVol,2.0/primCellVol
         if not isequal(nadatoms/cellVol,2.0/primCellVol): #need another C atom for each site (only one uncle site per cell)
             self.addCpositions(dxC)
@@ -244,10 +297,10 @@ class Converter:
             
             self._3dCpos.append([x, y, z])
             
-    def set3dHpositionsFromDirectCoordinates(self, positionLines):
+    def set3dpositionsFromDirectCoordinates(self, positionLines):
         """ Sets the 3D positions of the H atoms in the system. """
-        self._3dHpos = []
-        for line in positionLines[0:self.atomCounts[1]]:
+        self._3dpos = []
+        for line in positionLines[0:]:
             position = line.strip().split()
             position = [float(comp) for comp in position]
             
@@ -261,34 +314,11 @@ class Converter:
             
             z = 0.0
             if old_z > 0:
-                z = self.dC + self.dH
+                z = self.dC
             else:
-                z = -self.dC - self.dH
+                z = -self.dC
             
-            self._3dHpos.append([x, y, z])
-
-    def set3dMpositionsFromDirectCoordinates(self, positionLines):
-        """ Sets the 3D positions of the metal atoms of the system. """
-        self._3dMpos = []
-        for line in positionLines[self.atomCounts[1]:]:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            comp3 = [position[2] * self.lattVec3[0], position[2] * self.lattVec3[1], position[2] * self.lattVec3[2]]
-            
-            old_z = comp1[0] + comp2[0] + comp3[0]
-            x = comp1[1] + comp2[1] + comp3[1]
-            y = comp1[2] + comp2[2] + comp3[2]
-            
-            z = 0.0
-            if old_z > 0:
-                z = self.dC + self.dM
-            else:
-                z = -self.dC - self.dM
-            
-            self._3dMpos.append([x, y, z])
+            self._3dpos.append([x, y, z])
         
     def getLatticeVectors(self):
         """ Returns the lattice vectors of the structure. """
@@ -302,14 +332,15 @@ class Converter:
         """ Returns the list of C positions in the structure. """
         return self._3dCpos
     
-    def getHPositions(self):
+    def getPositions(self):
         """ Returns the list of H positions in the structure. """
-        return self._3dHpos
-    
-    def getMPositions(self):
-        """ Returns the list of M positions in the structure. """
-        return self._3dMpos
+        return self._3dpos
 
     def isPure(self):
         """ Returns true if the structure is a pure structure, false otherwise. """
         return self.pure
+    
+    
+
+
+

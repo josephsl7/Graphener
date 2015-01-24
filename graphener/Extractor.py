@@ -20,6 +20,7 @@ class Extractor:
         self.exStructList = []
         self.startMethod = startMethod
         self.pureMetal = pureMetal
+	self.case = len(atoms[0].split(','))
 
 
     def checkPureInCurrent(self, iterNum, vstructsToStart, vstructsFinish):  #OK
@@ -27,10 +28,11 @@ class Extractor:
         Only called on the first iteration for the firs """
 #        self.exStructList = []
         for iatom in xrange(len(self.atoms)):
-            if not self.contains('1', vstructsToStart[iatom]+vstructsFinish[iatom]):
-                vstructsToStart[iatom].append ('1')
-            if not self.contains(self.pureMetal, vstructsToStart[iatom]+vstructsFinish[iatom]):
-                vstructsToStart[iatom].append (self.pureMetal)
+	    struct = 1
+            for i, nextPureCase in enumerate(range(self.case,0,-1)):
+                if not self.contains(str(struct), vstructsToStart[iatom]+vstructsFinish[iatom]):
+                    vstructsToStart[iatom].append (str(struct))
+		struct = struct + nextPureCase
         return vstructsToStart
 
     def contains(self, struct, alist):

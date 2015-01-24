@@ -24,14 +24,15 @@ class RunVasp:
       
     def linkVaspExec(self):
         """ Copies the vasp executable file to the current working directory. """
+        subprocess.call(['chmod','777', '/fslhome/josephsl/bin/vasp533']) #This makes the file executable
         dirList = self.atoms
         for direc in dirList:
-            subprocess.call(['ln','-s','/fslhome/bch/bin/vasp533',direc + '/vasp533']) 
+            subprocess.call(['ln','-s','/fslhome/josephsl/bin/vasp533',direc + '/vasp533']) 
 
     def fillDirectories(self, vstructsToStart):
         """ Fills all the directories in 'vstructsToStart' with the needed files for VASP to run, namely
             POSCAR, POTCAR, KPOINTS, INCAR, a SLURM job file, and the VASP executable file. """
-        for iatom,atom in enumerate(self.atoms):
+        for iatom, atom in enumerate(self.atoms):
             lastDir = os.getcwd()
             atomDir = lastDir + '/' + atom
             
@@ -40,6 +41,8 @@ class RunVasp:
             for item in vstructsToStart[iatom]:
                 if os.path.isdir(item):
                     structs.append(item)
+
+            elements = atom.split(',')
             
             for struct in structs:
                 structDir = os.path.abspath(struct)
@@ -49,13 +52,39 @@ class RunVasp:
                 poscar = open(structDir + '/POSCAR','r')
                 poscarLines = [line.strip() for line in poscar]
                 poscar.close()
+
+                line = poscarLines[0]
+                present = line[line.find(':')+1:line.find('-')].strip().split()
+
+                potcar = open(structDir + '/POTCAR', 'w')
+
+                atomPotcarDir = atomDir + '/POTCAR_C'
+
+                if os.path.exists(atomPotcarDir):
+                    atomPotcar = open(atomPotcarDir,'r')
+                    atomLines = atomPotcar.readlines()
+                    atomPotcar.close()                    
                 
-                if poscarLines[0].split()[1] == 'H':
-                    subprocess.call(['cp','CH_POTCAR',structDir + '/POTCAR'])
-                elif poscarLines[0].split()[1] == 'M':
-                    subprocess.call(['cp','C' + atom + '_POTCAR',structDir + '/POTCAR'])
+                    for writeline in atomLines:
+                        potcar.write(writeline)
                 else:
-                    subprocess.call(['cp','POTCAR',structDir])            
+                    subprocess.call(['echo','ERROR: Could not find '+ atomPotcarDir + '\'']) 
+
+                for atomNum in present:
+                    atomPotcarDir = atomDir + '/POTCAR_' + elements[int(atomNum)-1]
+
+                    if os.path.exists(atomPotcarDir):
+                        atomPotcar = open(atomPotcarDir,'r')
+                        atomLines = atomPotcar.readlines()
+                        atomPotcar.close()                    
+                
+                        for writeline in atomLines:
+                            potcar.write(writeline)
+                    else:
+                        subprocess.call(['echo','ERROR: Could not find '+ atomPotcarDir + '\'']) 
+                        
+                potcar.close()
+            
             os.chdir(lastDir)
 
     def getCurrentJobIds(self):
@@ -237,40 +266,29 @@ class RunVasp:
         """ Creates a POTCAR file for each atom in the member 'atoms'. Concatenates the 
             individual POTCAR files to make a single POTCAR file for the multi-atom structure. 
             Returns the number of electrons in the metal atom"""
+
         for atom in self.atoms:
-            CPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR"
-            HPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/H/POTCAR"
-            atomPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom + "/POTCAR"
-            if os.path.exists(atomPotcarDir):
-                CPotcar = open(CPotcarDir, 'r')
-                CLines = CPotcar.readlines()
-                CPotcar.close()
-                    
-                HPotcar = open(HPotcarDir, 'r')
-                HLines = HPotcar.readlines()
-                HPotcar.close()
-                    
-                atomPotcar = open(atomPotcarDir,'r')
-                atomLines = atomPotcar.readlines()
-                atomPotcar.close()
-                self.neAtom = int(float(atomLines[1].strip()))                      
-                potcar = open(atom + '/POTCAR', 'w')
-                for line in CLines:
-                    potcar.write(line)
+            elements = atom.split(',')
+            for element in elements:
+                atomPotcarDir = "/fslhome/josephsl/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom + "/POTCAR"
+                if os.path.exists(atomPotcarDir):
+                    atomPotcar = open(atomPotcarDir,'r')
+                    atomLines = atomPotcar.readlines()
+                    atomPotcar.close()
+                    self.neAtom = int(float(atomLines[1].strip()))  
+            
+                    potcar = open(atom + '/POTCAR_' + element, 'w')
+     
+                    for line in atomLines:
+                        potcar.write(line)
+
+                    potcar.close()
                         
-                for line in HLines:
-                    potcar.write(line)
-                    
-                for line in atomLines:
-                    potcar.write(line)
-                        
-                potcar.close()
-                    
-            else:
-                subprocess.call(['echo','ERROR: Could not find a POTCAR file for \'' + atom + '\''])
-                subprocess.call(['echo','Removing POTCAR . . .'])
-                potcar.close()
-                subprocess.call(['rm','POTCAR'])
+                elif element.find('Vc') == -1:
+                    subprocess.call(['echo','ERROR: Could not find a POTCAR file for \'' + element + '\''])
+                    subprocess.call(['echo','Removing POTCAR . . .'])
+                    subprocess.call(['rm','POTCAR'])
+                    return
 
     def makePurePOTCARs(self):
         """ Some of the structures that need to be submitted to VASP for relaxation are what we 
@@ -281,29 +299,20 @@ class RunVasp:
             structure, even if we tell it that there are zero of one of the kinds of atoms.  It 
             needs a POTCAR file that doesn't even mention the element that is not a part of the 
             "pure" structure. This method creates these POTCAR files. """       
-        for atom in self.atoms:
-            atomPotcarDir = "/fslhome/bch/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom
-            purePotcar = open(atom + "/C" + atom + "_POTCAR", "w")                
-            CPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/C/POTCAR", "r")
-            CLines = CPotcar.readlines()
-            CPotcar.close()            
-            atomPotcar = open(atomPotcarDir + "/POTCAR", "r")
-            atomLines = atomPotcar.readlines()
-            atomPotcar.close()            
-            for line in CLines:
-                purePotcar.write(line)           
-            for line in atomLines:
-                purePotcar.write(line)            
-            purePotcar.close()            
-            CHPotcar = open(atom + "/CH_POTCAR", "w")           
-            HPotcar = open("/fslhome/bch/hessgroup/vaspfiles/src/potpaw_PBE/H/POTCAR", "r")
-            HLines = HPotcar.readlines()
-            HPotcar.close()           
-            for line in CLines:
-                CHPotcar.write(line)           
-            for line in HLines:
-                CHPotcar.write(line)            
-            CHPotcar.close()  
+        for atom in self.atomList:
+            atomPotcarDir = "/fslhome/josephsl/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/C"
+            
+            if os.path.isdir(atomPotcarDir):
+                purePotcar = open(atom + "/POTCAR_C", "w")
+                
+                CPotcar = open(atomPotcarDir + "/POTCAR", "r")
+                CLines = CPotcar.readlines()
+                CPotcar.close()
+             
+                for line in CLines:
+                    purePotcar.write(line)
+                
+                purePotcar.close()
         
     def makeRunHexMono(self): #bch all
         topDir = os.getcwd()
