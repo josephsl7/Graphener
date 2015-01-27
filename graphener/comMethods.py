@@ -127,7 +127,7 @@ def outcarWarn(dir):
           and 'The number of bands has been changed' not in lines[i+2]: #this is OK 
             return True
     return False
-    
+  
 def readfile(filepath):
     file1 = open(filepath,'r')
     lines = file1.readlines()

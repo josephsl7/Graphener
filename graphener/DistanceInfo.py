@@ -6,13 +6,23 @@ Created on Aug 20, 2014
 
 from math import sqrt
 from numpy import dot, transpose
-from numpy.linalg.linalg import inv
+from numpy.linalg.linalg import inv, norm
 import os, subprocess
+from comMethods import *
+import StructsToPoscar
 
+def correctz(directvec):
+    '''Translates direct with z positions farther than 0.5 to the cell edge to closer than that'''
+    if directvec[2] > 0.5:
+        directvec[2] -= 1
+    elif directvec[2] < -0.5:
+        directvec[2] += 1
+    return directvec
+    
 
 class DistanceInfo:
 
-    def __init__(self, atoms,pureMetal):
+    def __init__(self, atoms,pureMetal,iteration):
         """ CONSTRUCTOR """
     
         self.atoms = atoms
@@ -25,39 +35,46 @@ class DistanceInfo:
         self.distances = []
         
         self.structureInfo = []
-        self.origVecs = []
-        self.relaxedVecs = []
+        self.atomCounts = [] 
+        self.origLattVecs = [] #all atoms positions
+        self.relaxedLattVecs = [] #all atoms positions
         self.minOrigPositions = []
         self.relaxedPositions = []
         self.pureMetal = pureMetal
+        self.iteration = iteration
         
     def setStructureList(self):
-        atomDir = os.getcwd() + '/' + self.atoms[0]
-        contents = os.listdir(atomDir)
-        unsortedStructs = []
-        for item in contents:
-            if os.path.isdir(atomDir + '/' + item):
-                structDir = atomDir + '/' + item
-                poscar = open(structDir + '/POSCAR', 'r')
-                poscarLines = [line.strip() for line in poscar]
-                poscar.close()
-
-                counts = [int(count) for count in poscarLines[5].split()]
-            
-                concentration = 0.0
-                if poscarLines[0].split()[1] == 'H':
-                    concentration = 0.0
-                elif poscarLines[0].split()[1] == 'M':
-                    concentration = 1.0
-                else:
-                    concentration = float(float(counts[2]) / float(counts[1] + counts[2]))
-                
-                unsortedStructs.append([concentration, item])
+        '''Read finished structure names from vaspHFE.out '''
         
-        unsortedStructs.sort()  # Now it's sorted by concentration
-        
-        for struct in unsortedStructs:
-            self.disStructList.append(struct[1])
+#        
+#        
+#        
+#        atomDir = os.getcwd() + '/' + self.atoms[0]
+#        contents = os.listdir(atomDir)
+#        unsortedStructs = []
+#        for item in contents:
+#            if os.path.isdir(atomDir + '/' + item):
+#                structDir = atomDir + '/' + item
+#                poscar = open(structDir + '/POSCAR', 'r')
+#                poscarLines = [line.strip() for line in poscar]
+#                poscar.close()
+#
+#                counts = [int(count) for count in poscarLines[5].split()]
+#            
+#                concentration = 0.0
+#                if poscarLines[0].split()[1] == 'H':
+#                    concentration = 0.0
+#                elif poscarLines[0].split()[1] == 'M':
+#                    concentration = 1.0
+#                else:
+#                    concentration = float(float(counts[2]) / float(counts[1] + counts[2]))
+#                
+#                unsortedStructs.append([concentration, item])
+#        
+#        unsortedStructs.sort()  # Now it's sorted by concentration
+#        
+#        for struct in unsortedStructs:
+#            self.disStructList.append(struct[1])
     
     def getStructureList(self):
         return self.disStructList
@@ -65,30 +82,32 @@ class DistanceInfo:
     def getatoms(self):
         return self.atoms
     
-    def getOriginalPositions(self, structureDir):
-        # These are going to be in Cartesian coordinates
+    def getOriginalPositions(self, struct):
+        '''These are going to be in Cartesian coordinates. Go back to psuedoPOSCAR because POSCAR
+        might have been overwritten by CONTCAR'''
         
-        fullStructPath = os.path.abspath(structureDir)
-        poscar = open(fullStructPath + '/POSCAR', 'r')
-        poscarLines = poscar.readlines()
-        poscar.close()
-        
-        stringvecs = poscarLines[2:5]
-        stringvecs = [line.strip().split() for line in stringvecs]
-        
-        self.origVecs = []
-        for vec in stringvecs:
+        subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
+        vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
+        toPoscar = StructsToPoscar.structsToPoscar([],[])
+        toPoscar.convertOne(vfile) 
+        subprocess.call(['rm', vfile])         
+        poscarLines = readfile('POSCAR')
+        subprocess.call(['rm', 'POSCAR'])       
+        lattvecs = poscarLines[2:5]
+        lattvecs = [line.strip().split() for line in lattvecs]
+
+        self.origLattVecs = []
+        for vec in lattvecs:
             newvec = [float(comp) for comp in vec]
-            self.origVecs.append(newvec)
-        
+            self.origLattVecs.append(newvec)
         counts = poscarLines[5].strip().split()
-        counts = [int(count) for count in counts]
+        self.atomCounts = [int(count) for count in counts]
         
         self.structureInfo = []
-        self.structureInfo.append(counts[0] / 2)
-        self.structureInfo.append(counts)
+        self.structureInfo.append(self.atomCounts[0] / 2)
+        self.structureInfo.append(self.atomCounts)
     
-        total = sum(counts)
+        total = sum(self.atomCounts)
         positionLines = poscarLines[7:7 + total]
         
         # Convert to Direct coordinates in terms of the !! NEW !! lattice vectors and then back to
@@ -99,7 +118,7 @@ class DistanceInfo:
             newPosition = [float(comp) for comp in newStringPosition]
             
             directs = []
-            r = dot(inv(transpose(self.relaxedVecs)), transpose(newPosition)) # Change to direct coordinates.
+            r = dot(inv(transpose(self.relaxedLattVecs)), transpose(newPosition)) # Change to direct coordinates.
             
             for i in [-1, 0, 1]:
                 for j in [-1, 0, 1]:
@@ -108,7 +127,7 @@ class DistanceInfo:
             
             carts = []
             for pos in directs:
-                rnew = dot(transpose(self.relaxedVecs), transpose(pos)) # Change back to cartesian coordinates.
+                rnew = dot(transpose(self.relaxedLattVecs), transpose(pos)) # Change back to cartesian coordinates.
                 carts.append(rnew)
                 
             positions.append(carts)
@@ -120,22 +139,21 @@ class DistanceInfo:
         self.relaxedPositions = []
         
         fullStructPath = os.path.abspath(structureDir)
-        poscar = open(fullStructPath + '/DOS/CONTCAR','r')
+#        poscar = open(fullStructPath + '/CONTCAR','r')
+        poscar = open(fullStructPath + '/CONTCAR','r')
         poscarLines = poscar.readlines()
         poscar.close()
         
-        stringvecs = poscarLines[2:5]
-        stringvecs = [line.strip().split() for line in stringvecs]
+        lattvecs = poscarLines[2:5]
+        lattvecs = [line.strip().split() for line in lattvecs]
     
-        self.relaxedVecs = []
-        for vec in stringvecs:
+        self.relaxedLattVecs = []
+        for vec in lattvecs:
             newvec = [float(comp) for comp in vec]
-            self.relaxedVecs.append(newvec)
+            self.relaxedLattVecs.append(newvec)
+
         
-        counts = poscarLines[6].strip().split()
-        counts = [int(count) for count in counts]
-        
-        total = sum(counts)
+        total = sum(self.atomCounts)
         positionLines = poscarLines[8:8 + total]
         
         newDirectPositions = []
@@ -146,20 +164,20 @@ class DistanceInfo:
         # Step 1:  Convert to Cartesian coordinates
         for position in newDirectPositions:
             
-            rnew = dot(transpose(self.relaxedVecs), transpose(position))
+            rnew = dot(transpose(self.relaxedLattVecs), transpose(position))
             self.relaxedPositions.append(rnew)
         
         """# Step 2:  Convert to Direct coordinates in terms of the !! OLD !! lattice vectors.
         oldDirPos = []
         for position in newCartPos:
-            rnew = dot(inv(transpose(self.origVecs)), transpose(position))
+            rnew = dot(inv(transpose(self.origLattVecs)), transpose(position))
             oldDirPos.append(rnew)
         
         # Step 3:  Translate all the positions into the parallelepiped defined by the !! OLD !!
         #          lattice vectors.
         for r in oldDirPos:
             eps = 1e-4
-            for i in xrange(3):
+            for i in range(3):
                 while r[i] > 1.0 - eps or r[i] < 0.0 - eps:
                     if r[i] > 1.0 - eps:
                         r[i] = r[i] - 1
@@ -169,37 +187,37 @@ class DistanceInfo:
         # Step 4:  Convert back to Cartesian coordinates.    
         positions = []
         for position in oldDirPos:
-            rnew = dot(transpose(self.origVecs), transpose(position)) # Transform to Cartesian coordinates
+            rnew = dot(transpose(self.origLattVecs), transpose(position)) # Transform to Cartesian coordinates
             positions.append(rnew)
             
         return positions """
     
-    def getDistances(self, origPositions):
-        if len(origPositions) != len(self.relaxedPositions):
-            subprocess.call(['echo','\nERROR:  There are ' + str(len(origPositions)) + ' original positions and ' + str(len(self.relaxedPositions)) + ' relaxed positions.\n'])
+    def getDistances(self):
+        if len(self.origPositions) != len(self.relaxedPositions):
+            subprocess.call(['echo','\nERROR:  There are ' + str(len(self.origPositions)) + ' original positions and ' + str(len(self.relaxedPositions)) + ' relaxed positions.\n'])
             return None 
         else:
             self.minOrigPositions = []
             self.distances = []
             self.inPlaneDistances = []
             self.normalDistances = []
-            for i in xrange(len(origPositions)):
+            for i in range(len(self.origPositions)):
                 xr = self.relaxedPositions[i][0]
                 yr = self.relaxedPositions[i][1]
                 zr = self.relaxedPositions[i][2]
                 
                 trialDistances = []
-                for j in xrange(len(origPositions[i])):
+                for j in range(len(self.origPositions[i])):
                 
-                    xo = origPositions[i][j][0]
-                    yo = origPositions[i][j][1]
-                    zo = origPositions[i][j][2]
+                    xo = self.origPositions[i][j][0]
+                    yo = self.origPositions[i][j][1]
+                    zo = self.origPositions[i][j][2]
                 
                     newDistance = sqrt(pow((xr - xo), 2) + pow((yr - yo), 2) + pow((zr - zo), 2))
                     
                     trialDistances.append(newDistance)
                 
-                position = origPositions[i][self.find(min(trialDistances), trialDistances)]
+                position = self.origPositions[i][self.find(min(trialDistances), trialDistances)]
                 self.minOrigPositions.append(position)
                 
                 inPlaneDistance = sqrt(pow((xr - position[0]), 2) + pow((yr - position[1]), 2))
@@ -213,100 +231,91 @@ class DistanceInfo:
         if len(alist) == 0:
             return -1
         else:
-            for i in xrange(len(alist)):
+            for i in range(len(alist)):
                 if alist[i] == toFind:
                     return i
             
             return -1
     
     def getMCBondingInfo(self, structureDir):
-        [Cindexes, Mcount] = self.getMCIndexes(structureDir)
+        '''Find distances to nearest C atom'''
+        struct = structureDir.split('/')[-1]      
+        contcar = open(structureDir + '/CONTCAR','r')
+        contcarLines = [line.strip() for line in contcar]
+        contcar.close()
         
-        if len(Cindexes) != Mcount:
-            subprocess.call(['echo','ERROR:  Did not retrieve the same number of M atoms and corresponding C atoms.'])
+        
+        nC = self.atomCounts[0]
+        if struct == self.pureMetal:
+            nM = self.atomCounts[1]
         else:
-            contcar = open(structureDir + '/DOS/CONTCAR','r')
-            contcarLines = [line.strip() for line in contcar]
-            contcar.close()
-            
-            counts = [int(count) for count in contcarLines[6].strip().split()]
-            allPositions = contcarLines[8:8 + sum(counts)]
-            
-            Cpos = []
-            for i in Cindexes:
-                stringPos = allPositions[i].split()
-                floatPos = [float(comp) for comp in stringPos]
-                cartPos = dot(transpose(self.relaxedVecs), transpose(floatPos))
-                Cpos.append(cartPos)
-            
-            Mpos = []
-            Mlines = allPositions[-Mcount:]
-            for line in Mlines:
-                position = [float(comp) for comp in line.split()]
-                Mpos.append(position)
-            
-            bondLengths = []
-            for i in xrange(len(Cpos)):
-                trialMpos = []
-                
-                for x in [-1,0,1]:
-                    for y in [-1,0,1]:
-                        for z in [-1,0,1]:
-                            newPos = [Mpos[i][0] + x, Mpos[i][1] + y, Mpos[i][2] + z]
-                            trialMpos.append(dot(transpose(self.relaxedVecs), transpose(newPos)))
-                
-                cx = Cpos[i][0]
-                cy = Cpos[i][1]
-                cz = Cpos[i][2]
-                
-                trialLengths = []
-                for trialPos in trialMpos:
-                    mx = trialPos[0]
-                    my = trialPos[1]
-                    mz = trialPos[2]
-                
-                    length = sqrt(pow((mx - cx), 2) + pow((my - cy), 2) + pow((mz - cz), 2))
-                    trialLengths.append(length)
-                    
-                bondLengths.append(min(trialLengths))
-            
-            return [min(bondLengths), max(bondLengths)]    
+            nM = self.atomCounts[2]
+        allPositions = contcarLines[8:8 + sum(self.atomCounts)]
         
-    def getMCIndexes(self, structureDir):
-        origposcar = open(structureDir + '/POSCAR', 'r')
-        poscarLines = [line.strip() for line in origposcar]
-        origposcar.close()
+        Cpos = zeros((nC,3),dtype = float)
+        for i in range(nC):
+            stringPos = allPositions[i].split()
+            floatPos = [float(comp) for comp in stringPos]
+            floatPos = correctz(floatPos)
+            cartPos = dot(transpose(self.relaxedLattVecs), transpose(floatPos))
+            Cpos[i,:] = cartPos
+        Mpos = zeros((nM,3),dtype = float)
+        Mlines = allPositions[-nM:]
+        for i,line in enumerate(Mlines):
+            position = correctz([float(comp) for comp in line.split()])
+            Mpos[i,:] = dot(transpose(self.relaxedLattVecs), transpose(position)) #convert to cartesian
+#        for i in range(len(Mpos)):
+#            trialMpos = []     D0 WE REALLY NEED COPIES TO TEST???????????????
+#            for x in [-1,0,1]: #making copies in neighboring cells
+#                for y in [-1,0,1]:
+##                    for z in [-1,0,1]:
+#                        z=0
+#                        newPos = [Mpos[i,0] + x, Mpos[i,1] + y, Mpos[i,2] + z]
+#                        trialMpos.append(dot(transpose(self.relaxedLattVecs), transpose(newPos)))        
+        allClosest = []
+        for Mvec in Mpos:
+            trialLengths = []
+            for Cvec in Cpos:
+                trialLengths.append(norm(Mvec-Cvec))
+            allClosest.append(min(trialLengths)) #closest for this M atom   
+        return [min(allClosest), max(allClosest)]    
         
-        counts = poscarLines[5].strip().split()
-        counts = [int(count) for count in counts]
-        
-        Ccount = counts[0]
-        Mcount = 0
-        if structureDir.split('/')[-1] == self.pureMetal:
-            Mcount = counts[1]
-        else:
-            Mcount = counts[2]
-        
-        Clines = poscarLines[7:7 + Ccount]
-        Cpos = [line.split() for line in Clines]
-        
-        Mlines = poscarLines[-Mcount:]
-        Mpos = [line.split() for line in Mlines]
-        
-        Cindexes = []
-        for pos in Mpos:
-            for i in xrange(len(Cpos)):
-                if Cpos[i][0] == pos[0] and Cpos[i][1] == pos[1]:
-                    Cindexes.append(i)
-                    
-        return [Cindexes, Mcount]
+#    def getMCIndexes(self, structureDir):
+#        '''Returns which C atoms match which M atoms in the original POSCAR (because they are on top sites'''
+#        origposcar = open(structureDir + '/POSCAR', 'r')
+#        poscarLines = [line.strip() for line in origposcar]
+#        origposcar.close()
+#        
+#        counts = poscarLines[5].strip().split()
+#        counts = [int(count) for count in counts]
+#        
+#        Ccount = counts[0]
+#        Mcount = 0
+#        if structureDir.split('/')[-1] == self.pureMetal:
+#            Mcount = counts[1]
+#        else:
+#            Mcount = counts[2]
+#        
+#        Clines = poscarLines[7:7 + Ccount]
+#        Cpos = [line.split() for line in Clines]
+#        
+#        Mlines = poscarLines[-Mcount:]
+#        Mpos = [line.split() for line in Mlines]
+#        
+#        Cindexes = []
+#        for pos in Mpos:
+#            for i in range(len(Cpos)):
+#                if Cpos[i][0] == pos[0] and Cpos[i][1] == pos[1]:
+#                    Cindexes.append(i)
+#                    
+#        return [Cindexes, Mcount]
     
     def getBucklingInfo(self, structureDir):
         poscar = open(structureDir + '/POSCAR', 'r')
         poscarLines = [line.strip() for line in poscar]
         poscar.close()
         
-        contcar = open(structureDir + '/DOS/CONTCAR','r')
+        contcar = open(structureDir + '/CONTCAR','r')
         contcarLines = [line.strip() for line in contcar]
         contcar.close()
         
@@ -322,10 +331,11 @@ class DistanceInfo:
         
         newCpos = []
         for line in self.relaxedPositions[:contcarCounts[0]]:
-            newCpos.append(line)
-            
+            newCpos.append(line)    
         NNpairs = self.getNNPairs(oldCpos)
-        
+        print 'NNpairs';print NNpairs
+        print contcarCounts
+        print newCpos        
         buckleDistances = []
         for pair in NNpairs:
             ind1 = pair[0]
@@ -337,12 +347,12 @@ class DistanceInfo:
             zpos1 = pos1[2]
             
             trialPos2 = []
-            pos2Dir = dot(inv(transpose(self.relaxedVecs)), transpose(pos2))
+            pos2Dir = dot(inv(transpose(self.relaxedLattVecs)), transpose(pos2))
             for i in [-1,0,1]:
                 for j in [-1, 0, 1]:
                     for k in [-1, 0, 1]:
                         newPos = [pos2Dir[0] + i, pos2Dir[1] + j, pos2Dir[2] + k]
-                        newCartPos = dot(transpose(self.relaxedVecs), transpose(newPos))
+                        newCartPos = dot(transpose(self.relaxedLattVecs), transpose(newPos))
                         trialPos2.append(newCartPos)
             
             trialDistances = []
@@ -352,15 +362,14 @@ class DistanceInfo:
                 distance = abs(zpos1 - zpos2)
                 trialDistances.append(distance)
             
-            buckleDistances.append(min(trialDistances))
-        
+            buckleDistances.append(min(trialDistances))       
         return sum(buckleDistances) / len(buckleDistances)
     
     def getNNPairs(self, Cpos):
         eps = 1e-4
         pairs = []
-        for i in xrange(len(Cpos)):
-            for j in xrange(len(Cpos)):
+        for i in range(len(Cpos)):
+            for j in range(len(Cpos)):
                 if i != j:
                     d = self.distance(Cpos[i], Cpos[j])
                     if d >= 1.42085899 - eps and d <= 1.42085899 + eps and not self.NNPairExists([i,j], pairs):
@@ -409,9 +418,8 @@ class DistanceInfo:
         structName = fullpath.split('/')[-1]
         
         self.getRelaxedPositions(structureDir)
-        origPositions = self.getOriginalPositions(structureDir)
-        
-        self.getDistances(origPositions)
+        self.origPositions = self.getOriginalPositions(structName)   
+        self.getDistances()
         
         outfile.write("*************************************************\n")
         outfile.write("      DISTANCE INFO FOR STRUCTURE " + structName + "\n")
@@ -429,7 +437,7 @@ class DistanceInfo:
             Mnum = self.structureInfo[1][2]
             concentration = float(float(Mnum) / float(Hnum + Mnum))
         
-        outfile.write("Concentration [M / (H + M)]: " + str(concentration) + "\n\n")
+        outfile.write("Concentration [x = M / (H + M)]: " + str(concentration) + "\n\n")
         
         rmsDistance = self.getRMSDistance()
         outfile.write("RMS distance moved in relaxation: " + str(rmsDistance) + "\n\n")
@@ -450,7 +458,7 @@ class DistanceInfo:
         outfile.write("Average buckling distance: " + str(aveBuckle) + "\n")
         
         outfile.write("\nOriginal Positions:\t\t\t\tRelaxedPositions:\n")
-        for i in xrange(len(self.minOrigPositions)):
+        for i in range(len(self.minOrigPositions)):
             o = self.minOrigPositions[i]
             r = self.relaxedPositions[i]
             outfile.write("%12.8f %12.8f %12.8f\t\t%12.8f %12.8f %12.8f\n" % (o[0], o[1], o[2], r[0], r[1], r[2]))
@@ -462,7 +470,7 @@ class DistanceInfo:
         
         outfile = open('analysis/distance_summary.csv','w')
         
-        outfile.write("Structure, vol. factor, M / (M + H), d - rms, Max d - para, Max d - perp, Min M - C, Max M - C, Ave Buckle\n")
+        outfile.write("Structure, vol. factor, M / (M + H), moved_rms, Max moved_para, Max moved_perp, Min d_MC, Max d_MC, Ave Buckle dz\n")
         
         for atom in self.atoms:
             outfile.write("\n")
@@ -504,33 +512,55 @@ class DistanceInfo:
                 subprocess.call(['echo','ERROR:  There is no directory ' + atomDir])
                 
         outfile.close()
+    def getStructList(self,atomDir):
+        structList = []
+        flines = readfile(atomDir + '/gss/vaspFE_{}.out'.format(self.iteration))
+        for line in flines:
+            structList.append(line.split()[0])
+        return structList
 
     def getDistanceInfo(self):
         topDir = os.getcwd()
         for atom in self.getatoms():
             atomDir = topDir + '/' + atom
+            structList = self.getStructList(atomDir)
             if os.path.isdir(atomDir):
                 subprocess.call(['echo','********************'])
                 subprocess.call(['echo','    ATOM ' + atom])
                 subprocess.call(['echo','********************'])
                 os.chdir(atomDir)
-            
-                for structure in self.disStructList:
+                for structure in structList:
+                    print structure
                     structDir = atomDir + '/' + structure
-                    if os.path.isdir(structDir):
-                        DOSdir = structDir + '/DOS/'
-                        if os.path.isdir(DOSdir):
-                            subprocess.call(['echo','Working on structure ' + structure])
-                            self.writeInfoToFile(structDir)
-                        else:
-                            subprocess.call(['echo','Structure ' + structure + ' did not converge. Skipping. . .'])
-                    else:
-                        subprocess.call(['echo','\nERROR: There is no directory ' + structDir + '\n'])
+                    if structure =='447':
+                        self.writeInfoToFile(structDir)
                 os.chdir(topDir)
             else:
                 subprocess.call(['echo','\nERROR: There is no directory ' + atomDir + '\n'])
+            
+#                for structure in structList:
+#                    structDir = atomDir + '/' + structure
+#                    if os.path.isdir(structDir):
+#                        DOSdir = structDir + '/DOS/'
+#                        if os.path.isdir(DOSdir):
+#                            subprocess.call(['echo','Working on structure ' + structure])
+#                            self.writeInfoToFile(structDir)
+#                        else:
+#                            subprocess.call(['echo','Structure ' + structure + ' did not converge. Skipping. . .'])
+#                    else:
+#                        subprocess.call(['echo','\nERROR: There is no directory ' + structDir + '\n'])
+#                os.chdir(topDir)
+#            else:
+#                subprocess.call(['echo','\nERROR: There is no directory ' + atomDir + '\n'])
 
-        self.exportToCSV()
+        self.exportToCSV()        
+
+    def plotDisplPara(self):
+        '''Plot the vaspHFE vs energy, but make the marker color reflect the max distance moved parallel to the plane.'''
+        
+#        gnuplot> set view map
+#        gnuplot> set pm3d map
+#        gnuplot> splot "test_map.dat" with points palette pt 9
 
 
 

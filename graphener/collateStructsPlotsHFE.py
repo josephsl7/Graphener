@@ -19,7 +19,7 @@ for item in os.listdir(maindir):
 print atoms
 NInPlot = 400
 iteration = 4
-minPrior = 0.1
+minPrior = 0.01
 collateStructsHFE(atoms,minPrior,NInPlot,iteration)  
 
 print "Done"

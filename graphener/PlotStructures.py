@@ -11,7 +11,7 @@ def collateStructsConc(atoms,minPrior,iteration):
     structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder.
     CAUTION:  ONLY UNCLE DATA IS USED TO SELECT PLOTS AND FOR THE LABELS.  NEED TO FIX THIS BY USING VASP DATA'''
     lastDir = os.getcwd()         
-    nRow = 5  # number of plots in row
+    nRow = 4  # number of plots in row
     width = 500
     height  = 500
     iImage = 0
@@ -57,7 +57,7 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
     Calculates an error between vasp and uncle HFEs for each plot, and globally for these selected structures'''
     
     lastDir = os.getcwd()         
-    nRow = 5  # number of plots in row
+    nRow = 4  # number of plots in row
     width = 500
     height  = 500
     iImage = 0
@@ -109,7 +109,7 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
 #                    orderErr = errOrder(vcdata,ucdata,istruct)
                     orderErr = errOrderConc(vcdata,istruct)
     #                subprocess.call(['echo','Found plot for {}'.format(struct)])
-                    label1 = '  <b>{}</b>  {}: <b>vHFE</b> {},<b>vFE</b> {}, <b>OrderErr</b> {}'\
+                    label1 = '  <b>{}</b>  {}: <b>vHFE</b> {}, <b>vFE</b> {}, <b>OrderErr</b> {}'\
                         .format(struct,atom,round(vcdata[istruct]['vHFE'],3),round(vcdata[istruct]['vFE'],3),\
                                 round(orderErr,4))           
                     label2 = '  <b>uPrior</b> {}, <b>Conc</b> {}'\
@@ -118,11 +118,11 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
                     iImage += 1 
                     if mod(iImage,nRow) == 0: 
                         collatefile.write('</tr>\n<tr>\n') #end of row, begin new
-                    err += cdata[istruct]['fiterr']**2
-                    err2 += cdata[istruct]['fiterr']
+                    err += vcdata[istruct]['fiterr']**2
+                    err2 += vcdata[istruct]['fiterr']
                     errOr += orderErr
                 else:
-                    subprocess.call(['echo','No plot found for structure {}, prior {}'.format(struct,cdata[istruct]['prior'])])
+                    subprocess.call(['echo','No plot found for structure {}, prior {}'.format(struct,vcdata[istruct]['prior'])])
             istruct += 1
         err = sqrt(err/iImage)
         err2 = err2/iImage
