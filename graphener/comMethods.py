@@ -2,6 +2,36 @@ import os, subprocess,sys,re,time
 from numpy import mod, floor,zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete
 from sched import scheduler
 
+def collatePlotsGSS(self,plotType,iteration):  
+    '''Creates an HTML page with the plots and labels, from plots in /gss
+    plotType: first part of plot file name'''
+    lastDir = os.getcwd()
+    plotsDir = lastDir + '/plots'
+    if not os.path.exists(plotsDir):
+        subprocess.call(['mkdir',plotsDir]) 
+    subDir = plotsDir + '/plots{}'.format(plotType)
+    if not os.path.exists(subDir):
+        subprocess.call(['mkdir',subDir])        
+    nRow = 5  # number of plots in row
+    width = 1350
+    height  = 900
+    collatefile  = open(subDir +'/plots{}_{}.htm'.format(plotType,iteration),'w')
+    collatefile.write(' <html>\n <HEAD>\n<TITLE> {} </TITLE>\n</HEAD>\n'.format(plotType))
+    collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+    iImage = 0
+    for atom in self.atoms:
+        path =  '../../{}/gss/{}_{}.png'.format(atom,plotType,iteration)
+        iImage += 1  
+        atomtext = atom.split('_')[0] 
+        name = '{}{}.png'.format(atomtext,plotType)       
+#            subprocess.call(['cp',path,subDir + '/{}'.format(name)])
+        collatefile.write('<td><p><img src="{}" width "{}" height "{}" ></p><p>{}</p></td>\n'.format(name,width,height,''))#Image and element under it
+        if mod(iImage,nRow) == 0: 
+            collatefile.write('</tr>\n<tr>\n') #end of row, begin new
+    collatefile.write(' </tr></table> \n') #end of row and table                
+    collatefile.write(' </BODY> </html>') #end of file 
+    collatefile.close()  
+
 def convergeCheck(folder, NSW):
     """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
         ionic relaxation step) is less than NSW."""

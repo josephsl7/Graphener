@@ -5,22 +5,21 @@ Created on Aug 20, 2014
 '''
 
 from numpy import sqrt, array, mod,dot, transpose, std, size, zeros, where, int32
-from numpy.linalg.linalg import inv, norm
+from numpy.linalg.linalg import inv, norm, det
 import os, subprocess,sys
 from comMethods import readfile,trimSmall
 import StructsToPoscar
 import matplotlib.pyplot as plt
+
   
 class DistanceInfo:
-    from comMethods import setAtomCounts
-    def __init__(self, atoms,pureMetal,iteration):
+    from comMethods import setAtomCounts,collatePlotsGSS
+    def __init__(self, atoms,pureMetal,iteration,plotOnly):
         """ CONSTRUCTOR """
     
         self.atoms = atoms
-    
-        self.disStructList = []
-#        self.setStructureList()
-        
+        self.plotOnly = plotOnly  
+        self.disStructList = []        
         self.inPlaneMove = []
         self.normalMove = []
         self.totalMove = []
@@ -39,12 +38,12 @@ class DistanceInfo:
         self.relaxCPos = []
         self.relaxMPos = []
         self.relaxHPos = []
+        self.CCexpansion = 0.0
         self.origLattVecs = None 
         self.relaxLattVecs = None
         self.indexLVz = None
         self.hfe = []
         self.output = []
-
         self.pureMetal = pureMetal
         self.iteration = iteration
         self.struct = ''
@@ -104,6 +103,10 @@ class DistanceInfo:
         self.origCPos = self.origPos[:self.nC]
         self.origHPos = self.origPos[self.nC:self.nC+self.nH]
         self.origMPos = self.origPos[:-self.nM]
+        #find C-C expansion vs starting lattice (%)
+        self.CCexpansion = 100*(sqrt(abs(det(self.relaxLattVecs)/det(self.origLattVecs)\
+                        *self.origLattVecs[self.indexLVz,2]/self.relaxLattVecs[self.indexLVz,2]))\
+                        -1.0)
         
     def atomType(self,i):
         if 0 <= i < self.nC:
@@ -229,12 +232,12 @@ class DistanceInfo:
         
         outfile.write("Average buckling distance: " + str(self.buckleAvg) + "\n")
         
-        outfile.write("\nOriginal Pos : \t\t\t\t Relaxed Position: \t\t\t Movement\t\t delta-x \t delta-y \t delta-z\n")
+        outfile.write("\nOriginal Pos : \t\t\t Relaxed Position: \t\t Movement\t\t delta-x \t delta-y \t delta-z\n")
         outfile.write("(mapped to new cell)\n")
         for i in range(len(self.origPos)):
             o = self.origPos[i,:]
             r = self.relaxPos[i,:]
-            outfile.write("%s  %7.3f %7.3f %7.3f \t\t %7.3f %7.3f %7.3f \t\t %7.3f \t\t %7.3f \t %7.3f \t %7.3f\n" \
+            outfile.write("%s  %7.3f %7.3f %7.3f \t %7.3f %7.3f %7.3f \t %7.3f \t\t %7.3f \t %7.3f \t %7.3f\n" \
                           % (self.atomType(i), o[0], o[1], o[2], r[0], r[1], r[2],\
                               self.moveTotal[i], self.displace[i,0], self.displace[i,1], self.displace[i,2]))        
         outfile.close()
@@ -243,8 +246,8 @@ class DistanceInfo:
         # "Structure, vol, conc, moved_rms, Max moved_para, Max moved_perp, Min d_MC, Max d_MC, Ave Buckle dz\n")
 #        HFEindex = where(self.hfe['struct']==self.struct)
         HFEindex = self.hfe['struct'].tolist().index(int(self.struct))
-        csvfile.write("%s, %d, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f\n" %
-                      (self.struct, self.volFactor , self.conc , self.hfe[HFEindex]['HFE'], std(self.moveTotal), \
+        csvfile.write("%s, %d, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f\n" %
+                      (self.struct, self.volFactor , self.conc , self.hfe[HFEindex]['HFE'], self.CCexpansion, std(self.moveTotal), \
                        max(self.moveInPlane), max(self.moveMInPlane), max(self.moveHInPlane), max(self.moveNormal), self.minMC, self.maxMC, self.buckleAvg))
 
     def getStructList(self,atomDir):
@@ -282,33 +285,25 @@ class DistanceInfo:
 
 
     def plotHFEMove(self,atomDir,moveType):
-        '''Plot the vaspHFE vs energy, but make the marker color reflect the parameter moveType, 
-        which is a string that is part of the movement.csv header, the substrings of which 
-        make up self.output'''
+        '''Plot the vaspHFE vs energy, and make the marker color reflect the parameter moveType, 
+        which is a string that is part of the movement.csv header, the substrings of which are
+        listed in self.output'''
         lines = readfile(atomDir + '/movement/movement.csv')
-        print lines, atomDir + '/movement/movement.csv'
-        print readfile('/panfs/pan.fsl.byu.edu/scr/usr/81/bch/top.tm_row1.v15/Cr_pv/movement/movement.csv')
- 
         struct = []
         conc = []
         HFE = []
         move = []
         imove = self.output.index(moveType)
         for line in lines[1:]:
-            print line
             struct.append(float(line.split(',')[0]))
             conc.append(float(line.split(',')[2]))
             HFE.append(float(line.split(',')[3]))
             move.append(float(line.split(',')[imove]))
-        
-        print 'imove',imove
-        print move
-        print conc
         #plot
         fig = plt.figure()
-        plt.xlabel('{} concentration x'.format(atomDir.split('/')[0]))
+        plt.xlabel('{} concentration x'.format(atomDir.split('/')[-1]))
         plt.ylabel('Energy (eV)')
-        plt.title('Formation energy colored by movement')
+        plt.title('Formation energy colored by {}'.format(moveType))
 #        plt.scatter(conc, HFE, c=move , cmap='autumn')
         plt.scatter(conc, HFE, c=move , cmap='jet')
         plt.colorbar()
@@ -317,23 +312,23 @@ class DistanceInfo:
         
     def getDistanceInfo(self):
         topDir = os.getcwd()
-        for atom in self.atoms:
-            atomDir = topDir + '/' + atom
-            moveDir = atomDir + '/movement'
-            if not os.path.exists(moveDir): os.mkdir(moveDir)
-            csvfile = open(moveDir +'/movement.csv','w')
-            header =  "Structure, vol, conc, HFE, moved_rms, Max moved_para, Max M moved_para, Max H moved_para, Max moved_perp, Min d_MC, Max d_MC, Ave Buckle dz"       
-            csvfile.write(header + "\n")
-            self.output = [item.strip() for item in header.split(',')]
-            structList = self.getStructList(atomDir)
-            if os.path.isdir(atomDir):
+        header =  "Structure, vol, conc, HFE, CC-exp, moved_rms, max moved_para, Max M moved_para, Max H moved_para, Max moved_perp, Min d_MC, Max d_MC, Ave Buckle dz"       
+        self.output = [item.strip() for item in header.split(',')]
+        if not self.plotOnly:
+            for atom in self.atoms:
+                atomDir = topDir + '/' + atom
+                moveDir = atomDir + '/movement'
+                if not os.path.exists(moveDir): os.mkdir(moveDir)
+                csvfile = open(moveDir +'/movement.csv','w')
+                csvfile.write(header + "\n")
+                structList = self.getStructList(atomDir)
                 subprocess.call(['echo','********************'])
-                subprocess.call(['echo','    ATOM ' + atom])
+                subprocess.call(['echo','    Movement analysis, ' + atom])
                 subprocess.call(['echo','********************'])
                 os.chdir(atomDir)
-                for istruct, structure in enumerate(structList[:3]):
+                for istruct, structure in enumerate(structList):
                     if mod(istruct+1,100) == 0 or istruct+1 ==len(structList): subprocess.call(['echo','\tAnalyzed {} of {} structures for {}'.format(istruct+1,len(structList),atom)])
-                    print structure
+    #                print structure
                     self.struct = structure
                     self.structDir = atomDir + '/' + structure
                     self.getRelaxPos()
@@ -343,14 +338,17 @@ class DistanceInfo:
                     self.getBucklingInfo()
                     self.writeInfoToFile()
                     self.writeToCSV(csvfile)
-                self.plotHFEMove(atomDir,'Max M moved_para')
-                os.chdir(topDir)
-                
-            else:
-                subprocess.call(['echo','\nERROR: There is no directory ' + atomDir + '\n'])
-            csvfile.close()
-
-
+                csvfile.close()
+        for atom in self.atoms:
+            subprocess.call(['echo','********************'])
+            subprocess.call(['echo','    Movement plots, ' + atom])
+            subprocess.call(['echo','********************'])
+            atomDir = topDir + '/' + atom 
+            plots = ['Max M moved_para','Max H moved_para','Max d_MC','CC-exp'] 
+            for plot in plots:      
+                self.plotHFEMove(atomDir,plot)
+                self.collatePlotsGSS(plot,self.iteration)
+            os.chdir(topDir)
 
 
 
