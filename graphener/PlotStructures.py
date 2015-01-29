@@ -467,8 +467,6 @@ class PlotGraphene:
             self.figure.gca().add_artist(self.Mcirclelist[i])
         
     def fillByVecs(self, num):
-#        print 'vec1',self.lattVec1
-#        print 'vec2',self.lattVec2
         if num == 0:
             self.periodicByVecs(0, 0)
         else:

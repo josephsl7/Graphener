@@ -328,6 +328,11 @@ def reportFinished(jobIds):
                                                     # job id" error because the job is no
     return True                                     # longer on the supercomputer.  
 
+def trimSmall(list_mat):
+    low_values_indices = abs(list_mat) < 1.0e-3
+    list_mat[low_values_indices] = 0.0
+    return list_mat
+
 def contains(self, struct, alist):
     """ Returns True if the list 'alist' contains the structure 'struct', False otherwise. """
     if len(alist) <= 0:
