@@ -4,9 +4,10 @@ Created on Aug 20, 2014
 
 '''
 
-from numpy import sqrt, array, mod,dot, transpose, std, size, zeros, where, int32
+from numpy import sqrt, array, mod,dot, transpose, std, size, zeros, where, int32, mean
 from numpy.linalg.linalg import inv, norm, det
 import os, subprocess,sys
+from copy import deepcopy
 from comMethods import readfile,trimSmall
 import StructsToPoscar
 import matplotlib.pyplot as plt
@@ -165,7 +166,8 @@ class DistanceInfo:
             
     def getMCBondingInfo(self):
         '''Find distances to nearest C atom''' 
-        allClosest = []         
+        allClosest = [] 
+        if self.struct ==1: print '1 M pos',self.relaxMPos        
         for Mvec in self.relaxMPos:
             trialLengths = []
             for Cvec in self.relaxCPos:
@@ -222,6 +224,8 @@ class DistanceInfo:
         outfile.write("Maximum distance moved perpendicular to the plane: " + str(max(self.moveNormal)) + "\n\n")
         
         if self.struct == '1':
+            self.minMC = 0.0
+            self.maxMC = 0.0
             outfile.write("Minimum M-C bond length: NONE \n\n")
             outfile.write("Maximum M-C bond length: NONE \n\n")
         else:
@@ -289,16 +293,22 @@ class DistanceInfo:
         which is a string that is part of the movement.csv header, the substrings of which are
         listed in self.output'''
         lines = readfile(atomDir + '/movement/movement.csv')
-        struct = []
+        structs = []
         conc = []
         HFE = []
         move = []
         imove = self.output.index(moveType)
         for line in lines[1:]:
-            struct.append(float(line.split(',')[0]))
+            structure = int(line.split(',')[0])
+            structs.append(structure)
             conc.append(float(line.split(',')[2]))
             HFE.append(float(line.split(',')[3]))
             move.append(float(line.split(',')[imove]))
+        if 1 in structs and moveType in ['Min d_MC','Max d_MC']: #to keep pure H structure with zero M from setting the scale on the colorbar    
+            print move[structs.index(1)]
+            movetemp = deepcopy(move)
+            movetemp.pop(structs.index(1))
+            move[structs.index(1)] = min(movetemp)
         #plot
         fig = plt.figure()
         plt.xlabel('{} concentration x'.format(atomDir.split('/')[-1]))
@@ -307,6 +317,8 @@ class DistanceInfo:
 #        plt.scatter(conc, HFE, c=move , cmap='autumn')
         plt.scatter(conc, HFE, c=move , cmap='jet')
         plt.colorbar()
+        plt.xlim(0, 1.0)
+        plt.ylim(plt.ylim()[0], 2.0)
         plt.show()
         fig.savefig(atomDir + '/gss/HFE_{}_{}'.format(moveType.replace(' ','_',),self.iteration))
         
@@ -322,9 +334,9 @@ class DistanceInfo:
                 csvfile = open(moveDir +'/movement.csv','w')
                 csvfile.write(header + "\n")
                 structList = self.getStructList(atomDir)
-                subprocess.call(['echo','********************'])
+                subprocess.call(['echo','************************************'])
                 subprocess.call(['echo','    Movement analysis, ' + atom])
-                subprocess.call(['echo','********************'])
+                subprocess.call(['echo','************************************'])
                 os.chdir(atomDir)
                 for istruct, structure in enumerate(structList):
                     if mod(istruct+1,100) == 0 or istruct+1 ==len(structList): subprocess.call(['echo','\tAnalyzed {} of {} structures for {}'.format(istruct+1,len(structList),atom)])
@@ -340,14 +352,14 @@ class DistanceInfo:
                     self.writeToCSV(csvfile)
                 csvfile.close()
         for atom in self.atoms:
-            subprocess.call(['echo','********************'])
+            subprocess.call(['echo','****************************'])
             subprocess.call(['echo','    Movement plots, ' + atom])
-            subprocess.call(['echo','********************'])
+            subprocess.call(['echo','****************************'])
             atomDir = topDir + '/' + atom 
             plots = ['Max M moved_para','Max H moved_para','Max d_MC','CC-exp'] 
             for plot in plots:      
                 self.plotHFEMove(atomDir,plot)
-                self.collatePlotsGSS(plot,self.iteration)
+                self.collatePlotsGSS('HFE_'+ plot.replace(' ','_',),self.iteration)
             os.chdir(topDir)
 
 
