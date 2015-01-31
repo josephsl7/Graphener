@@ -124,16 +124,18 @@ def getSteps(folder):
 def hexMonolayerEnergies(self,dir1,iteration): 
     file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
     self.hexE = {}
+    self.hexE['Vc'] = 0.0
     if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
     for iatom,atom in enumerate(self.atoms):
         for element in atom.split(','):
-            dir2 = dir1 + '/hex_monolayer_refs'+'/'+element
-            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(dir2): #finalDir
-                if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(element,self.getEnergy(dir2))])
-                file.write('{} monolayer (per atom): {:8.4f} \n'.format(element,self.getEnergy(dir2)))
-                self.hexE[element] = self.getEnergy(dir2) 
-            else:
-                file.write('{} monolayer not converged \n'.format(element))
+            if element.find('Vc') == -1:
+                dir2 = dir1 + '/hex_monolayer_refs'+'/'+element
+                if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(dir2): #finalDir
+                    if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(element,self.getEnergy(dir2))])
+                    file.write('{} monolayer (per atom): {:8.4f} \n'.format(element,self.getEnergy(dir2)))
+                    self.hexE[element] = self.getEnergy(dir2) 
+                else:
+                    file.write('{} monolayer not converged \n'.format(element))
     os.chdir(dir1)  
 
 def isequal(x,y):
@@ -228,15 +230,17 @@ def setEnergy(self, directory):
 
 def singleAtomsEnergies(self,dir1,iteration): 
     self.singleE = {}
+    self.singleE['Vc'] = 0.0
     if iteration == 1: subprocess.call(['echo', '\nReading single atom energies\n'])
     file = open(dir1 +'/single_atoms/single_atom_energies','w')
     for iatom,atom in enumerate(self.atoms):
         for element in atom.split(','):
-            dir2 = dir1 + '/single_atoms'+'/'+element
-            if self.electronicConvergeFinish(dir2): 
-                if iteration == 1: subprocess.call(['echo', 'Energy of {} atom: {:8.4f} \n'.format(element,self.getEnergy(dir2))])
-                file.write('{} atom: {:12.8f} \n'.format(element,self.getEnergy(dir2)))
-                self.singleE[element] = self.getEnergy(dir2)
+            if element.find('Vc') == -1:
+                dir2 = dir1 + '/single_atoms'+'/'+element
+                if self.electronicConvergeFinish(dir2): 
+                    if iteration == 1: subprocess.call(['echo', 'Energy of {} atom: {:8.4f} \n'.format(element,self.getEnergy(dir2))])
+                    file.write('{} atom: {:12.8f} \n'.format(element,self.getEnergy(dir2)))
+                    self.singleE[element] = self.getEnergy(dir2)
     file.close()  
     os.chdir(dir1)      
 
