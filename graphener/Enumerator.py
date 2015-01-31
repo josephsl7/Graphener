@@ -207,7 +207,8 @@ class Enumerator:
         os.chdir(lastDir + '/enum')
         #Run the smallest iid job possible to calculate enum_PI_matrix.out.  All the atoms need it.
         subprocess.call(['echo','\nCalculating enum_PI_matrix.out\n']) 
-        subprocess.call(['rm', 'enum_PI_matrix.out'])        
+        if os.path.exists('enum_PI_matrix.out'):
+            subprocess.call(['rm', 'enum_PI_matrix.out'])        
         subprocess.call([self.uncleExec, '42', '2'], stdout=self.uncleOut) 
         os.chdir(lastDir)
 

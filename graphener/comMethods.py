@@ -47,30 +47,34 @@ def getNSW(dir):
     else:
         return 1
 
-def getPureEs(self,iatom):
+def getPureEs(self, iatom):
     lastDir = os.getcwd()
     dir = lastDir + '/' + self.atoms[iatom]
     os.chdir(dir)
-    pureHdir =  dir + '/1'
-    pureMdir =  dir + '/' + self.pureMetal
+
+    pureEnergies = []
+    pureStructList = []
+
+    struct = 1
+    for i, nextPureCase in enumerate(range(self.case, 0, -1)):
+        pureStructList.append(str(struct))
+	struct = struct + nextPureCase
+
+    for i, iDir in enumerate(pureStructList):
+        pureDir = dir + '/' + iDir
     
-    if os.path.exists(pureHdir):
-        self.setAtomCounts(pureHdir)
-        self.setEnergy(pureHdir)
-        self.pureHenergy = float(self.energy)
-        subprocess.call(['echo','Pure H energy: {}'.format(self.pureHenergy) ]) 
-    else:
-        subprocess.call(['echo','Missing pure H energy folder'])
-    if os.path.exists(pureMdir):        
-        self.setAtomCounts(pureMdir)
-        self.setEnergy(pureMdir)
-        self.pureMenergy = float(self.energy)
-        subprocess.call(['echo','Pure M energy: {}'.format(self.pureMenergy) ]) 
-    else:
-        subprocess.call(['echo','Missing pure M energy folder']) 
+        if os.path.exists(pureHdir):
+            self.setAtomCounts(pureDir)
+            self.setEnergy(pureDir)
+            self.pureEnergies.append(float(self.energy))
+            subprocess.call(['echo','Pure ' + self.atoms[iatom].split(',')[i] +' energy: {}'.format(self.energy) ]) 
+        else:
+            subprocess.call(['echo','Missing pure ' + self.atoms[iatom].split(',')[i] + ' energy folder'])
+
 #                    if etest != 999999:
 #                        self.pureMenergy = etest
 #                    else:
+    self.pureEnergies = pureEnergies
     os.chdir(lastDir)
 
 def getSteps(folder):
@@ -92,16 +96,17 @@ def getSteps(folder):
 
 def hexMonolayerEnergies(self,dir1,iteration): 
     file = open(dir1 +'/hex_monolayer_refs/hex_energies','w')
-    self.hexE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
+    self.hexE = {}
     if iteration == 1: subprocess.call(['echo', '\nReading hexagonal monolayer energies\n'])
     for iatom,atom in enumerate(self.atoms):
-        dir2 = dir1 + '/hex_monolayer_refs'+'/'+atom
-        if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(dir2): #finalDir
-            if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(atom,self.getEnergy(dir2))])
-            file.write('{} monolayer (per atom): {:8.4f} \n'.format(atom,self.getEnergy(dir2)))
-            self.hexE[iatom] = self.getEnergy(dir2) 
-        else:
-            file.write('{} monolayer not converged \n'.format(atom))
+        for element in atom.split(','):
+            dir2 = dir1 + '/hex_monolayer_refs'+'/'+element
+            if finishCheck(dir2) and convergeCheck(dir2, getNSW(dir2)) and energyDropCheck(dir2): #finalDir
+                if iteration == 1: subprocess.call(['echo','{} monolayer (per atom): {:8.4f} '.format(element,self.getEnergy(dir2))])
+                file.write('{} monolayer (per atom): {:8.4f} \n'.format(element,self.getEnergy(dir2)))
+                self.hexE[element] = self.getEnergy(dir2) 
+            else:
+                file.write('{} monolayer not converged \n'.format(element))
     os.chdir(dir1)  
 
 def isequal(x,y):
@@ -140,33 +145,45 @@ def writefile(lines,filepath): #need to have \n's inserted already
     file1.close()
     return
             
-def setAtomCounts(self,poscarDir):
+def setAtomCounts(self, poscarDir):
     """ Retrieves the number of C, H and M atoms from the POSCAR file and sets 
         the corresponding members. 
         Also fixes "new" POSCAR/CONTCAR format (comes from CONTCAR) back to old for UNCLE use (removes the 6th line if it's text """
     self.atomCounts = []
+
+    self.vacancyNum = -1
+    self.vacancies = 0
+
     fixPOSCAR = False
     poscarLines = readfile(poscarDir + '/POSCAR')
     counts = poscarLines[5].strip().split() 
+
+    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
+    countnum = 1
+
     if not counts[0][0].isdigit(): # then we have the "new" POSCAR format that gives the atom types in text on line 6 (5-python)
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
-    if len(counts) == 3:
-        self.atomCounts.append(int(counts[0]))
-        self.atomCounts.append(int(counts[1]))
-        self.atomCounts.append(int(counts[2]))
-    elif len(counts) == 2:
-        self.atomCounts.append(int(counts[0]))
-        if poscarLines[0].split()[1] == 'H':
-            self.atomCounts.append(int(counts[1]))
+
+    for i in range(self.case):
+        if present.find(str(i+1)) != -1:
+            self.atomCounts.append(int(counts[countnum]))
+            countnum = countnum + 1
+        else:
             self.atomCounts.append(0)
-        elif poscarLines[0].split()[1] == 'M':
-            self.atomCounts.append(0)
-            self.atomCounts.append(int(counts[1]))
+
+    if poscarLines[0].find('Vacancies') != -1:
+        elements = poscarDir.strip().split('/')[-2].split(',')
+        for i, element in enumerate(elements):
+            if element.find('Vc') != -1:
+                self.vacancyNum = i
+        self.vacancies = int(poscarLines[0].strip().split()[-1])
+        self.atomCounts[self.vacancyNum] = self.vacancies
+
     natoms = sum(self.atomCounts)
     if fixPOSCAR:
         del(poscarLines[5])
-        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want          
+        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want         
 
 def setEnergy(self, directory):  
     """ Retrieves the energy of the structure from the OSZICAR file and sets the corresponding 
@@ -183,22 +200,23 @@ def setEnergy(self, directory):
     self.energy = str(peratom)
 
 def singleAtomsEnergies(self,dir1,iteration): 
-    self.singleE = zeros(len(self.atoms),dtype = float) +100  #default to large number so can tell if not read
+    self.singleE = {}
     if iteration == 1: subprocess.call(['echo', '\nReading single atom energies\n'])
     file = open(dir1 +'/single_atoms/single_atom_energies','w')
     for iatom,atom in enumerate(self.atoms):
-        dir2 = dir1 + '/single_atoms'+'/'+atom
-        if self.electronicConvergeFinish(dir2): 
-            if iteration == 1: subprocess.call(['echo', 'Energy of {} atom: {:8.4f} \n'.format(atom,self.getEnergy(dir2))])
-            file.write('{} atom: {:12.8f} \n'.format(atom,self.getEnergy(dir2)))
-            self.singleE[iatom] = self.getEnergy(dir2)
+        for element in atom.split(','):
+            dir2 = dir1 + '/single_atoms'+'/'+element
+            if self.electronicConvergeFinish(dir2): 
+                if iteration == 1: subprocess.call(['echo', 'Energy of {} atom: {:8.4f} \n'.format(element,self.getEnergy(dir2))])
+                file.write('{} atom: {:12.8f} \n'.format(element,self.getEnergy(dir2)))
+                self.singleE[element] = self.getEnergy(dir2)
     file.close()  
     os.chdir(dir1)      
 
 
 def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outType,writeType):
-    '''For writing to structures.in and structures.holdout.  Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
-       Also copies vasp.000xxx as puedoPOSCAR in the structure folder.  outType is '.in' or '.holdout'.  writeType is either "w" or "a"
+    '''Goes back to makestr.x in case POSCAR has been changed (by overwriting with CONTCAR for example)
+       Also writes this info as POSCAR_orig in the structure folder.  outType is '.in' or '.holdout'.  writeType is either "w" or "a"
        depending on whether you are starting the file or appending to it.'''
     if howmany == 'all':
         N = len(structlist)
@@ -212,15 +230,12 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
     subprocess.call(['ln','-s','../enum/struct_enum.out'])
     subprocess.call(['rm vasp.0*'],shell=True) #start clean
     for istruct,struct in enumerate(structlist[:N]): #just take first N for now.  Can change to a slice later
-        
         vaspDir = atomDir + '/'+ str(struct)
         outFile.write("#------------------------------------------------\n")
 
         subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
-        vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
-        poscar = readfile(atomDir+'/'+vfile)
-        if os.path.exits(vaspdir): subprocess.call(['cp', vfile, vaspDir+'/puedoPOSCAR'])
-        subprocess.call(['rm', vfile])           
+        subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
+        poscar = readfile(vaspDir+'/POSCAR_orig')           
         idString = 'graphene str #: ' + str(struct)
         outFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
         outFile.write("1.0\n")

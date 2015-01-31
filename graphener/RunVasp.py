@@ -7,7 +7,7 @@ class RunVasp:
         jobs that are currently running from a particular instance of the class. """
     
     from comMethods import setAtomCounts
-    def __init__(self, atoms,ediffg):
+    def __init__(self, atoms, ediffg):
         """ CONSTRUCTOR """
         
         
@@ -17,6 +17,7 @@ class RunVasp:
         self.currJobIds = []
         self.ediffg = ediffg 
         self.neAtom = 0
+        self.case = len(atoms[0].split(','))
         
     def clearCurrentJobIds(self):
         """ Clears the list of current job IDs. """
@@ -270,7 +271,7 @@ class RunVasp:
         for atom in self.atoms:
             elements = atom.split(',')
             for element in elements:
-                atomPotcarDir = "/fslhome/josephsl/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + atom + "/POTCAR"
+                atomPotcarDir = "/fslhome/josephsl/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/" + element + "/POTCAR"
                 if os.path.exists(atomPotcarDir):
                     atomPotcar = open(atomPotcarDir,'r')
                     atomLines = atomPotcar.readlines()
@@ -299,7 +300,7 @@ class RunVasp:
             structure, even if we tell it that there are zero of one of the kinds of atoms.  It 
             needs a POTCAR file that doesn't even mention the element that is not a part of the 
             "pure" structure. This method creates these POTCAR files. """       
-        for atom in self.atomList:
+        for atom in self.atoms:
             atomPotcarDir = "/fslhome/josephsl/fsl_groups/hessgroup/vaspfiles/src/potpaw_PBE/C"
             
             if os.path.isdir(atomPotcarDir):

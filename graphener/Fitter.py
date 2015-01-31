@@ -191,3 +191,4 @@ class Fitter:
                             vdata[iatom,:nmax]['FE'],vdata[iatom,:nmax]['conc'],\
                             vdata[iatom,:nmax]['energy'],'.holdout','w')        
             subprocess.call(['cp', atomDir + '/structures.holdout', atomDir + '/fits/structures.holdout'])
+        
