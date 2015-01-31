@@ -42,37 +42,6 @@ class GSS:
         self.singleE = [] 
         self.hexE = [] 
         self.finalDir = finalDir 
-
-    def collate_plots(self,plotType,iteration):  
-        '''Creates an HTML page with the plots and labels. plotType: gss,BE,HFE'''
-        lastDir = os.getcwd()
-        plots1Dir = lastDir + '/plots'
-        if not os.path.exists(plots1Dir):
-            subprocess.call(['mkdir',plots1Dir]) 
-        plots2Dir = plots1Dir + '/plots{}'.format(plotType)
-        if not os.path.exists(plots2Dir):
-            subprocess.call(['mkdir',plots2Dir])        
-        nRow = 5  # number of plots in row
-        width = 1350
-        height  = 900
-        collatefile  = open(plots2Dir +'/plots{}_{}.htm'.format(plotType,iteration),'w')
-        collatefile.write(' <html>\n <HEAD>\n<TITLE> {} </TITLE>\n</HEAD>\n'.format(plotType))
-        collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
-    #    images = []
-        iImage = 0
-        for atom in self.atoms:
-            path = lastDir + '/' + atom + '/gss/{}_{}.png'.format(plotType,iteration)
-            iImage += 1  
-            atomtext = atom.split('_')[0] 
-            name = '{}{}.png'.format(atomtext,plotType)       
-            subprocess.call(['cp',path,plots2Dir + '/{}'.format(name)])
-    #        images.append()
-            collatefile.write('<td><p><img src="{}" width "{}" height "{}" ></p><p>{}</p></td>\n'.format(name,width,height,''))#Image and element under it
-            if mod(iImage,nRow) == 0: 
-                collatefile.write('</tr>\n<tr>\n') #end of row, begin new
-        collatefile.write(' </tr></table> \n') #end of row and table                
-        collatefile.write(' </BODY> </html>') #end of file 
-        collatefile.close()  
         
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
@@ -279,9 +248,9 @@ class GSS:
                     subprocess.call(['cp','uncleHFE.out','uncleHFE_' + str(iteration) + '.out'])
 
                     os.chdir(lastDir)
-        self.collate_plots('gss',iteration)
-        self.collate_plots('BE',iteration)
-        self.collate_plots('HFE',iteration)
+        self.collatePlotsGSS('gss',iteration)
+        self.collatePlotsGSS('BE',iteration)
+        self.collatePlotsGSS('HFE',iteration)
     
     def performGroundStateSearch(self, iteration):
         """ Performs the ground state search with the current fit from UNCLE. """

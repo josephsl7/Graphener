@@ -8,9 +8,10 @@ from copy import deepcopy
 
 def collateStructsConc(atoms,minPrior,iteration):  
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
-    structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder'''
+    structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder.
+    CAUTION:  ONLY UNCLE DATA IS USED TO SELECT PLOTS AND FOR THE LABELS.  NEED TO FIX THIS BY USING VASP DATA'''
     lastDir = os.getcwd()         
-    nRow = 5  # number of plots in row
+    nRow = 4  # number of plots in row
     width = 500
     height  = 500
     iImage = 0
@@ -38,17 +39,137 @@ def collateStructsConc(atoms,minPrior,iteration):
                 struct = line.split()[0] 
                 conc2 = line.split()[2]
                 prior = line.split()[1]
-                path = '/structs/{}.png'.format(struct,iteration)
-                if conc2 == conc and prior >= minPrior and os.path.exists(plotsDir+'/'+path):
+
+                path = '/structs/{}.png'.format(struct)
+                if conc2 == conc and float(prior) >= minPrior and os.path.exists(plotsDir+'/'+path):
                     FE = line.split()[3]
-                    label = '<b>{}</b>    {}: <b>FE</b> {}, prior {}, <b>conc</b> {}'.format(struct,atom,FE,prior,conc)           
-                    collatefile.write('<td><p>{}</p><p><img src="../../{}" width "{}" height "{}" ></p></td>\n'.format(label,path,width,height))#Image and element under it
+                    label = '  <b>{}</b>    {}: <b>FE</b> {}, prior {}, <b>conc</b> {}'.format(struct,atom,round(FE,2),prior,conc)           
+                    collatefile.write('<td><p><img src="../../{}" width "{}" height "{}" ></p><p>{}</p><p></p></td>\n'.format(path,width,height,label,))#Image and element under it
+
                     iImage += 1 
                     if mod(iImage,nRow) == 0: 
                         collatefile.write('</tr>\n<tr>\n') #end of row, begin new
             collatefile.write(' </tr></table> \n') #end of row and table                
             collatefile.write(' </BODY> </html>') #end of file 
             collatefile.close()
+
+def collateStructsHFE(atoms,minPrior,NInPlot,iteration):  
+    '''Creates an HTML page with structure plots ordered by hexagonal layer formation energy HFE, with the lowest (most negative) HFE first
+    structs at the top. If minPrior >0, then it will give only the higher priority ones with lower HFE.  Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder/
+    Calculates an error between vasp and uncle HFEs for each plot, and globally for these selected structures'''
+    
+    lastDir = os.getcwd()         
+    nRow = 4  # number of plots in row
+    width = 500
+    height  = 500
+    iImage = 0
+    for iatom, atom in enumerate(atoms):
+        print atom
+        atomDir = lastDir + '/' + atom 
+        plotsDir = atomDir + '/struct_plots'
+        if not os.path.exists(plotsDir):     
+            subprocess.call(['mkdir',plotsDir])
+        plines = readfile(atomDir + '/priorities_{}.out'.format(iteration))
+        hlines = readfile(atomDir + '/gss/vaspHFE_{}.out'.format(iteration))
+        flines = readfile(atomDir + '/gss/vaspFE_{}.out'.format(iteration))
+        nVaspCalc = len(hlines)
+        cdata = zeros(len(hlines),dtype = [('struct', int32),('conc', float), \
+            ('uFE', float),('vFE', float),('vHFE', float), ('fiterr', float),('prior', float)]) #vFE is formation energy from vasp, uFE is from uncle fit 
+        for istruct,line in enumerate(hlines):
+            cdata[istruct]['struct'] = int(line.split()[0])
+            cdata[istruct]['vHFE'] = line.split()[2]
+        structlist = cdata['struct'].tolist()
+        for line in flines:
+            struct = int(line.split()[0])
+            cdata[structlist.index(struct)]['vFE'] = line.split()[2]
+            cdata[structlist.index(struct)]['fiterr'] = cdata[structlist.index(struct)]['uFE']-cdata[structlist.index(struct)]['vFE']
+        for i,line in enumerate(plines[1:]):
+            struct = int(line.split()[0]) 
+            try: #is istruct in structlist?
+                istruct = structlist.index(struct)
+                cdata[istruct]['prior'] = line.split()[1]
+                cdata[istruct]['conc'] = line.split()[2]
+                cdata[istruct]['uFE'] = line.split()[3]
+            except:
+                'do nothing'
+        vcdata = sort(cdata,order = ['vHFE']) #lowest first
+#        ucdata = sort(cdata,order = ['uFE']) 
+        collatefile  = open(plotsDir +'/HFEsort_{}.htm'.format(iteration),'w')
+        collatefile.write(' <html>\n <HEAD>\n<TITLE> {} HFE sort, Iteration {} </TITLE>\n</HEAD>\n'.format(atom,iteration))
+        collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+        iImage = 0
+        istruct = 0
+        err = 0.0
+        err2 = 0.0
+        errOr = 0.0
+        N = min(NInPlot,nVaspCalc) 
+        while iImage <=N and istruct <= nVaspCalc-1:
+            struct = vcdata[istruct]['struct']
+            path = 'structs/{}.png'.format(struct)
+            if vcdata[istruct]['prior'] >= minPrior:
+                if os.path.exists(lastDir+'/' + path):
+#                    orderErr = errOrder(vcdata,ucdata,istruct)
+                    orderErr = errOrderConc(vcdata,istruct)
+    #                subprocess.call(['echo','Found plot for {}'.format(struct)])
+                    label1 = '  <b>{}</b>  {}: <b>vHFE</b> {}, <b>vFE</b> {}, <b>OrderErr</b> {}'\
+                        .format(struct,atom,round(vcdata[istruct]['vHFE'],3),round(vcdata[istruct]['vFE'],3),\
+                                round(orderErr,4))           
+                    label2 = '  <b>uPrior</b> {}, <b>Conc</b> {}'\
+                        .format(round(vcdata[istruct]['prior'],3),vcdata[istruct]['conc']) 
+                    collatefile.write('<td><p><img src="../../{}" width "{}" height "{}" ></p><p>{}</p><p>{}</p><p></p></td>\n'.format(path,width,height,label1,label2))#Image and element under it
+                    iImage += 1 
+                    if mod(iImage,nRow) == 0: 
+                        collatefile.write('</tr>\n<tr>\n') #end of row, begin new
+                    err += vcdata[istruct]['fiterr']**2
+                    err2 += vcdata[istruct]['fiterr']
+                    errOr += orderErr
+                else:
+                    subprocess.call(['echo','No plot found for structure {}, prior {}'.format(struct,vcdata[istruct]['prior'])])
+            istruct += 1
+        err = sqrt(err/iImage)
+        err2 = err2/iImage
+        errOr = errOr/iImage
+        subprocess.call(['echo','RMS error for these structures: {}'.format(round(err,4))])
+        subprocess.call(['echo','Average order error of fit vs calc for these structures: {}'.format(round(errOr,4))])
+        subprocess.call(['echo','Average shift of fit vs calc for these structures: {}\n'.format(round(err2,4))])
+        
+        collatefile.write(' </tr></table> \n') #end of row and table                
+        collatefile.write(' <p><b>RMS error for these structures:</b> {},</p>'.format(round(err,4))) #end of file 
+        collatefile.write(' </BODY> </html>') #end of file 
+        collatefile.close()
+
+def errOrder(vcdata,ucdata,vindex):
+    '''errOrder = |uncleFE(vaspindex) - uncleFE(uncleindex)|, where uncleFE is an ordered list containing only the vasp structures we have calculated.
+    uncleindex is the index of the structure in uncleFE. vaspindex is the index of the structure in cdata, which must be ordered with the lowest energy at the top'''
+    struct = vcdata[vindex]['struct']
+    ustructlist = ucdata['struct'].tolist()
+    uindex = ustructlist.index(struct)   
+    return abs(ucdata[vindex]['uFE'] - ucdata[uindex]['uFE'])
+
+def errOrderConc(vcdata,vindex):
+    '''errOrder = |uncleFE(vaspindex) - uncleFE(uncleindex)|, where uncleFE is an ordered list containing only the vasp structures we have calculated.
+    uncleindex is the index of the structure in uncleFE. vaspindex is the index of the structure in cdata, which must be ordered with the lowest energy at the top, 
+    Need to reduce both lists to only those of the same concentration '''
+   
+    struct = vcdata[vindex]['struct']
+    conc = vcdata[vindex]['conc']
+    indicesKeep = []
+    for istruct in range(len(vcdata)):
+        conc2 = vcdata[istruct]['conc'] 
+        if conc2 == conc:
+            indicesKeep.append(istruct)
+    vcdataRed =  zeros(len(indicesKeep),dtype = [('struct', int32),('vFE', float),('uFE', float)])  
+    for istruct,ikeep in enumerate(indicesKeep):
+        vcdataRed[istruct]['struct'] = vcdata[ikeep]['struct']
+        vcdataRed[istruct]['uFE'] = vcdata[ikeep]['uFE']
+        vcdataRed[istruct]['vFE'] = vcdata[ikeep]['vFE']
+    vcdataRed = sort(vcdataRed,order = ['vFE'])
+    ucdataRed = sort(vcdataRed,order = ['uFE'])
+    ustructlist = ucdataRed['struct'].tolist()
+    vstructlist = vcdataRed['struct'].tolist()
+    uindex = ustructlist.index(struct)  
+    vindex = vstructlist.index(struct)  
+    return abs(ucdataRed[vindex]['uFE'] - ucdataRed[uindex]['uFE'])
 
 def plotByPrior(atoms,minPrior,iteration):  
     ''''''
@@ -348,8 +469,6 @@ class PlotGraphene:
             self.figure.gca().add_artist(self.Mcirclelist[i])
         
     def fillByVecs(self, num):
-#        print 'vec1',self.lattVec1
-#        print 'vec2',self.lattVec2
         if num == 0:
             self.periodicByVecs(0, 0)
         else:

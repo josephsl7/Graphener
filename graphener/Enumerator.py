@@ -135,7 +135,7 @@ class Enumerator:
             jobIds = []
             if sum(nNew[1:])>0:
                 mem = '16' #Gb
-                walltime = 4.0 #hrs
+                walltime = 8.0 #hrs
                 subdir = 'enumpast'
                 execString = self.uncleExec + ' 42 '
                 atomStrings = [str(n) for n in nNew]

@@ -865,6 +865,9 @@ if __name__ == '__main__':
         if natoms == 0:
             subprocess.call(['echo','\n----------------- All atoms have finished ---------------'])
             converged = True
+        elif iteration == maxIter:
+            subprocess.call(['echo','\n----------------- Finished maximum number of iterations ---------------'])
+            converged = True            
         else:       
             if natoms >1:
                 subprocess.call(['echo','At end of iteration, {} are continuing.'.format(' '.join(atoms))])

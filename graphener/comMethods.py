@@ -2,6 +2,33 @@ import os, subprocess,sys,re,time
 from numpy import mod, floor,zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete
 from sched import scheduler
 
+def collatePlotsGSS(self,plotType,iteration):  
+    '''Creates an HTML page with the plots and labels, from plots in /gss
+    plotType: first part of plot file name'''
+    lastDir = os.getcwd()
+    plotsDir = lastDir + '/plots'
+    if not os.path.exists(plotsDir):
+        subprocess.call(['mkdir',plotsDir]) 
+    subDir = plotsDir + '/plots{}'.format(plotType)
+    if not os.path.exists(subDir):
+        subprocess.call(['mkdir',subDir])        
+    nRow = 3  # number of plots in row
+    width = 1350
+    height  = 900
+    collatefile  = open(subDir +'/plots{}_{}.htm'.format(plotType,iteration),'w')
+    collatefile.write(' <html>\n <HEAD>\n<TITLE> {} </TITLE>\n</HEAD>\n'.format(plotType))
+    collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
+
+    for iImage,atom in enumerate(self.atoms):
+        path =  '../../{}/gss/{}_{}.png'.format(atom,plotType,iteration)  
+        atomtext = atom.split('_')[0]       
+        collatefile.write('<td><p><img src="{}" width "{}" height "{}" ></p><p>{}</p></td>\n'.format(path,width,height,''))#Image and element under it
+        if mod(iImage+1,nRow) == 0: 
+            collatefile.write('</tr>\n<tr>\n') #end of row, begin new
+    collatefile.write(' </tr></table> \n') #end of row and table                
+    collatefile.write(' </BODY> </html>') #end of file 
+    collatefile.close()  
+
 def convergeCheck(folder, NSW):
     """ Tests whether force convergence is done by whether the last line of OSZICAR (the last
         ionic relaxation step) is less than NSW."""
@@ -132,7 +159,7 @@ def outcarWarn(dir):
           and 'The number of bands has been changed' not in lines[i+2]: #this is OK 
             return True
     return False
-    
+  
 def readfile(filepath):
     file1 = open(filepath,'r')
     lines = file1.readlines()
@@ -234,8 +261,10 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
         outFile.write("#------------------------------------------------\n")
 
         subprocess.call(['../needed_files/makestr.x','struct_enum.out',str(struct)])
-        subprocess.call(['mv vasp.0* {}'.format(vaspDir+'/POSCAR_orig')],shell=True)
-        poscar = readfile(vaspDir+'/POSCAR_orig')           
+        vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
+        poscar = readfile(atomDir+'/'+vfile)
+        if os.path.exists(vaspDir): subprocess.call(['cp', vfile, vaspDir+'/puedoPOSCAR'])
+        subprocess.call(['rm', vfile])           
         idString = 'graphene str #: ' + str(struct)
         outFile.write(idString + " FE = " + str(FElist[istruct]) + ", Concentration = " + str(conclist[istruct]) + "\n")
         outFile.write("1.0\n")
@@ -342,6 +371,11 @@ def reportFinished(jobIds):
                                                     # The error in this case is an "invalid
                                                     # job id" error because the job is no
     return True                                     # longer on the supercomputer.  
+
+def trimSmall(list_mat):
+    low_values_indices = abs(list_mat) < 1.0e-3
+    list_mat[low_values_indices] = 0.0
+    return list_mat
 
 def contains(self, struct, alist):
     """ Returns True if the list 'alist' contains the structure 'struct', False otherwise. """
