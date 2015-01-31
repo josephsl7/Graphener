@@ -60,7 +60,7 @@ class MakeUncleFiles:
         self.hexE = [] 
         self.vdata = []
 
-        self.case = atoms[0].split(',')
+        self.case = len(atoms[0].split(','))
 
     def analyzeNewVasp(self,vstructsToRun):
         """ Initializes the list of structures to add to the structures.in and structures.holdout

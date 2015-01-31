@@ -16,7 +16,8 @@ class RunVasp:
         
         self.currJobIds = []
         self.ediffg = ediffg 
-        self.neAtom = 0
+        self.neAtom = {}
+        self.neAtom['Vc'] = 0
         self.case = len(atoms[0].split(','))
         
     def clearCurrentJobIds(self):
@@ -155,7 +156,7 @@ class RunVasp:
         jobFile.write("#SBATCH --ntasks=16\n")
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
         jobFile.write("#SBATCH --mail-user=joseph-lawrence@hotmail.com\n")
-        jobFile.write("#SBATCH --mail-type=END\n")  
+        #jobFile.write("#SBATCH --mail-type=END\n")  
         jobFile.write("#SBATCH --job-name=%s\n" % name)
         jobFile.write("#SBATCH --mail-type=FAIL\n")
         jobFile.write("\nmpiexec vasp533 > vasp.out\n")
@@ -173,7 +174,7 @@ class RunVasp:
         jobFile.write("#SBATCH --mem-per-cpu=1024M\n")
         jobFile.write("#SBATCH --mail-user=joseph-lawrence@hotmail.com\n")              
         jobFile.write("#SBATCH --mail-type=FAIL\n")
-        jobFile.write("#SBATCH --mail-type=END\n") 
+        #jobFile.write("#SBATCH --mail-type=END\n") 
         jobFile.write("#SBATCH --job-name=%s\n\n" % name) 
         jobFile.write("mpiexec vasp533 > vasp.out\n")    
         jobFile.close()
@@ -201,7 +202,9 @@ class RunVasp:
             directory. Ediffs increase with atom count, since it's a measure
             for total energy change, not per atom"""
         self.setAtomCounts(dir)
-        nelectrons = self.atomCounts[0]*4 + self.atomCounts[1] + self.atomCounts[2] * self.neAtom
+        elements = dir.strip().split('/')[-2].split(',')
+        electronList = [int(count * self.neAtom[element]) for count, element in zip(self.atomCounts[1:], elements)]
+        nelectrons = self.atomCounts[0]*4 + sum(electronList)
         natoms = sum(self.atomCounts)  
         incar = open(dir + '/INCAR','w')    
         incar.write("IBRION=2\n")
@@ -276,7 +279,7 @@ class RunVasp:
                     atomPotcar = open(atomPotcarDir,'r')
                     atomLines = atomPotcar.readlines()
                     atomPotcar.close()
-                    self.neAtom = int(float(atomLines[1].strip()))  
+                    self.neAtom[element] = int(float(atomLines[1].strip()))  
             
                     potcar = open(atom + '/POTCAR_' + element, 'w')
      
@@ -338,7 +341,7 @@ class RunVasp:
                     jobFile.write("#SBATCH --mem-per-cpu=4G\n")
                     jobFile.write("#SBATCH --mail-user=joseph-lawrence@hotmail.com\n")              
                     jobFile.write("#SBATCH --mail-type=FAIL\n")
-                    jobFile.write("#SBATCH --mail-type=END\n") 
+                    #jobFile.write("#SBATCH --mail-type=END\n") 
                     jobFile.write("#SBATCH --job-name=hexm%s\n" % atom)           
                     jobFile.write("\nmpiexec vasp533 > vasp.out\n") 
                     jobFile.close()
@@ -396,7 +399,7 @@ class RunVasp:
                     jobFile.write("#SBATCH --mem-per-cpu=4G\n")
                     jobFile.write("#SBATCH --mail-user=joseph-lawrence@hotmail.com\n")              
                     jobFile.write("#SBATCH --mail-type=FAIL\n")
-                    jobFile.write("#SBATCH --mail-type=END\n") 
+                    #jobFile.write("#SBATCH --mail-type=END\n") 
                     jobFile.write("#SBATCH --job-name=isol_%s\n" % atom)           
                     jobFile.write("\nmpiexec vasp533 > vasp.out\n") 
                     jobFile.close()

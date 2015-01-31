@@ -32,7 +32,14 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
             os.chdir(lastDir) 
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
-        if os.path.exists(pureHdir) and os.path.exists(pureMdir):
+
+        pureDirs = []
+        struct = 1        
+        for i, nextPureCase in enumerate(range(case, 0, -1)):
+            pureDirs.append(atomDir + '/' + str(struct))
+            struct = struct + nextPureCase
+
+        if not False in [os.path.exists(pureDir) for pureDir in pureDirs]:
             for item in os.listdir(atomDir):
                 itempath = atomDir + '/' + item
                 if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
@@ -100,14 +107,19 @@ def readInitialFolders(atoms,restartTimeout,):
     for iatom, atom in enumerate(atoms):
         atomDir = lastDir + '/' + atom     
         #pure energies
-        pureHdir =  atomDir + '/1'
-        pureMdir =  atomDir + '/' + pureMetal
-        pureAtomCounts = setAtomCounts(pureHdir, case) #in this case gives the number of adatom sites
-        pureHenergy = float(readfile(pureHdir + '/OSZICAR')[-1].split()[2])/float(pureAtomCounts[1])  
-        pureMenergy = float(readfile(pureMdir + '/OSZICAR')[-1].split()[2])/float(pureAtomCounts[1])
+
+        pureEnergies = []
+        struct = 1        
+        for i, nextPureCase in enumerate(range(case, 0, -1)):
+            pureDir = atomDir + '/' + str(struct)
+            pureAtomCounts = setAtomCounts(pureDir, case)
+            pureEnergies.append(float(readfile(pureDir + '/OSZICAR')[-1].split()[2])/float(sum(pureAtomCounts[1:])))
+            struct = struct + nextPureCase
+
         subprocess.call(['echo','\n\n{}'.format(atom)])
-        subprocess.call(['echo','\tpure H system energy {}'.format(pureHenergy)]) 
-        subprocess.call(['echo','\tpure M system energy {}'.format(pureMenergy)])     
+        for element, energy in zip(atom.split(','), pureEnergies):
+            subprocess.call(['echo','\tpure {} system energy {}'.format(element, energy)]) 
+
         # all structures (including pure
         finishedStructs = []
         restartStructs = []
@@ -607,12 +619,14 @@ def setAtomCounts(poscarDir, case):
     poscarLines = readfile(poscarDir + '/POSCAR')
     counts = poscarLines[5].strip().split() 
 
-    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
-    countnum = 1
-
     if not counts[0][0].isdigit(): # then we have the "new" POSCAR format that gives the atom types in text on line 6 (5-python)
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
+
+    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
+    countnum = 1
+
+    atomCounts.append(int(counts[0]))
 
     for i in range(case):
         if present.find(str(i+1)) != -1:
@@ -632,7 +646,7 @@ def setAtomCounts(poscarDir, case):
     natoms = sum(atomCounts)
     if fixPOSCAR:
         del(poscarLines[5])
-        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want         
+        writefile(poscarLines[:7+natoms],poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want      
     return atomCounts
 
 def writeFailedVasp(failedFile, newlyFailed, iteration, atoms):

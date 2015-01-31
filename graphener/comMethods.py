@@ -187,12 +187,14 @@ def setAtomCounts(self, poscarDir):
     poscarLines = readfile(poscarDir + '/POSCAR')
     counts = poscarLines[5].strip().split() 
 
-    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
-    countnum = 1
-
     if not counts[0][0].isdigit(): # then we have the "new" POSCAR format that gives the atom types in text on line 6 (5-python)
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
+
+    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
+    countnum = 1
+
+    self.atomCounts.append(int(counts[0]))
 
     for i in range(self.case):
         if present.find(str(i+1)) != -1:
