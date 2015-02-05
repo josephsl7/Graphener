@@ -56,9 +56,9 @@ class DistanceInfo:
         self.moveInPlane = 0.0
         self.moveMInPlane = 0.0
         self.moveHInPlane = 0.0
-        self.moveNormal = 0.0
-        self.maxMC = 0.0
-        self.minMC = 0.0
+        self.moveNormal = 0.0       
+        self.closestMC = []
+
                
     def correctz(self,directvec):
         '''Translates direct vectors with z positions farther than 0.5 to the cell edge to closer than that,
@@ -166,15 +166,13 @@ class DistanceInfo:
             
     def getMCBondingInfo(self):
         '''Find distances to nearest C atom''' 
-        allClosest = [] 
-        if self.struct ==1: print '1 M pos',self.relaxMPos        
+        self.closestMC = []     
         for Mvec in self.relaxMPos:
             trialLengths = []
             for Cvec in self.relaxCPos:
                 trialLengths.append(norm(Mvec-Cvec))
-            allClosest.append(min(trialLengths)) #closest for this M atom 
-        self.minMC = min(allClosest)
-        self.maxMC = max(allClosest)
+            self.closestMC.append(min(trialLengths)) #closest for this M atom 
+        self.closestMC = array(self.closestMC)
            
     def getBucklingInfo(self): 
         NNpairs = self.getNNPairs(self.nomapOrigPos[:self.nC])   
@@ -224,14 +222,13 @@ class DistanceInfo:
         outfile.write("Maximum distance moved perpendicular to the plane: " + str(max(self.moveNormal)) + "\n\n")
         
         if self.struct == '1':
-            self.minMC = 0.0
-            self.maxMC = 0.0
+            self.closestMC = [0.0]
             outfile.write("Minimum M-C bond length: NONE \n\n")
             outfile.write("Maximum M-C bond length: NONE \n\n")
         else:
             self.getMCBondingInfo()
-            outfile.write("Minimum M-C bond length: " + str(self.minMC) + "\n\n")
-            outfile.write("Maximum M-C bond length: " + str(self.maxMC) + "\n\n")
+            outfile.write("Minimum M-C bond length: " + str(min(self.closestMC)) + "\n\n")
+            outfile.write("Maximum M-C bond length: " + str(max(self.closestMC)) + "\n\n")
         
         
         outfile.write("Average buckling distance: " + str(self.buckleAvg) + "\n")
@@ -250,9 +247,10 @@ class DistanceInfo:
         # "Structure, vol, conc, moved_rms, Max moved_para, Max moved_perp, Min d_MC, Max d_MC, Ave Buckle dz\n")
 #        HFEindex = where(self.hfe['struct']==self.struct)
         HFEindex = self.hfe['struct'].tolist().index(int(self.struct))
-        csvfile.write("%s, %d, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f\n" %
-                      (self.struct, self.volFactor , self.conc , self.hfe[HFEindex]['HFE'], self.CCexpansion, std(self.moveTotal), \
-                       max(self.moveInPlane), max(self.moveMInPlane), max(self.moveHInPlane), max(self.moveNormal), self.minMC, self.maxMC, self.buckleAvg))
+        csvfile.write("%s, %d, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f\n" %
+                      (self.struct, self.volFactor , self.conc , self.hfe[HFEindex]['HFE'], self.CCexpansion, std(self.moveTotal), max(self.moveInPlane),  \
+                       std(self.moveMInPlane), max(self.moveMInPlane), std(self.moveHInPlane), max(self.moveHInPlane), \
+                       std(self.moveNormal), max(self.moveNormal), min(self.closestMC), std(self.closestMC),max(self.closestMC), self.buckleAvg))
 
     def getStructList(self,atomDir):
         structList = []
@@ -298,14 +296,15 @@ class DistanceInfo:
         HFE = []
         move = []
         imove = self.output.index(moveType)
+#        print imove
         for line in lines[1:]:
+#            print moveType,line
             structure = int(line.split(',')[0])
             structs.append(structure)
             conc.append(float(line.split(',')[2]))
             HFE.append(float(line.split(',')[3]))
             move.append(float(line.split(',')[imove]))
-        if 1 in structs and moveType in ['Min d_MC','Max d_MC']: #to keep pure H structure with zero M from setting the scale on the colorbar    
-            print move[structs.index(1)]
+        if 1 in structs and moveType in ['min d_MC','max d_MC']: #to keep pure H structure with zero M from setting the scale on the colorbar    
             movetemp = deepcopy(move)
             movetemp.pop(structs.index(1))
             move[structs.index(1)] = min(movetemp)
@@ -321,10 +320,17 @@ class DistanceInfo:
         plt.ylim(plt.ylim()[0], 2.0)
         plt.show()
         fig.savefig(atomDir + '/gss/HFE_{}_{}'.format(moveType.replace(' ','_',),self.iteration))
-        
+        plt.close(fig)
+
+        self.meanMoveMInPlane = 0.0
+        self.meanMoveHInPlane = 0.0
+        self.meanMoveNormal = 0.0  
+
+    
     def getDistanceInfo(self):
         topDir = os.getcwd()
-        header =  "Structure, vol, conc, HFE, CC-exp, moved_rms, max moved_para, Max M moved_para, Max H moved_para, Max moved_perp, Min d_MC, Max d_MC, Ave Buckle dz"       
+        header =  "Structure, vol, conc, HFE, CC-exp, moved_rms, max moved_para, rms M moved_para, max M moved_para, \
+                rms H moved_para, max H moved_para, rms moved_perp, max moved_perp, min d_MC, rms d_MC, max d_MC, ave buckle"       
         self.output = [item.strip() for item in header.split(',')]
         if not self.plotOnly:
             for atom in self.atoms:
@@ -356,13 +362,9 @@ class DistanceInfo:
             subprocess.call(['echo','    Movement plots, ' + atom])
             subprocess.call(['echo','****************************'])
             atomDir = topDir + '/' + atom 
-            plots = ['Max M moved_para','Max H moved_para','Max d_MC','CC-exp'] 
+            plots = ['max M moved_para','max H moved_para','max d_MC','rms d_MC','CC-exp',\
+                     'rms M moved_para','rms H moved_para'] 
             for plot in plots:      
                 self.plotHFEMove(atomDir,plot)
                 self.collatePlotsGSS('HFE_'+ plot.replace(' ','_',),self.iteration)
             os.chdir(topDir)
-
-
-
-
-

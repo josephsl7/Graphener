@@ -32,7 +32,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
             os.chdir(lastDir) 
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
-        if os.path.exists(pureHdir) and os.path.exists(pureMdir):
+        if os.path.exists(pureHdir) and os.path.exists(pureMdir) and finishCheck(pureHdir) and finishCheck(pureMdir):
             for item in os.listdir(atomDir):
                 itempath = atomDir + '/' + item
                 if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
@@ -471,6 +471,7 @@ def readSettingsFile():
     rmStructIn = False
     maxE = 100.0 #eV, max from vasp to include in fit
     graphsOnly = False
+    maxIter = 100
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':  
@@ -675,7 +676,7 @@ if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
-    maindir = '/fslhome/bch/cluster_expansion/graphene/iid.top.tm_row1.v15' 
+    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8' 
 
     subprocess.call(['echo','Starting in ' + maindir])
     #make sure the latest version of uncle is used
