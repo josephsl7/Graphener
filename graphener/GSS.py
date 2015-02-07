@@ -14,7 +14,7 @@ class GSS:
         structures to add into the model. We also keep track of the list and the plots of the list
         from iteration to iteration. """
     from comMethods import setAtomCounts,hexMonolayerEnergies,singleAtomsEnergies,getPureEs,\
-                    contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,setEnergy
+                    contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,setEnergy,collatePlotsGSS
 
     def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput,pureMetal,finalDir):
         """ CONSTRUCTOR """
@@ -42,6 +42,7 @@ class GSS:
         self.singleE = [] 
         self.hexE = [] 
         self.finalDir = finalDir 
+        self.case = len(atoms[0].split(','))
         
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
@@ -104,7 +105,7 @@ class GSS:
                 priorfile = open(atomDir+'/priorities_{}.out'.format(iteration),'w')  
                 priorfile.write('structure,priority,concentration,FEnergy\n')
                 for i in range(Ntot):
-                    print i, self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'],gssInfo[i]['conc'],gssInfo[i]['FE']
+                    #print i, self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'],gssInfo[i]['conc'],gssInfo[i]['FE']
                     priorfile.write('{:7d}   {:10.6f}{:8.4f}{:10.6f}\n'.format( \
                     self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
                     self.priorities[iatom,i]['conc'],self.priorities[iatom,i]['FE']))
@@ -265,10 +266,11 @@ class GSS:
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
                     os.chdir(lastDir)
-        if natoms ==1:
-            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
-            subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
-            os.chdir(lastDir)   
+        if natoms < 10:
+            for iatom in range(natoms):
+                os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
+                subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
+                os.chdir(lastDir)   
         else:#parallelize the atom jobs
             #make job files
             mem = '16' #Gb
@@ -311,20 +313,44 @@ class GSS:
             for i,line in enumerate(lines[2:]): #first 2 lines are headers
                 struct = int(line.strip().split()[0])
                 x = float(line.strip().split()[2]) #metal concentration
-                vol  = int(line.strip().split()[3])
-                nH  = int(line.strip().split()[4])
-                nmetal  = int(line.strip().split()[5])
-                nadatoms = nH + nmetal
+                vol  = int(line.strip().split()[self.case + 1])
+                counts  = [int(count) for count in line.strip().split()[self.case + 2 : 2*self.case + 2]]
+                nadatoms = sum(counts)
                 
                 ncarbon = vol * 2  #always 2 C atoms in smallest cell
                 
-                FE = float(line.strip().split()[7]) #formation energy
-                structEnergy = FE + x*self.pureMenergy + (1-x)*self.pureHenergy #uncle fit energy per adatom
+                FE = float(line.strip().split()[2*self.case + 3]) #formation energy
+                
+                structEnergy = FE
+                for i, count in enumerate(counts):
+                    structEnergy += float(count) / float(nadatoms) * self.pureEnergies[i]
                 structEnergy = structEnergy * nadatoms #total
-                bindEnergy = (structEnergy - ncarbon*energyGraphene/2.0 - nH*eIsolatedH - nmetal*self.singleE[iatom])/ float(nadatoms) #2 atoms in graphene 
+
+                bindEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms) #2 atoms in graphene 
+                for element, count in zip(atom.split(','), counts):
+                    if element == 'Vc':
+                        pass
+                    elif element == 'H':
+                        bindEnergy -= count / float(nadatoms) * eIsolatedH
+                    else:
+                        try:
+                            bindEnergy -= count / float(nadatoms) * self.singleE[element]
+                        except:
+                            bindEnergy -= count / float(nadatoms) * 100
                 uncleBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,bindEnergy))
-                hexFormationEnergy = (structEnergy - energyGraphene*ncarbon/2.0  - nmetal *self.hexE[iatom] - nH*eH2)/float(nadatoms)
-                uncleHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,hexFormationEnergy))    
+
+                hexEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms)
+                for element, count in zip(atom.split(','), counts):
+                    if element == 'Vc':
+                        pass
+                    elif element == 'H':
+                        hexEnergy -= count / float(nadatoms) * eH2
+                    else:
+                        try:
+                            hexEnergy -= count / float(nadatoms) * self.hexE[element]
+                        except:
+                            hexEnergy -= count / float(nadatoms) * 100
+                uncleHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,hexEnergy))    
             uncleBEfile.close()
             uncleHFEfile.close() 
 

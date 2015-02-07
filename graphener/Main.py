@@ -483,6 +483,7 @@ def readSettingsFile():
     rmStructIn = False
     maxE = 100.0 #eV, max from vasp to include in fit
     graphsOnly = False
+    maxIter = 100
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':  
@@ -560,10 +561,13 @@ def readSettingsFile():
                
         elif line.split()[0] == 'PURE_METAL:':
             pureMetal = line.split()[1] # structure number (string) of the pure metal case
+
+        elif line.split()[0] == 'MAX_ITER':
+            maxIter = int(line.split()[1])
     
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -720,7 +724,7 @@ if __name__ == '__main__':
     seed()
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter] = readSettingsFile()
     case = len(atoms[0].split(','))
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
