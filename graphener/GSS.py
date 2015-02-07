@@ -266,11 +266,10 @@ class GSS:
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
                     os.chdir(lastDir)
-        if natoms < 10:
-            for iatom in range(natoms):
-                os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
-                subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
-                os.chdir(lastDir)   
+        if natoms == 1:
+            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
+            subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
+            os.chdir(lastDir)   
         else:#parallelize the atom jobs
             #make job files
             mem = '16' #Gb
@@ -337,7 +336,10 @@ class GSS:
                             bindEnergy -= count / float(nadatoms) * self.singleE[element]
                         except:
                             bindEnergy -= count / float(nadatoms) * 100
-                uncleBEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,bindEnergy))
+                uncleBEfile.write('{:10d}'.format(struct))
+                for count in counts:
+                    uncleBEfile.write(' {:12.8f}'.format(float(count) / float(nadatoms)))
+                uncleBEfile.write(' {:12.8f}\n'.format(bindEnergy))
 
                 hexEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms)
                 for element, count in zip(atom.split(','), counts):
@@ -350,7 +352,10 @@ class GSS:
                             hexEnergy -= count / float(nadatoms) * self.hexE[element]
                         except:
                             hexEnergy -= count / float(nadatoms) * 100
-                uncleHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,x,hexEnergy))    
+                uncleHFEfile.write('{:10d}'.format(struct))
+                for count in counts:
+                    uncleHFEfile.write(' {:12.8f}'.format(float(count) / float(nadatoms)))
+                uncleHFEfile.write(' {:12.8f}\n'.format(hexEnergy))
             uncleBEfile.close()
             uncleHFEfile.close() 
 

@@ -651,7 +651,7 @@ def setAtomCounts(poscarDir, atom):
             if element.find('Vc') != -1:
                 vacancyNum = i
         vacancies = int(poscarLines[0].strip().split()[-1])
-        atomCounts[vacancyNum] = vacancies
+        atomCounts[vacancyNum + 1] = vacancies
 
     natoms = sum(atomCounts)
     if fixPOSCAR:

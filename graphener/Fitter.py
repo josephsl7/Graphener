@@ -109,7 +109,7 @@ class Fitter:
 #                        self.filterStructuresInFrac(fitsDir,iteration, cullFrac) #remove some structures at the top of the FE list.                   
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
-        if natoms ==1:
+        if natoms == 1:
             os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
             subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
             os.chdir(lastDir)   
