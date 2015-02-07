@@ -95,7 +95,7 @@ class MakeUncleFiles:
                     else:
                         if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)):                           
                            # Check for concentration
-                            self.setAtomCounts(struct) 
+                            self.setAtomCounts(struct, atom) 
                             nadatoms =  float(sum(self.atomCounts) - self.atomCounts[0])                       
 
                             concentration = [float(float(x) / nadatoms) for x in self.atomCounts[1:]]
@@ -192,7 +192,7 @@ class MakeUncleFiles:
         vaspHFEfile = open('vaspHFE.out','w') 
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = 0 #creating for all finished structs
-        elements = self.atoms.split(',')
+        elements = self.atoms[iatom].split(',')
         #this does not need to be sorted.
         for j in range(nfinished):
             struct = self.vdata[iatom,istruct]['struct']
@@ -203,7 +203,7 @@ class MakeUncleFiles:
             ncarbon = self.vdata[iatom,istruct]['nCarbon'] 
             #multiply stored energy by nadatoms so we have vasp run energy
             structEnergy = nadatoms * self.vdata[iatom,istruct]['energy'] 
-            self.setAtomCounts(struct)
+            self.setAtomCounts(str(struct), self.atoms[iatom])
 
             formationEnergy = structEnergy
             for i, count in enumerate(self.atomCounts[1:]):
@@ -213,7 +213,7 @@ class MakeUncleFiles:
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            
 
             bindEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms)
-            for element, count in zip(atom.split(','), self.atomCounts[1:]):
+            for element, count in zip(self.atoms[iatom].split(','), self.atomCounts[1:]):
                 if element == 'Vc':
                     pass
                 elif element == 'H':
@@ -231,7 +231,7 @@ class MakeUncleFiles:
             #note that the hex monolayers have one atom per cell
 
             hexEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms)
-            for element, count in zip(atom.split(','), self.atomCounts[1:]):
+            for element, count in zip(self.atoms[iatom].split(','), self.atomCounts[1:]):
                 if element == 'Vc':
                     pass
                 elif element == 'H':
@@ -242,8 +242,8 @@ class MakeUncleFiles:
                     except:
                         hexEnergy -= count / float(nadatoms) * 100
 
-            self.vdata[iatom,istruct]['HFE'] = hexFormationEnergy
-            vaspHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,hexFormationEnergy))    
+            self.vdata[iatom,istruct]['HFE'] = hexEnergy
+            vaspHFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,hexEnergy))    
             istruct += 1 
         vaspFEfile.close()
         vaspBEfile.close()
@@ -263,7 +263,7 @@ class MakeUncleFiles:
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = nfinished #starting position for vdata array
         for struct in self.newlyFinished[iatom]:
-            self.setAtomCounts(struct) #reads in atom numbers
+            self.setAtomCounts(struct, self.atoms[iatom]) #reads in atom numbers
             self.setEnergy(struct)
             self.vdata[iatom,istruct]['struct'] = struct
             structEnergy = float(self.energy)

@@ -201,7 +201,7 @@ class RunVasp:
         """ Creates a standard INCAR file and puts it in each different structure's top 
             directory. Ediffs increase with atom count, since it's a measure
             for total energy change, not per atom"""
-        self.setAtomCounts(dir)
+        self.setAtomCounts(dir, dir.strip().split('/')[-2])
         elements = dir.strip().split('/')[-2].split(',')
         electronList = [int(count * self.neAtom[element]) for count, element in zip(self.atomCounts[1:], elements)]
         nelectrons = self.atomCounts[0]*4 + sum(electronList)

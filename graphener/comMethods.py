@@ -90,10 +90,10 @@ def getPureEs(self, iatom):
     for i, iDir in enumerate(pureStructList):
         pureDir = dir + '/' + iDir
     
-        if os.path.exists(pureHdir):
-            self.setAtomCounts(pureDir)
+        if os.path.exists(pureDir):
+            self.setAtomCounts(pureDir, self.atoms[iatom])
             self.setEnergy(pureDir)
-            self.pureEnergies.append(float(self.energy))
+            pureEnergies.append(float(self.energy))
             subprocess.call(['echo','Pure ' + self.atoms[iatom].split(',')[i] +' energy: {}'.format(self.energy) ]) 
         else:
             subprocess.call(['echo','Missing pure ' + self.atoms[iatom].split(',')[i] + ' energy folder'])
@@ -174,7 +174,7 @@ def writefile(lines,filepath): #need to have \n's inserted already
     file1.close()
     return
             
-def setAtomCounts(self, poscarDir):
+def setAtomCounts(self, poscarDir, atom):
     """ Retrieves the number of C, H and M atoms from the POSCAR file and sets 
         the corresponding members. 
         Also fixes "new" POSCAR/CONTCAR format (comes from CONTCAR) back to old for UNCLE use (removes the 6th line if it's text """
@@ -182,6 +182,9 @@ def setAtomCounts(self, poscarDir):
 
     self.vacancyNum = -1
     self.vacancies = 0
+
+    elements = atom.split(',')
+    case = len(elements)
 
     fixPOSCAR = False
     poscarLines = readfile(poscarDir + '/POSCAR')
@@ -196,7 +199,7 @@ def setAtomCounts(self, poscarDir):
 
     self.atomCounts.append(int(counts[0]))
 
-    for i in range(self.case):
+    for i in range(case):
         if present.find(str(i+1)) != -1:
             self.atomCounts.append(int(counts[countnum]))
             countnum = countnum + 1
@@ -204,7 +207,6 @@ def setAtomCounts(self, poscarDir):
             self.atomCounts.append(0)
 
     if poscarLines[0].find('Vacancies') != -1:
-        elements = poscarDir.strip().split('/')[-2].split(',')
         for i, element in enumerate(elements):
             if element.find('Vc') != -1:
                 self.vacancyNum = i
