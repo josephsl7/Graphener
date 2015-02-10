@@ -210,8 +210,7 @@ class Converter:
                 if not exists:
                     positions.append(vec)
         if len(positions) != self.atomCounts[0]:
-            subprocess.call('echo','Error in getCpositions: number of C atoms does not match area of cell.')
-            sys.exit('Stop')
+            sys.exit('Error in getCpositions: number of C atoms does not match area of cell. Stopping')
         self.Cpos = positions # a list of numpy vectors
             
     def getHpositionsFromDirectCoordinates(self, positionLines):

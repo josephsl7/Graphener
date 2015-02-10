@@ -52,9 +52,10 @@ def collateStructsConc(atoms,minPrior,iteration):
             collatefile.close()
 
 def collateStructsHFE(atoms,minPrior,NInPlot,iteration):  
-    '''Creates an HTML page with structure plots ordered by hexagonal layer formation energy HFE, with the lowest (most negative) HFE first
-    structs at the top. If minPrior >0, then it will give only the higher priority ones with lower HFE.  Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder/
-    Calculates an error between vasp and uncle HFEs for each plot, and globally for these selected structures'''
+    '''Creates an HTML page with structure plots of mixed concentration ordered by hexagonal layer formation energy HFE, with the lowest (most negative) HFE first
+    structs at the top. If minPrior >0, then it will give only the higher priority ones with lower HFE.  
+    Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder.
+    also calculates an error between vasp and uncle HFEs for each plot, and then globally for these selected structures'''
     
     lastDir = os.getcwd()         
     nRow = 4  # number of plots in row
@@ -169,7 +170,7 @@ def errOrderConc(vcdata,vindex):
     vindex = vstructlist.index(struct)  
     return abs(ucdataRed[vindex]['uFE'] - ucdataRed[uindex]['uFE'])
 
-def plotByPrior(atoms,minPrior,iteration):  
+def plotStructsByPrior(atoms,minPrior,iteration):  
     ''''''
     lastDir = os.getcwd()
     structsDir = lastDir + '/structs'

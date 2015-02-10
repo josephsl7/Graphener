@@ -3,7 +3,7 @@ import os, subprocess,sys,re
 from comMethods import convergeCheck,finishCheck,getNSW,getSteps,readfile,writefile
 from numpy import rint
 import PlotStructures
-from PlotStructures import plotByPrior
+from PlotStructures import plotStructsByPrior
    
 #======================================= Script =====================================
 #======================================= Script =====================================
@@ -19,7 +19,7 @@ for item in os.listdir(maindir):
 print atoms
 minPrior = 0.1
 iteration = 4
-plotByPrior(atoms,minPrior,iteration)
+plotStructsByPrior(atoms,minPrior,iteration)
 
 print "Done"
 

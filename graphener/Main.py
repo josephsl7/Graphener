@@ -10,7 +10,8 @@ from copy import deepcopy
 
 from comMethods import *
 
-import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo, PlotStructures     
+import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, \
+        Analyzer, MovementInfo, PlotStructures     
 
 def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''
@@ -791,6 +792,13 @@ if __name__ == '__main__':
 #        subprocess.call(['echo','Warning: BLOCKING GSS to save time' ])   
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
+        minPrior = 0.01
+        plotStructsByPrior(atoms,minPrior,iteration)
+        collateStructsConc(atoms,minPrior,iteration)
+        NInPlot = 400
+        collateStructsHFE(atoms,minPrior,NInPlot,iteration)              
+        move = MovementInfo.MovementInfo(atoms,pureMetal,iteration,False) #instance
+        move.getMovementInfo()        
         if graphsOnly: sys.exit('Done with graphs. Stopping')
 
                 #---------- prep for next iteration --------------

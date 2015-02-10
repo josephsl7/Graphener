@@ -13,7 +13,7 @@ import StructsToPoscar
 import matplotlib.pyplot as plt
 
   
-class DistanceInfo:
+class MovementInfo:
     from comMethods import setAtomCounts,collatePlotsGSS
     def __init__(self, atoms,pureMetal,iteration,plotOnly):
         """ CONSTRUCTOR """
@@ -327,7 +327,7 @@ class DistanceInfo:
         self.meanMoveNormal = 0.0  
 
     
-    def getDistanceInfo(self):
+    def getMovementInfo(self):
         topDir = os.getcwd()
         header =  "Structure, vol, conc, HFE, CC-exp, moved_rms, max moved_para, rms M moved_para, max M moved_para, \
                 rms H moved_para, max H moved_para, rms moved_perp, max moved_perp, min d_MC, rms d_MC, max d_MC, ave buckle"       
