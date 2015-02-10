@@ -78,7 +78,7 @@ class structsToPoscar:
         infile.close()
         
         converter = Converter(structFile)
-        print 'struct',structFile
+        self.struct = str(self.retrieveStructNum(structFile))
         converter.convert()
         
         poscar = open('POSCAR','w')
@@ -132,7 +132,7 @@ class Converter:
         """ CONSTRUCTOR """
         self.uncleFile = uncleFile
         self.atomCounts = []
-        
+        self.struct = None
         self.LV = None  #lattice vectors
         self.Mmat = None
         self.PLV = None
@@ -183,6 +183,7 @@ class Converter:
 
     def getCpositions(self):
         '''Finds all the C positions within the unit cell'''
+        eps = 1e-6
         dxC = self.PLV[0,0]*2*0.333333333333333 #distance between 2 C atoms
         pos1 = array([dxC,0,self.dC])  #Our 2 C atoms are at 1/3 and 2/3 along the x axis
         pos2 = array([2*dxC,0,-self.dC])  
@@ -192,26 +193,30 @@ class Converter:
         for iMcolumn in range(3): #for the 3 LVs        
             m0limit = int(self.Mmat[0,iMcolumn]+1*sign(self.Mmat[0,iMcolumn])) #3rd PLV is in z direction...don't need it.  
             m1limit = int(self.Mmat[1,iMcolumn]+1*sign(self.Mmat[1,iMcolumn]))
-            for m0 in range(min(0,m0limit),max(0,m0limit)+1): 
-                for m1 in range(min(0,m1limit),max(0,m1limit)+1):
+#            m0limit = 100; m1limit = 100
+            extra = 2
+            for m0 in range(min(0,m0limit)-extra,max(0,m0limit)+extra): 
+                for m1 in range(min(0,m1limit)-extra,max(0,m1limit)+extra):
                     reps.append(pos1 + m0*self.PLV[:,0] + m1*self.PLV[:,1])
                     reps.append(pos2 + m0*self.PLV[:,0] + m1*self.PLV[:,1])
-        print reps
+#        print reps
         positions = []
         for vec in reps:
             vecplanar = vec; vecplanar[2] = 0.0 # ignore z component for testing whether in unit cell
             directPos = dot(inv(self.LV), transpose(vecplanar)) # Change to direct coordinates, 
-            if max(directPos)< 1.0 and min(directPos)>=0.0: #then in the unit cell
+            if min(directPos) >= 0.0 - eps and max(directPos) < 1.0 - eps: #then in the unit cell
                 exists = False
                 for pos in positions:
-                    if norm(pos-vec)<1e-6:
+                    if norm(pos-vec) < eps:
                         exists = True
                         break
                 if not exists:
+#                    print directPos
                     positions.append(vec)
         if len(positions) != self.atomCounts[0]:
-            sys.exit('Error in getCpositions: number of C atoms does not match area of cell. Stopping')
+            sys.exit('Error in getCpositions for {}: number of C atoms ({}) does not match area of cell ({}). Stopping'.format(self.struct,len(positions),self.atomCounts[0]))
         self.Cpos = positions # a list of numpy vectors
+#        print 'C',self.Cpos
             
     def getHpositionsFromDirectCoordinates(self, positionLines):
         """ Sets the 3D positions of the H atoms in the system. """
@@ -220,7 +225,6 @@ class Converter:
             direct = line.strip().split()
             direct = array([float(comp) for comp in direct])
             cart = dot(self.LV, transpose(direct))
-            print cart
             #displace from plane
             onTop = False
             for pos in self.Cpos: #check to see if this is on top of a C atom:
@@ -232,7 +236,7 @@ class Converter:
             else:
                 cart[2] = sign(cart[2])* self.dH       
             self.Hpos.append(cart)
-        print "H", self.Hpos
+#        print "H", self.Hpos
 
 
     def getMpositionsFromDirectCoordinates(self, positionLines):
@@ -242,7 +246,6 @@ class Converter:
             direct = line.strip().split()
             direct = array([float(comp) for comp in direct])
             cart = dot(self.LV, transpose(direct))
-            print cart
             #displace from plane
             onTop = False
             for pos in self.Cpos: #check to see if this is on top of a C atom:
@@ -254,7 +257,7 @@ class Converter:
             else:
                 cart[2] = sign(cart[2])* self.dM
             self.Mpos.append(cart)
-        print "M", self.Mpos 
+#        print "M", self.Mpos 
         
     def getLatticeVectors(self):
         """ Returns the lattice vectors of the structure. """

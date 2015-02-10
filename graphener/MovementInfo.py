@@ -58,7 +58,6 @@ class MovementInfo:
         self.moveHInPlane = 0.0
         self.moveNormal = 0.0       
         self.closestMC = []
-
                
     def correctz(self,directvec):
         '''Translates direct vectors with z positions farther than 0.5 to the cell edge to closer than that,
@@ -207,20 +206,13 @@ class MovementInfo:
         outfile = open(self.structDir + '/movement_info','w')       
         outfile.write("*************************************************\n")
         outfile.write("      DISTANCE INFO FOR STRUCTURE " + self.struct + "\n")
-        outfile.write("*************************************************\n\n")
-        
-        outfile.write("Volume Factor: " + str(self.volFactor) + "\t")
-        
-        self.conc = float(float(self.nM) / float(self.nH + self.nM))
-        
-        outfile.write("Metal concentration: " + str(self.conc) + "\n\n")
-        
-        outfile.write("RMS distance moved in relaxation: " + str(std(self.moveTotal)) + "\n\n")
-        
-        outfile.write("Maximum distance moved in the plane: " + str(max(self.moveInPlane)) + "\n\n")
-        
-        outfile.write("Maximum distance moved perpendicular to the plane: " + str(max(self.moveNormal)) + "\n\n")
-        
+        outfile.write("*************************************************\n\n")   
+        outfile.write("Volume Factor: " + str(self.volFactor) + "\t")       
+        self.conc = float(float(self.nM) / float(self.nH + self.nM))        
+        outfile.write("Metal concentration: " + str(self.conc) + "\n\n")        
+        outfile.write("RMS distance moved in relaxation: " + str(std(self.moveTotal)) + "\n\n")        
+        outfile.write("Maximum distance moved in the plane: " + str(max(self.moveInPlane)) + "\n\n")        
+        outfile.write("Maximum distance moved perpendicular to the plane: " + str(max(self.moveNormal)) + "\n\n")        
         if self.struct == '1':
             self.closestMC = [0.0]
             outfile.write("Minimum M-C bond length: NONE \n\n")
@@ -229,10 +221,7 @@ class MovementInfo:
             self.getMCBondingInfo()
             outfile.write("Minimum M-C bond length: " + str(min(self.closestMC)) + "\n\n")
             outfile.write("Maximum M-C bond length: " + str(max(self.closestMC)) + "\n\n")
-        
-        
         outfile.write("Average buckling distance: " + str(self.buckleAvg) + "\n")
-        
         outfile.write("\nOriginal Pos : \t\t\t Relaxed Position: \t\t Movement\t\t delta-x \t delta-y \t delta-z\n")
         outfile.write("(mapped to new cell)\n")
         for i in range(len(self.origPos)):
@@ -321,7 +310,6 @@ class MovementInfo:
         plt.show()
         fig.savefig(atomDir + '/gss/HFE_{}_{}'.format(moveType.replace(' ','_',),self.iteration))
         plt.close(fig)
-
         self.meanMoveMInPlane = 0.0
         self.meanMoveHInPlane = 0.0
         self.meanMoveNormal = 0.0  
