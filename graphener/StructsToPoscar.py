@@ -4,8 +4,8 @@ Created on Aug 13, 2014
 
 '''
 from glob import glob
-from numpy import sqrt,dot,rint
-from numpy.linalg import inv,det
+from numpy import sqrt,dot,rint,transpose,sign
+from numpy.linalg import inv,det,norm
 from copy import deepcopy
 import os, subprocess
 from comMethods import *
@@ -78,6 +78,7 @@ class structsToPoscar:
         infile.close()
         
         converter = Converter(structFile)
+        print 'struct',structFile
         converter.convert()
         
         poscar = open('POSCAR','w')
@@ -91,12 +92,11 @@ class structsToPoscar:
             poscar.write(inLines[0])
             
         poscar.write('1.0\n')
-        
-        # These are in the 'scrambled', (z, x, y) form from UNCLE.  We need to unscramble them.
+
         latticevecs = converter.getLatticeVectors()
         
-        for vec in latticevecs:
-            poscar.write('%12.8f %12.8f %12.8f\n' % (vec[1], vec[2], vec[0]))
+        for i in range(3):
+            poscar.write('%12.8f %12.8f %12.8f\n' % (latticevecs[0,i], latticevecs[1,i], latticevecs[2,i]))
         
         atomCounts = converter.getAtomCounts()
         
@@ -133,29 +133,16 @@ class Converter:
         self.uncleFile = uncleFile
         self.atomCounts = []
         
-        self.lattVec1 = []
-        self.lattVec2 = []
-        self.lattVec3 = []
-        
-        # 2D distance between hexagonal C atoms
-        self.distance = 1.42085901
-        
-        # Distance from the plane when buckled
-        self.dC = .22856
-        
+        self.LV = None  #lattice vectors
+        self.Mmat = None
+        self.PLV = None
+        self.dC = .22856 #buckling distance...not essential
         # Bond distances from C atoms
         self.dH = 1.1
         self.dM = 2.2
-        
-        self._2dCpos = []
-        self._3dCpos = []
-        
-        self._2dHpos = []
-        self._3dHpos = []
-        
-        self._2dMpos = []
-        self._3dMpos = []
-        
+        self.Cpos = []
+        self.Hpos = []
+        self.Mpos = []
         self.pure = False
     
     def convert(self):
@@ -163,29 +150,25 @@ class Converter:
         uncleFile = open(self.uncleFile, 'r')
         uncleLines = uncleFile.readlines()
         uncleFile.close()
-        
         # Extract the lattice vectors.
-        vectorLines = [line.strip().split() for line in uncleLines[2:5]]
-        for i in xrange(len(vectorLines)):
-            for j in xrange(len(vectorLines[i])):
-                if list(vectorLines[i][j])[0] == '*':
-                    vectorLines[i][j] = '15.0'
-                    break
-            
-        self.lattVec1 = [float(vectorLines[0][0]), float(vectorLines[0][1]), float(vectorLines[0][2])]
-        self.lattVec2 = [float(vectorLines[1][0]), float(vectorLines[1][1]), float(vectorLines[1][2])]
-        self.lattVec3 = [float(vectorLines[2][0]), float(vectorLines[2][1]), float(vectorLines[2][2])]
-        LV = zeros((3,3),dtype =float)
-        LV[:,0] = self.lattVec1
-        LV[:,1] = self.lattVec2
-        LV[:,2] = self.lattVec3 
-        cellVol = det(LV)
-        PLV = array(  [[2.13128850,  -1.23050000,   0.00000000],  #parent lattice vectors
+        vectorLines = [line.strip().split() for line in uncleLines[2:5]]          
+        vec1comps = [float(comp) if comp[0]!='*' else 15.0 for comp in vectorLines[0]] #to handle ******
+        vec2comps = [float(comp) if comp[0]!='*' else 15.0 for comp in vectorLines[1]]
+        vec3comps = [float(comp) if comp[0]!='*' else 15.0 for comp in vectorLines[2]]
+        self.LV = zeros((3,3),dtype =float)
+        self.LV[:,0] = array([vec1comps[1],vec1comps[2],vec1comps[0]]) #store lattice vectors as columns; switch from zxy to xyz
+        self.LV[:,1] = array([vec2comps[1],vec2comps[2],vec2comps[0]])  
+        self.LV[:,2] = array([vec3comps[1],vec3comps[2],vec3comps[0]]) 
+        cellVol = det(self.LV)
+        self.PLV = array(  [[2.13128850,  -1.23050000,   0.00000000],  #parent lattice vectors as rows
                        [2.13128850,   1.23050000,   0.00000000], 
                        [0.00000000,   0.00000000,  15.00000000]])
-        primCellVol = det(PLV)
-        dxC = PLV[0,0]*2*0.333333333333333 #distance between 2 C atoms
+        self.PLV = transpose(self.PLV) #vectors as columns
+        primCellVol = det(self.PLV)
         nCatoms = 2 * int(rint(cellVol/primCellVol))
+        #get the integer matrix M that defines the lattice vectors in terms of the primitive ones:
+        # LV = PLV * M
+        self.Mmat = dot(inv(self.PLV),self.LV)   
         # Get the number of each type of atom.
         adatomCounts = uncleLines[5].strip().split()
         adatomCounts = [int(count) for count in adatomCounts] 
@@ -193,106 +176,87 @@ class Converter:
         self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
         if self.atomCounts[1] == 0 or self.atomCounts[2] == 0:
             self.pure = True
-
         positionLines = uncleLines[7:]
-        
-        self.set3dCpositionsFromDirectCoordinates(positionLines)
-        self.set3dHpositionsFromDirectCoordinates(positionLines)
-        self.set3dMpositionsFromDirectCoordinates(positionLines)
-#        print 'test', nCatoms, cellVol, primCellVol,nCatoms/cellVol,2.0/primCellVol
-        if not isequal(nadatoms/cellVol,2.0/primCellVol): #need another C atom for each site (only one uncle site per cell)
-            self.addCpositions(dxC)
-            self.atomCounts = [nCatoms, adatomCounts[0], adatomCounts[1]]
+        self.getCpositions()
+        self.getHpositionsFromDirectCoordinates(positionLines)
+        self.getMpositionsFromDirectCoordinates(positionLines)
 
-    def addCpositions(self,dxC):
-        '''Each primitive cell has 2 carbon atoms.  If uncle has only one site/primitive cell, then we have 
-        to add the second carbon , which will not be a site for an adatom, and is below the plane
-        if the first is above'''
-        Cpos = deepcopy(self._3dCpos)
-        for pos in Cpos:
-            self._3dCpos.append([pos[0] + dxC, pos[1], -pos[2]])
+    def getCpositions(self):
+        '''Finds all the C positions within the unit cell'''
+        dxC = self.PLV[0,0]*2*0.333333333333333 #distance between 2 C atoms
+        pos1 = array([dxC,0,self.dC])  #Our 2 C atoms are at 1/3 and 2/3 along the x axis
+        pos2 = array([2*dxC,0,-self.dC])  
+        #find all graphene lattice points in region of unit cell defined by self.LV
+        #the columns of M give us the 3 lattice vectors.
+        reps = [] #copies of the two atoms in the primitive cell
+        for iMcolumn in range(3): #for the 3 LVs        
+            m0limit = int(self.Mmat[0,iMcolumn]+1*sign(self.Mmat[0,iMcolumn])) #3rd PLV is in z direction...don't need it.  
+            m1limit = int(self.Mmat[1,iMcolumn]+1*sign(self.Mmat[1,iMcolumn]))
+            for m0 in range(min(0,m0limit),max(0,m0limit)+1): 
+                for m1 in range(min(0,m1limit),max(0,m1limit)+1):
+                    reps.append(pos1 + m0*self.PLV[:,0] + m1*self.PLV[:,1])
+                    reps.append(pos2 + m0*self.PLV[:,0] + m1*self.PLV[:,1])
+        print reps
+        positions = []
+        for vec in reps:
+            vecplanar = vec; vecplanar[2] = 0.0 # ignore z component for testing whether in unit cell
+            directPos = dot(inv(self.LV), transpose(vecplanar)) # Change to direct coordinates, 
+            if max(directPos)< 1.0 and min(directPos)>=0.0: #then in the unit cell
+                exists = False
+                for pos in positions:
+                    if norm(pos-vec)<1e-6:
+                        exists = True
+                        break
+                if not exists:
+                    positions.append(vec)
+        self.Cpos = positions # a list of numpy vectors
             
-    def get2DDistance(self, atom1, atom2):
-        """ Returns the two-dimensional distance between two atoms. """
-        xcomp = atom2[0] - atom1[0]
-        ycomp = atom2[1] - atom1[1]
-        
-        return sqrt(pow(xcomp, 2) + pow(ycomp, 2))
-
-    def set3dCpositionsFromDirectCoordinates(self, positionLines):
-        """ Sets the 3D positions of the C atoms given the 2D 'surface' positions from UNCLE.
-            Another way to think of this is that it introduces the "buckling" into the sheet of
-            C atoms. """
-        self._3dCpos = []
-        for line in positionLines:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            comp3 = [position[2] * self.lattVec3[0], position[2] * self.lattVec3[1], position[2] * self.lattVec3[2]]
-            
-            old_z = comp1[0] + comp2[0] + comp3[0]
-            x = comp1[1] + comp2[1] + comp3[1]
-            y = comp1[2] + comp2[2] + comp3[2]
-            
-            z = 0.0
-            if old_z > 0:
-                z = self.dC
-            else:
-                z = -self.dC
-            
-            self._3dCpos.append([x, y, z])
-            
-    def set3dHpositionsFromDirectCoordinates(self, positionLines):
+    def getHpositionsFromDirectCoordinates(self, positionLines):
         """ Sets the 3D positions of the H atoms in the system. """
-        self._3dHpos = []
+        self.Hpos = []
         for line in positionLines[0:self.atomCounts[1]]:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            comp3 = [position[2] * self.lattVec3[0], position[2] * self.lattVec3[1], position[2] * self.lattVec3[2]]
-            
-            old_z = comp1[0] + comp2[0] + comp3[0]
-            x = comp1[1] + comp2[1] + comp3[1]
-            y = comp1[2] + comp2[2] + comp3[2]
-            
-            z = 0.0
-            if old_z > 0:
-                z = self.dC + self.dH
+            direct = line.strip().split()
+            direct = array([float(comp) for comp in direct])
+            cart = dot(self.LV, transpose(direct))
+            print cart
+            #displace from plane
+            onTop = False
+            for pos in self.Cpos: #check to see if this is on top of a C atom:
+                if norm(pos[:2]-cart[:2])<0.1: #only test planar distance
+                    onTop = True
+                    break        
+            if onTop: 
+                cart[2] = sign(cart[2])* (self.dC + self.dH) 
             else:
-                z = -self.dC - self.dH
-            
-            self._3dHpos.append([x, y, z])
+                cart[2] = sign(cart[2])* self.dH       
+            self.Hpos.append(cart)
+        print "H", self.Hpos
 
-    def set3dMpositionsFromDirectCoordinates(self, positionLines):
-        """ Sets the 3D positions of the metal atoms of the system. """
-        self._3dMpos = []
+
+    def getMpositionsFromDirectCoordinates(self, positionLines):
+        """ Sets the 3D positions of the M atoms in the system. """
+        self.Mpos = []
         for line in positionLines[self.atomCounts[1]:]:
-            position = line.strip().split()
-            position = [float(comp) for comp in position]
-            
-            comp1 = [position[0] * self.lattVec1[0], position[0] * self.lattVec1[1], position[0] * self.lattVec1[2]]
-            comp2 = [position[1] * self.lattVec2[0], position[1] * self.lattVec2[1], position[1] * self.lattVec2[2]]
-            comp3 = [position[2] * self.lattVec3[0], position[2] * self.lattVec3[1], position[2] * self.lattVec3[2]]
-            
-            old_z = comp1[0] + comp2[0] + comp3[0]
-            x = comp1[1] + comp2[1] + comp3[1]
-            y = comp1[2] + comp2[2] + comp3[2]
-            
-            z = 0.0
-            if old_z > 0:
-                z = self.dC + self.dM
+            direct = line.strip().split()
+            direct = array([float(comp) for comp in direct])
+            cart = dot(self.LV, transpose(direct))
+            print cart
+            #displace from plane
+            onTop = False
+            for pos in self.Cpos: #check to see if this is on top of a C atom:
+                if norm(pos[:2]-cart[:2])<0.1: #only test planar distance
+                    onTop = True
+                    break        
+            if onTop: 
+                cart[2] = sign(cart[2])* (self.dC + self.dM) 
             else:
-                z = -self.dC - self.dM
-            
-            self._3dMpos.append([x, y, z])
+                cart[2] = sign(cart[2])* self.dM
+            self.Mpos.append(cart)
+        print "M", self.Mpos 
         
     def getLatticeVectors(self):
         """ Returns the lattice vectors of the structure. """
-        return [self.lattVec1, self.lattVec2, self.lattVec3]
+        return self.LV
 
     def getAtomCounts(self):
         """ Returns the number of each atom in the structure. """
@@ -300,15 +264,15 @@ class Converter:
 
     def getCPositions(self):
         """ Returns the list of C positions in the structure. """
-        return self._3dCpos
+        return self.Cpos
     
     def getHPositions(self):
         """ Returns the list of H positions in the structure. """
-        return self._3dHpos
+        return self.Hpos
     
     def getMPositions(self):
         """ Returns the list of M positions in the structure. """
-        return self._3dMpos
+        return self.Mpos
 
     def isPure(self):
         """ Returns true if the structure is a pure structure, false otherwise. """

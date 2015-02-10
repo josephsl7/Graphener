@@ -9,7 +9,7 @@ from copy import deepcopy
 def collateStructsConc(atoms,minPrior,iteration):  
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
     structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder.
-    CAUTION:  ONLY UNCLE DATA IS USED TO SELECT PLOTS AND FOR THE LABELS.  NEED TO FIX THIS BY USING VASP DATA'''
+     '''
     lastDir = os.getcwd()         
     nRow = 4  # number of plots in row
     width = 500

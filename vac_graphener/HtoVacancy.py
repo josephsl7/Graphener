@@ -40,8 +40,9 @@ def changePOSCAR(struct,poscarDir,):
 #======================================= Script =====================================
 #======================================= Script =====================================
 #maindir = '/fslhome/bch/cluster_expansion/graphene/'
-maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15/'
-finaldir = '/fslhome/bch/cluster_expansion/graphene/vac.top.tm_row1.v15/'
+maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8/'
+finaldir = '/fslhome/bch/cluster_expansion/graphene/hollowTivac.v8/'
+#finaldir = '/fslhome/bch/cluster_expansion/graphene/vac.top.tm_row1.v15/'
  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'

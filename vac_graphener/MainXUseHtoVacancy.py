@@ -1,6 +1,6 @@
 '''
 
-
+For metal + vacancies...just until we get the real code working
 
 '''
 
@@ -385,8 +385,8 @@ def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsR
     if len(flat(vstructsToRun))>0:
         manager2 = JobManager.JobManager(atoms,ediffg)
         if runTypes ==['low']:
-#            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
-            manager2.runLowJobs(vstructsToStart,vstructsRestart)
+            subprocess.call(['echo','Warning: BLOCKING RUN MANAGER for testing' ])
+#            manager2.runLowJobs(vstructsToStart,vstructsRestart)
         elif runTypes ==['low','normal']:
             manager2.runLowJobs(vstructsToStart,vstructsRestart)
             manager2.runNormalJobs(vstructsToStart,vstructsRestart)          
@@ -702,7 +702,7 @@ or
 if __name__ == '__main__':
     maindir = os.getcwd() # leave this as default!
     
-    maindir = '/fslhome/bch/cluster_expansion/graphene/vac.top.tm_row1.v15' 
+    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTivac.v8' 
 
 
     subprocess.call(['echo','Starting in ' + maindir])

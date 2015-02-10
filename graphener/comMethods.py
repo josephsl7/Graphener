@@ -232,8 +232,9 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
     else:
         N = min(howmany,len(structlist)) 
     lastDir = os.getcwd()
+    existed = os.path.exists(atomDir + '/'+ 'structures{}'.format(outType))
     outFile = open(atomDir + '/'+ 'structures{}'.format(outType), writeType)                                   
-    if writeType == 'w':
+    if not existed:
         outFile.write("peratom\nnoweights\nposcar\n"); outFile.flush()  #header
     os.chdir(atomDir)
     subprocess.call(['ln','-s','../enum/struct_enum.out'])
@@ -259,8 +260,7 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
     os.chdir(lastDir)
 
 def writeLatticeVectors(vecLines,outfile):
-    """ Gets the lattice vectors from the first structure in the newlyFinished and sets the 
-        corresponding member components. """  
+    """ Gets the lattice vectors and writes them"""  
     vec1 = vecLines[0].strip().split()
     vec2 = vecLines[1].strip().split()
     vec3 = vecLines[2].strip().split()
