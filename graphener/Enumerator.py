@@ -74,7 +74,7 @@ class Enumerator:
         
         newfile.close()
         
-    def chooseTrainingStructures(self,iteration, startMethod,nNew,ntot):
+    def chooseTrainingStructures(self,iteration, startMethod,nNew,ntot,distribute):
         """ If startMethod is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
          
             The UNCLE option that we run to choose the training structures should look for a file 
@@ -127,26 +127,34 @@ class Enumerator:
                     subprocess.call(['ln','-s','../../enum/clusters.out'])                          
     #                subprocess.call([self.uncleExec, '42', str(nNew[iatom])], stdout=self.uncleOut)
                     os.chdir(lastDir)
-            #make job files
-            os.chdir(lastDir)
-            jobIds = []
-            if sum(nNew[1:])>0:
-                mem = '16' #Gb
-                walltime = 8.0 #hrs
-                subdir = 'enumpast'
-                execString = self.uncleExec + ' 42 '
-                atomStrings = [str(n) for n in nNew]
-                parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 
-                #submit jobs for atoms 2 an above
-                jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
-            #use this job to calculate the first atom:
-            if 2 <= nNew[0] < ntot:
-                os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
-                subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
-                subprocess.call([self.uncleExec, '42',str(nNew[0])], stdout=self.uncleOut)             
-                os.chdir(lastDir)      
-            #wait for others
-            if len(jobIds)>0: parallelAtomsWait(jobIds)  
+            if distribute and natoms > 1:
+                #make job files
+                os.chdir(lastDir)
+                jobIds = []
+                if sum(nNew[1:])>0:
+                    mem = '16' #Gb
+                    walltime = 8.0 #hrs
+                    subdir = 'enumpast'
+                    execString = self.uncleExec + ' 42 '
+                    atomStrings = [str(n) for n in nNew]
+                    parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 
+                    #submit jobs for atoms 2 an above
+                    jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
+                #use this job to calculate the first atom:
+                if 2 <= nNew[0] < ntot:
+                    os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
+                    subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
+                    subprocess.call([self.uncleExec, '42',str(nNew[0])], stdout=self.uncleOut)             
+                    os.chdir(lastDir)      
+                #wait for others
+                if len(jobIds)>0: parallelAtomsWait(jobIds) 
+            else: #run tasks sequentially
+                for iatom, atom in enumerate(atoms):
+                    if 2 <= nNew[iatom] < ntot:
+                        os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
+                        subprocess.call(['echo','\tCalculating atom: {}.\n'.format(atom)])
+                        subprocess.call([self.uncleExec, '42',str(nNew[iatom])], stdout=self.uncleOut)             
+                        os.chdir(lastDir)                        
             #get the iidStructs from training_set_structures.dat for each atom
             for iatom,atom in enumerate(self.atoms):
                 if 2 <= nNew[iatom] < ntot:

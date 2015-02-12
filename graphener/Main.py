@@ -473,6 +473,7 @@ def readSettingsFile():
     maxE = 100.0 #eV, max from vasp to include in fit
     graphsOnly = False
     maxIter = 100
+    distribute = True 
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':  
@@ -551,6 +552,11 @@ def readSettingsFile():
 
         elif line.split()[0] == 'MAX_ITER:':
             maxIter = line.split()[1] # maximum number of iterations
+
+        elif line.split()[0] == 'DISTRIBUTE:': # Whether to distribute over atom jobs the tasks such as iid choosing, fitting, and ground state search
+            if line.split()[1][0].lower() == 'y': 
+               distribute = True            
+            
         
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
@@ -677,7 +683,7 @@ if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8'
+    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/test1'
 
     subprocess.call(['echo','Starting in ' + maindir])
@@ -747,7 +753,7 @@ if __name__ == '__main__':
             PriorOrIID = 'p'
         if iteration == 1: 
             if startMethod == 'empty folders': 
-                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)
+                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)
                 vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
@@ -755,7 +761,7 @@ if __name__ == '__main__':
             contcarToPoscar(vstructsRestart,atoms,iteration) 
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
-            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)   
+            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)   
             contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         pastStructsUpdate(vstructsToStart,atoms)
@@ -780,7 +786,7 @@ if __name__ == '__main__':
                 
         # Perform a fit to the VASP data in structures.in for each atom.
         if not graphsOnly:
-            fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
+            fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput,distribute)
             if iteration == 1: 
                 fitter.makeFitDirectories()
             fitter.writeHoldout(50,vstructsFinished,vdata)
@@ -788,7 +794,7 @@ if __name__ == '__main__':
             fitter.fitVASPData(iteration,maxE)
     
         # Perform a ground state search on the fit for each atom.    
-        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput,pureMetal,finalDir)
+        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput,pureMetal,finalDir,distribute)
         gss.makeGSSDirectories()
 #        subprocess.call(['echo','Warning: BLOCKING GSS to save time' ])   
         gss.performGroundStateSearch(iteration)

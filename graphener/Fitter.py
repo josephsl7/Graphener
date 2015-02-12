@@ -12,7 +12,7 @@ class Fitter:
         keeps track of the fitting errors, prediction errors, and summaries of cluster expansion 
         terms from iteration to iteration. """
 
-    def __init__(self, atoms, M_fitStructures, N_subsets, vstructsFinished, uncleOutput):
+    def __init__(self, atoms, M_fitStructures, N_subsets, vstructsFinished, uncleOutput,distribute):
         """ CONSTRUCTOR """  
         self.vstructsFinished = vstructsFinished  
         self.atoms = atoms
@@ -24,6 +24,7 @@ class Fitter:
         self.uncleOut = uncleOutput
         #self.header = "peratom\nnoweights\nposcar\n"
         self.vstructsFinished = vstructsFinished
+        self.distribute = distribute
 
     def filterStructuresIn(self, fitsDir, iteration, maxE):
         '''Remove structs from structures.in, just before fitting, that don't fit criteria here. 
@@ -109,16 +110,10 @@ class Fitter:
 #                        self.filterStructuresInFrac(fitsDir,iteration, cullFrac) #remove some structures at the top of the FE list.                   
 #                            check = subprocess.check_output([self.uncleExec, '15'])
 #                            subprocess.call(['echo','Uncle 15 feedback'+ check])
-        if natoms ==1:
-            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
-            subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
-            os.chdir(lastDir)   
-        else:#parallelize the atom jobs
-            #make job files
+        if distribute and natoms > 1: #parallelize the atom jobs
             os.chdir(lastDir)
             mem = '16' #Gb
             walltime = 2.0 #hrs
-
             execString = self.uncleExec + ' 15'
             atomStrings = ['']*natoms
             parallelJobFiles(self.atoms,subdir,walltime,mem,execString,atomStrings) 
@@ -130,7 +125,14 @@ class Fitter:
             subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
             os.chdir(lastDir)
             #wait
-            parallelAtomsWait(jobIds)         
+            parallelAtomsWait(jobIds)
+        else: #run tasks sequentially
+            for iatom, atom in enumerate(atoms):
+                os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
+                subprocess.call(['echo','\tCalculating atom: {}.\n'.format(atom)])
+                subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
+                os.chdir(lastDir)                  
+                                  
         #post calc work for all
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1: #don't try fitting if structures.in is too small

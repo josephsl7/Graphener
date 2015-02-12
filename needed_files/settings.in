@@ -15,6 +15,6 @@ RESTART_TIMEOUT:  Y # (Y/N) Find those that timed out and resubmit them
 REMOVE_STR.IN: N  # (Y/N Renames structures.in (compiled from past runs) to structures.in.old, so it will be built from run folders
 EDIFFG: 2.5e-4 # ionic relaxation energy max diff, for INCAR, *per atom*
 MAX_E: 2.5 # eV.  Above this, do not include in fit (but will be plotted from vaspFE, etc)
-GRAPHS_ONLY: N # Ignores iteration and restarts 
+GRAPHS_ONLY: Y # Ignores iteration and restarts 
 PURE_METAL: 2  # structure number of the pure metal case
 MAX_ITER: 100  #Maximum number of iterations. If you have existing structures beyond pure, then no new calcs are done in iteration 1.  

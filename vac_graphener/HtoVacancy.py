@@ -23,8 +23,8 @@ def changePOSCAR(struct,poscarDir,):
     #        elif poscarLines[0].split()[1] == 'M':
     #            atomCounts.append(0)
     #            atomCounts.append(int(counts[1]))
-        natoms1 = nC + nH + nM
-        natoms2 = nC + nM
+#        natoms1 = nC + nH + nM
+#        natoms2 = nC + nM
         poscarLines[5] = '{} {}\n'.format(nC,nM)
         del poscarLines[7+nC:7+nC+nH] #remove H atoms
         writefile(poscarLines,poscarDir + '/POSCAR') #:7+natoms is because CONTCAR includes velocity lines that uncle doesn't want. The factor of 2 is because carbon atoms are not included in natoms      

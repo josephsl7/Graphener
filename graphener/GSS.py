@@ -16,7 +16,7 @@ class GSS:
     from comMethods import setAtomCounts,hexMonolayerEnergies,singleAtomsEnergies,getPureEs,\
                     contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,setEnergy
 
-    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput,pureMetal,finalDir):
+    def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput,pureMetal,finalDir,distribute):
         """ CONSTRUCTOR """
         
         self.atoms = atoms
@@ -41,7 +41,8 @@ class GSS:
         self.energy = 0.0   
         self.singleE = [] 
         self.hexE = [] 
-        self.finalDir = finalDir 
+        self.finalDir = finalDir
+        self.distribute = distribute
         
     def contains(self, struct, alist):
         """ Returns true if 'struct' is found in 'alist', false otherwise. """
@@ -205,8 +206,7 @@ class GSS:
                             outfile.write("set title \"\" \n")
                         else:
                             outfile.write(inlines[i])
-                    outfile.close()
-            
+                    outfile.close()        
                     #Hexagonal formation energy    
                     data = readfile(gssDir+'/vaspHFE.out')
                     ydata = [float(line.strip().split()[1]) for line in data]
@@ -221,32 +221,24 @@ class GSS:
                         elif i == 5:
 #                            outfile.write("set title \"" + 'Formation energy vs H2, metal hex monolayer'+ " (" + atomtext + ")\"\n")
                          outfile.write("set title \"\" \n")
-
                         elif 'plot "' in inlines[i]:         
 #                            outfile.write('set yrange [:{}]\n'.format(ymax))
                             outfile.write(inlines[i])
                         else:
                             outfile.write(inlines[i])
-                    outfile.close()
-                
+                    outfile.close()                
                     subprocess.call(['gnuplot', 'gss_plot.gp'])
                     subprocess.call(['gnuplot', 'BE_plot.gp'])
-                    subprocess.call(['gnuplot', 'HFE_plot.gp'])
-                    
+                    subprocess.call(['gnuplot', 'HFE_plot.gp'])                    
                     subprocess.call(['convert -density 300 gss.pdf -resize 1800x2700 gss_' + str(iteration) + '.png'],shell = True)
                     subprocess.call(['convert -density 300 BE.pdf -resize 1800x2700 BE_' + str(iteration) + '.png'],shell = True)
                     subprocess.call(['convert -density 300 HFE.pdf -resize 1800x2700 HFE_' + str(iteration) + '.png'],shell = True)
-#                    subprocess.call(['convert','-density','300','gss.pdf','-resize','1800x2700', 'gss_' + str(iteration) + '.png'],shell = True)
-#                    subprocess.call(['convert','-density','300','BE.pdf','resize','1800x2700','BE_' + str(iteration) + '.png'])
-#                    subprocess.call(['convert','-density','300','HFE.pdf','resize','1800x2700','HFE_' + str(iteration) + '.png'])                 
-
                     subprocess.call(['cp','gss.out','gss_' + str(iteration) + '.out'])
                     subprocess.call(['cp','vaspBE.out','vaspBE_' + str(iteration) + '.out'])
                     subprocess.call(['cp','vaspFE.out','vaspFE_' + str(iteration) + '.out'])
                     subprocess.call(['cp','vaspHFE.out','vaspHFE_' + str(iteration) + '.out'])
                     subprocess.call(['cp','uncleBE.out','uncleBE_' + str(iteration) + '.out'])
                     subprocess.call(['cp','uncleHFE.out','uncleHFE_' + str(iteration) + '.out'])
-
                     os.chdir(lastDir)
         self.collatePlotsGSS('gss',iteration)
         self.collatePlotsGSS('BE',iteration)
@@ -265,11 +257,7 @@ class GSS:
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
                     os.chdir(lastDir)
-        if natoms ==1:
-            os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
-            subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)             
-            os.chdir(lastDir)   
-        else:#parallelize the atom jobs
+        if distribute and natoms > 1: #parallelize the atom jobs
             #make job files
             mem = '16' #Gb
             walltime = 2.0 #hrs
@@ -286,6 +274,12 @@ class GSS:
             #wait for others
             parallelAtomsWait(jobIds)
             os.chdir(lastDir)                                       
+        else: #run tasks sequentially
+            for iatom, atom in enumerate(atoms):
+                os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
+                subprocess.call(['echo','\tCalculating atom: {}.\n'.format(atom)])
+                subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)              
+                os.chdir(lastDir)   
 
     def writeUncleBE_HFE(self,iteration):
         '''Using vasp atomic,moleculat and vasp hex monolayer reference energies, find the fitted
