@@ -337,6 +337,14 @@ def createEnumPastDir(atoms):
         if os.path.isdir(epDir): subprocess.call(['rm','-r' ,epDir])                    
         subprocess.call(['mkdir', epDir])                
         file = open(epDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
+        
+def enumerationDone(dir):
+    '''Checks for the output files of enumeration'''
+    if os.path.exists(dir + '/clusters.out') and os.path.exists(dir + '/struct_enum.out') \
+            and os.path.exists(dir + '/enum_PI_matrix.out'):
+        return True
+    else:
+        return False
 
 def existAllJ1out(atoms):
     '''Checks if all atoms have the file fits/J.1.out'''
@@ -699,7 +707,8 @@ if __name__ == '__main__':
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
-    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8'
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8'
+    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v15'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/test1'
 
     subprocess.call(['echo','Starting in ' + maindir])
@@ -742,8 +751,9 @@ if __name__ == '__main__':
        
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
 
-    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-#    enumerator.enumerate() #commented out for testing
+#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+    if not enumerationDone(maindir + '/enum'):
+        enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 

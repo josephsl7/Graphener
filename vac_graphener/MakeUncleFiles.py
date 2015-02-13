@@ -328,7 +328,7 @@ class MakeUncleFiles:
             nvac = nsites - nmetal
             #multiply stored energy by nadatoms so we have vasp run energy
             structEnergy = nsites * self.vdata[iatom,istruct]['energy'] 
-            formationEnergy = structEnergy/nsites - conc*self.pureMenergy - (1-conc)*self.pureHenergy
+            formationEnergy = structEnergy/float(nsites) - conc*self.pureMenergy - (1-conc)*self.pureHenergy
             self.vdata[iatom,istruct]['FE'] = formationEnergy
             vaspFEfile.write('{:10d} {:12.8f} {:12.8f}\n'.format(struct,conc,formationEnergy))            
 

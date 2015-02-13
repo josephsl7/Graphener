@@ -47,7 +47,7 @@ class Enumerator:
         lastDir = os.getcwd()
         os.chdir(lastDir + '/enum')
 #        subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
-        if sum(self.clusterNums)<=1500: #the 1500 assumes you are running Main with 16G. 
+        if sum(self.clusterNums)<=1500: #the 1500 rule of thumb assumes you are running Main with 16G. 
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
 #            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
