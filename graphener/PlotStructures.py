@@ -16,7 +16,7 @@ def collateStructsConc(atoms,minPrior,iteration):
     height  = 500
     iImage = 0
     for iatom, atom in enumerate(atoms):
-        print atom
+#        print atom
         atomDir = lastDir + '/' + atom 
         plotsDir = atomDir + '/struct_plots'       
         if not os.path.exists(plotsDir):
@@ -30,7 +30,7 @@ def collateStructsConc(atoms,minPrior,iteration):
                     conclist.append(conc)
             subprocess.call(['echo','Found {} concentrations'.format(len(conclist))])
         for conc in conclist:
-            print '   ',conc
+#            print '   ',conc
             collatefile  = open(plotsDir +'/{}_{}.htm'.format(conc,iteration),'w')
             collatefile.write(' <html>\n <HEAD>\n<TITLE> {} Conc {}, Iteration {} </TITLE>\n</HEAD>\n'.format(atom,conc,iteration))
             collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
@@ -63,7 +63,7 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
     height  = 500
     iImage = 0
     for iatom, atom in enumerate(atoms):
-        print atom
+#        print atom
         atomDir = lastDir + '/' + atom 
         plotsDir = atomDir + '/struct_plots'
         if not os.path.exists(plotsDir):     
@@ -185,7 +185,6 @@ def plotStructsByPrior(atoms,minPrior,iteration):
     toPlot = []
     skipped = []
 
-#    print done
     os.chdir(lastDir)
     for iatom, atom in enumerate(atoms):
         priorPath = lastDir + '/' + atom + '/priorities_{}.out'.format(iteration)
@@ -204,7 +203,6 @@ def plotStructsByPrior(atoms,minPrior,iteration):
     print 'Number of structures in priority range (priority > {}):  {}'.format(minPrior,len(toPlot)+len(skipped))
     print 'Number of structures already in structs folder:   {}'.format(len(done))
     print 'Number of structures left to plot:  {}'.format(len(toPlot))
-#    print 'toPlot',toPlot
     plot_structs(toPlot)
     os.chdir(lastDir)
 

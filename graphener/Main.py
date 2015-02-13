@@ -11,7 +11,9 @@ from copy import deepcopy
 from comMethods import *
 
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, \
-        Analyzer, MovementInfo, PlotStructures     
+        Analyzer, MovementInfo, PlotStructures 
+
+from PlotStructures import plotStructsByPrior    
 
 def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''
@@ -333,6 +335,17 @@ def createEnumPastDir(atoms):
         subprocess.call(['mkdir', epDir])                
         file = open(epDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
 
+def existAllJ1out(atoms):
+    '''Checks if all atoms have the file fits/J.1.out'''
+    existAll = True
+    for atom in atoms:
+        atomDir = os.getcwd() + '/' + atom
+        if not os.path.exists('{}/fits/J.1.out'.format(atomDir)):
+            existAll = False
+            break
+    return existAll    
+    
+
 def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
      and put the POSCARs in their corresponding directories. Run VASP'''
@@ -555,12 +568,12 @@ def readSettingsFile():
 
         elif line.split()[0] == 'DISTRIBUTE:': # Whether to distribute over atom jobs the tasks such as iid choosing, fitting, and ground state search
             if line.split()[1][0].lower() == 'y': 
-               distribute = True            
-            
-        
+               distribute = True  
+            elif line.split()[1][0].lower() == 'n': 
+               distribute = False           
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -702,7 +715,7 @@ if __name__ == '__main__':
     seed()
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute] = readSettingsFile()
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
     vstructsAll = [[]]*natoms #every structure vasp has attempted before this iteration, a list for each atom
@@ -785,7 +798,7 @@ if __name__ == '__main__':
         # should be sorted by formation energy during the work done by makeUncleFiles()
                 
         # Perform a fit to the VASP data in structures.in for each atom.
-        if not graphsOnly:
+        if iteration > 1 or not existAllJ1out(atoms):
             fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput,distribute)
             if iteration == 1: 
                 fitter.makeFitDirectories()
@@ -799,6 +812,8 @@ if __name__ == '__main__':
 #        subprocess.call(['echo','Warning: BLOCKING GSS to save time' ])   
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
+        #get the priority of each structure in each atom
+        priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
         minPrior = 0.01
         plotStructsByPrior(atoms,minPrior,iteration)
         collateStructsConc(atoms,minPrior,iteration)
@@ -814,8 +829,6 @@ if __name__ == '__main__':
         if iteration == 1: #bring in restarts from initial folders
             vstructsRestart = joinLists([vstructsRestart0,vstructsRestart])
         nNew = getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,ntot,PriorOrIID) #how many new structures to get for each atom
-        #get the priority of each structure in each atom
-        priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
         #choose new structures while still sorted by priority
         newStructsPrior = getFromPriorities(priorities,vstructsAll,atoms,nNew)       
         # First sort priorities by structure name so we have an unchanging order

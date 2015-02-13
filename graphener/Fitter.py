@@ -89,6 +89,7 @@ class Fitter:
                 
     def fitVASPData(self, iteration, maxE):
         """ Performs the UNCLE fit to the VASP data. """
+        subprocess.call(['echo','\nFitting VASP data . . .\n'])
         natoms = len(self.atoms)
         lastDir = os.getcwd()
         subdir = 'fits'
@@ -102,15 +103,14 @@ class Fitter:
                 else:
                     cullFrac = 0.01
                 if os.path.isdir(atomDir):
-                    subprocess.call(['echo','\nFitting VASP data for ' + atom + '. . .\n'])
                     fitsDir = atomDir + '/fits'
                     if os.path.isdir(fitsDir):
                         os.chdir(fitsDir)
                         subprocess.call(['cp', atomDir + '/structures.in', '.' ]) #so we have the latest version here 
 #                        self.filterStructuresInFrac(fitsDir,iteration, cullFrac) #remove some structures at the top of the FE list.                   
 #                            check = subprocess.check_output([self.uncleExec, '15'])
-#                            subprocess.call(['echo','Uncle 15 feedback'+ check])
-        if distribute and natoms > 1: #parallelize the atom jobs
+#                            subprocess.call(['echo','Uncle 15 feedback'+ check])s
+        if self.distribute and natoms > 1: #parallelize the atom jobs
             os.chdir(lastDir)
             mem = '16' #Gb
             walltime = 2.0 #hrs
@@ -127,7 +127,7 @@ class Fitter:
             #wait
             parallelAtomsWait(jobIds)
         else: #run tasks sequentially
-            for iatom, atom in enumerate(atoms):
+            for iatom, atom in enumerate(self.atoms):
                 os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
                 subprocess.call(['echo','\tCalculating atom: {}.\n'.format(atom)])
                 subprocess.call([self.uncleExec, '15'], stdout=self.uncleOut)             
@@ -189,6 +189,8 @@ class Fitter:
         for iatom in xrange(len(self.atoms)):
             nmax = min(N,len(structs[iatom]))
             atomDir = os.path.abspath(self.atoms[iatom])
+            if os.path.exists('{}/structures.holdout'.format(atomDir)):
+                subprocess.call(['rm', atomDir + '/structures.holdout'])
             structuresWrite(nmax,atomDir,self.vstructsFinished[iatom],\
                             vdata[iatom,:nmax]['FE'],vdata[iatom,:nmax]['conc'],\
                             vdata[iatom,:nmax]['energy'],'.holdout','w')        

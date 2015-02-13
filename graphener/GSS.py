@@ -14,7 +14,8 @@ class GSS:
         structures to add into the model. We also keep track of the list and the plots of the list
         from iteration to iteration. """
     from comMethods import setAtomCounts,hexMonolayerEnergies,singleAtomsEnergies,getPureEs,\
-                    contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,setEnergy
+                    contains,elConvergeCheck,electronicConvergeFinish,getElSteps,getEnergy,\
+                    setEnergy,collatePlotsGSS
 
     def __init__(self, atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished, uncleOutput,pureMetal,finalDir,distribute):
         """ CONSTRUCTOR """
@@ -257,7 +258,7 @@ class GSS:
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
                     os.chdir(lastDir)
-        if distribute and natoms > 1: #parallelize the atom jobs
+        if self.distribute and natoms > 1: #parallelize the atom jobs
             #make job files
             mem = '16' #Gb
             walltime = 2.0 #hrs
@@ -275,7 +276,7 @@ class GSS:
             parallelAtomsWait(jobIds)
             os.chdir(lastDir)                                       
         else: #run tasks sequentially
-            for iatom, atom in enumerate(atoms):
+            for iatom, atom in enumerate(self.atoms):
                 os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
                 subprocess.call(['echo','\tCalculating atom: {}.\n'.format(atom)])
                 subprocess.call([self.uncleExec, '21'], stdout=self.uncleOut)              
