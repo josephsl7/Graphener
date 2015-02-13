@@ -13,7 +13,7 @@ from comMethods import *
 import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, \
         Analyzer, MovementInfo, PlotStructures 
 
-from PlotStructures import plotStructsByPrior    
+from PlotStructures import plotStructsByPrior,collateStructsConc, collateStructsHFE     
 
 def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''

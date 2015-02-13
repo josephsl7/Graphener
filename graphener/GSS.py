@@ -106,7 +106,7 @@ class GSS:
                 priorfile = open(atomDir+'/priorities_{}.out'.format(iteration),'w')  
                 priorfile.write('structure,priority,concentration,FEnergy\n')
                 for i in range(Ntot):
-                    print i, self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'],gssInfo[i]['conc'],gssInfo[i]['FE']
+#                    print i, self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'],gssInfo[i]['conc'],gssInfo[i]['FE']
                     priorfile.write('{:7d}   {:10.6f}{:8.4f}{:10.6f}\n'.format( \
                     self.priorities[iatom,i]['struct'],self.priorities[iatom,i]['prior'], \
                     self.priorities[iatom,i]['conc'],self.priorities[iatom,i]['FE']))

@@ -62,8 +62,9 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
     width = 500
     height  = 500
     iImage = 0
+    subprocess.call(['Collating structure plots based on HFE'])
     for iatom, atom in enumerate(atoms):
-#        print atom
+        subprocess.call(['echo','\tAtom {}'.format(atom)])
         atomDir = lastDir + '/' + atom 
         plotsDir = atomDir + '/struct_plots'
         if not os.path.exists(plotsDir):     
@@ -128,9 +129,9 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
         err = sqrt(err/iImage)
         err2 = err2/iImage
         errOr = errOr/iImage
-        subprocess.call(['echo','RMS error for these structures: {}'.format(round(err,4))])
-        subprocess.call(['echo','Average order error of fit vs calc for these structures: {}'.format(round(errOr,4))])
-        subprocess.call(['echo','Average shift of fit vs calc for these structures: {}\n'.format(round(err2,4))])
+        subprocess.call(['echo','\tRMS error for these structures: {}'.format(round(err,4))])
+        subprocess.call(['echo','\tAverage order error of fit vs calc for these structures: {}'.format(round(errOr,4))])
+        subprocess.call(['echo','\tAverage shift of fit vs calc for these structures: {}\n'.format(round(err2,4))])
         
         collatefile.write(' </tr></table> \n') #end of row and table                
         collatefile.write(' <p><b>RMS error for these structures:</b> {},</p>'.format(round(err,4))) #end of file 
@@ -227,7 +228,7 @@ def plot_structs(structs):
             subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
             vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
             toPoscar.convertOne(vfile)
-            print i+1,struct
+#            print i+1,struct
             plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across           
             plotter = PlotGraphene('.','POSCAR','-p','',plotSize)
             plotter.fillByVecs(int(plotSize*2.0))            
