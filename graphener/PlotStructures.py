@@ -62,7 +62,7 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
     width = 500
     height  = 500
     iImage = 0
-    subprocess.call(['Collating structure plots based on HFE'])
+    subprocess.call(['echo','Collating structure plots based on HFE . . .'])
     for iatom, atom in enumerate(atoms):
         subprocess.call(['echo','\tAtom {}'.format(atom)])
         atomDir = lastDir + '/' + atom 

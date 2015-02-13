@@ -138,9 +138,9 @@ def readInitialFolders(atoms,restartTimeout,):
             if (not os.path.exists(vaspDir + '/OUTCAR')) or outcarWarn(vaspDir): 
                 failedStructs.append(struct)
                 subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
-#                restartStructs.append(struct)
-#                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
-#            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+            elif not failed and not energyDropCheck(vaspDir):
+                subprocess.call(['echo','\tEnergy rose unphysically for struct {}: failed'.format(struct)])
+                failed = True               
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
                 ifinished += 1
@@ -268,9 +268,12 @@ def parseStructsIn(atoms,vstructsFinished):
                 subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
 #                restartStructs.append(struct)
 #                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
-            elif not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
+            elif not failed and not energyDropCheck(vaspDir):
+                subprocess.call(['echo','\tEnergy rose unphysically for struct {}: failed'.format(struct)])
+                failed = True                
+            elif not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):# Don't restart any that have finished but converged.
                 failed = True 
-            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 subprocess.call(['echo','\tAtom {}: found finished structure {} not in structures.in. Appending to restart list.'.format(atom,struct)])                    
                 restartStructs.append(struct) 
             elif not failed and restartTimeout and not slurmProblem(vaspDir):
