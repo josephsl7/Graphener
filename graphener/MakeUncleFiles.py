@@ -204,7 +204,7 @@ class MakeUncleFiles:
             nH = nadatoms - nmetal 
             ncarbon = self.vdata[iatom,istruct]['nCarbon'] 
             #multiply stored energy by nadatoms so we have vasp run energy
-            structEnergy = nadatoms * self.vdata[iatom,istruct]['energy'] 
+            structEnergy = self.vdata[iatom,istruct]['energy'] 
             self.setAtomCounts(str(struct), self.atoms[iatom])
 
             formationEnergy = structEnergy

@@ -24,6 +24,10 @@ class structsToPoscar:
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.s2pStructList = deepcopy(s2pStructList)
+        self.dC = .22856 #buckling distance...not essential
+        # Bond distances from C atoms
+        self.dH = 1.1
+        self.dM = 2.2
     
     def convertOutputsToPoscar(self):
         """ Converts all the pseudo-POSCARs created by the Extractor class into POSCAR files that
@@ -192,8 +196,7 @@ class Converter:
         self.dH = 1.1
         self.dM = 2.2
         self.Cpos = []
-        self.Hpos = []
-        self.Mpos = []
+        self.Pos = []
         self.pure = False
     
     def convert(self):
