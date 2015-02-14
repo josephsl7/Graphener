@@ -119,11 +119,12 @@ def startJobs(toStart,atomDir):
 #======================================= Script =====================================
 #======================================= Script =====================================
 
-maindir = '/fslhome/bch/cluster_expansion/graphene/analysis/top.tm_row1/Ti/'
+maindir = '/fslhome/bch/cluster_expansion/graphene/analysis/top.Sc.v15/'
  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #maindir = os.getcwd()
+#maindir = '/fslhome/bch/cluster_expansion/graphene/analysis/top.tm_row1/Ti/'
 
 os.chdir(maindir)
 

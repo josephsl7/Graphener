@@ -118,7 +118,7 @@ def startJobs(toStart,atomDir):
 #======================================= Script =====================================
 #======================================= Script =====================================
 
-maindir = '/fslhome/bch/cluster_expansion/graphene/analysis' 
+maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTiH.v8' 
  
 ##    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1.continue'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
@@ -135,16 +135,18 @@ source = 'list'
 
 subprocess.call(['echo','Starting in ' + maindir])
 #os.chdir(maindir)
-atomlist = []
-for item in os.listdir(maindir):
-    itempath = maindir + '/' + item
-    if os.path.isdir(itempath) and item[0].isupper(): #look only at dirs whose names are capitalized. These are the atoms
-        atomlist.append(item)
-astring = ''; 
-for atom in atomlist: 
-    astring += atom + ' '
-subprocess.call(['echo','found atom folders: '+ astring])
-print atomlist
+#atomlist = []
+#for item in os.listdir(maindir):
+#    itempath = maindir + '/' + item
+#    if os.path.isdir(itempath) and item[0].isupper(): #look only at dirs whose names are capitalized. These are the atoms
+#        atomlist.append(item)
+#astring = ''; 
+#for atom in atomlist: 
+#    astring += atom + ' '
+#subprocess.call(['echo','found atom folders: '+ astring])
+#print atomlist
+
+atomlist = ['Sc_sv']
     
 for atom in atomlist:
     atomDir = maindir + '/' + atom

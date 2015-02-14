@@ -9,14 +9,14 @@ from copy import deepcopy
 def collateStructsConc(atoms,minPrior,iteration):  
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
     structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder.
-    CAUTION:  ONLY UNCLE DATA IS USED TO SELECT PLOTS AND FOR THE LABELS.  NEED TO FIX THIS BY USING VASP DATA'''
+     '''
     lastDir = os.getcwd()         
     nRow = 4  # number of plots in row
     width = 500
     height  = 500
     iImage = 0
     for iatom, atom in enumerate(atoms):
-        print atom
+#        print atom
         atomDir = lastDir + '/' + atom 
         plotsDir = atomDir + '/struct_plots'       
         if not os.path.exists(plotsDir):
@@ -30,7 +30,7 @@ def collateStructsConc(atoms,minPrior,iteration):
                     conclist.append(conc)
             subprocess.call(['echo','Found {} concentrations'.format(len(conclist))])
         for conc in conclist:
-            print '   ',conc
+#            print '   ',conc
             collatefile  = open(plotsDir +'/{}_{}.htm'.format(conc,iteration),'w')
             collatefile.write(' <html>\n <HEAD>\n<TITLE> {} Conc {}, Iteration {} </TITLE>\n</HEAD>\n'.format(atom,conc,iteration))
             collatefile.write(' <BODY>\n <p style="font-size:20px"> <table border="1">\n <tr>\n') #start row
@@ -54,17 +54,19 @@ def collateStructsConc(atoms,minPrior,iteration):
             collatefile.close()
 
 def collateStructsHFE(atoms,minPrior,NInPlot,iteration):  
-    '''Creates an HTML page with structure plots ordered by hexagonal layer formation energy HFE, with the lowest (most negative) HFE first
-    structs at the top. If minPrior >0, then it will give only the higher priority ones with lower HFE.  Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder/
-    Calculates an error between vasp and uncle HFEs for each plot, and globally for these selected structures'''
+    '''Creates an HTML page with structure plots of mixed concentration ordered by hexagonal layer formation energy HFE, with the lowest (most negative) HFE first
+    structs at the top. If minPrior >0, then it will give only the higher priority ones with lower HFE.  
+    Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder.
+    also calculates an error between vasp and uncle HFEs for each plot, and then globally for these selected structures'''
     
     lastDir = os.getcwd()         
     nRow = 4  # number of plots in row
     width = 500
     height  = 500
     iImage = 0
+    subprocess.call(['echo','Collating structure plots based on HFE . . .'])
     for iatom, atom in enumerate(atoms):
-        print atom
+        subprocess.call(['echo','\tAtom {}'.format(atom)])
         atomDir = lastDir + '/' + atom 
         plotsDir = atomDir + '/struct_plots'
         if not os.path.exists(plotsDir):     
@@ -129,9 +131,9 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
         err = sqrt(err/iImage)
         err2 = err2/iImage
         errOr = errOr/iImage
-        subprocess.call(['echo','RMS error for these structures: {}'.format(round(err,4))])
-        subprocess.call(['echo','Average order error of fit vs calc for these structures: {}'.format(round(errOr,4))])
-        subprocess.call(['echo','Average shift of fit vs calc for these structures: {}\n'.format(round(err2,4))])
+        subprocess.call(['echo','\tRMS error for these structures: {}'.format(round(err,4))])
+        subprocess.call(['echo','\tAverage order error of fit vs calc for these structures: {}'.format(round(errOr,4))])
+        subprocess.call(['echo','\tAverage shift of fit vs calc for these structures: {}\n'.format(round(err2,4))])
         
         collatefile.write(' </tr></table> \n') #end of row and table                
         collatefile.write(' <p><b>RMS error for these structures:</b> {},</p>'.format(round(err,4))) #end of file 
@@ -171,7 +173,7 @@ def errOrderConc(vcdata,vindex):
     vindex = vstructlist.index(struct)  
     return abs(ucdataRed[vindex]['uFE'] - ucdataRed[uindex]['uFE'])
 
-def plotByPrior(atoms,minPrior,iteration):  
+def plotStructsByPrior(atoms,minPrior,iteration):  
     ''''''
     lastDir = os.getcwd()
     structsDir = lastDir + '/structs'
@@ -186,7 +188,6 @@ def plotByPrior(atoms,minPrior,iteration):
     toPlot = []
     skipped = []
 
-#    print done
     os.chdir(lastDir)
     for iatom, atom in enumerate(atoms):
         priorPath = lastDir + '/' + atom + '/priorities_{}.out'.format(iteration)
@@ -205,7 +206,6 @@ def plotByPrior(atoms,minPrior,iteration):
     print 'Number of structures in priority range (priority > {}):  {}'.format(minPrior,len(toPlot)+len(skipped))
     print 'Number of structures already in structs folder:   {}'.format(len(done))
     print 'Number of structures left to plot:  {}'.format(len(toPlot))
-#    print 'toPlot',toPlot
     plot_structs(toPlot)
     os.chdir(lastDir)
 
@@ -230,7 +230,7 @@ def plot_structs(structs):
             subprocess.call(['../needed_files/makestr.x','../enum/struct_enum.out',str(struct)])
             vfile = 'vasp.' + '0'*(6-len(str(struct))) + str(struct)
             toPoscar.convertOne(vfile)
-            print i+1,struct
+#            print i+1,struct
             plotSize = 23.5 #determines number of atoms in plot... Roughly N/4 hexagons across           
             plotter = PlotGraphene('.','POSCAR','-p','',plotSize)
             plotter.fillByVecs(int(plotSize*2.0))            

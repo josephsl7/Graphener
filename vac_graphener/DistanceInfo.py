@@ -143,36 +143,35 @@ class DistanceInfo:
             newPosition = line.strip().split()
             newDirectPositions.append([float(pos) for pos in newPosition])
         
-        # Step 1:  Convert to Cartesian coordinates
-        for position in newDirectPositions:
-            
+        # Convert to Cartesian coordinates
+        for position in newDirectPositions: 
             rnew = dot(transpose(self.relaxedVecs), transpose(position))
             self.relaxedPositions.append(rnew)
         
-        """# Step 2:  Convert to Direct coordinates in terms of the !! OLD !! lattice vectors.
-        oldDirPos = []
-        for position in newCartPos:
-            rnew = dot(inv(transpose(self.origVecs)), transpose(position))
-            oldDirPos.append(rnew)
-        
-        # Step 3:  Translate all the positions into the parallelepiped defined by the !! OLD !!
-        #          lattice vectors.
-        for r in oldDirPos:
-            eps = 1e-4
-            for i in xrange(3):
-                while r[i] > 1.0 - eps or r[i] < 0.0 - eps:
-                    if r[i] > 1.0 - eps:
-                        r[i] = r[i] - 1
-                    elif r[i] < 0.0 - eps:
-                        r[i] = r[i] + 1
-        
-        # Step 4:  Convert back to Cartesian coordinates.    
-        positions = []
-        for position in oldDirPos:
-            rnew = dot(transpose(self.origVecs), transpose(position)) # Transform to Cartesian coordinates
-            positions.append(rnew)
-            
-        return positions """
+#        """# Step 2:  Convert to Direct coordinates in terms of the !! OLD !! lattice vectors.
+#        oldDirPos = []
+#        for position in newCartPos:
+#            rnew = dot(inv(transpose(self.origVecs)), transpose(position))
+#            oldDirPos.append(rnew)
+#        
+#        # Step 3:  Translate all the positions into the parallelepiped defined by the !! OLD !!
+#        #          lattice vectors.
+#        for r in oldDirPos:
+#            eps = 1e-4
+#            for i in xrange(3):
+#                while r[i] > 1.0 - eps or r[i] < 0.0 - eps:
+#                    if r[i] > 1.0 - eps:
+#                        r[i] = r[i] - 1
+#                    elif r[i] < 0.0 - eps:
+#                        r[i] = r[i] + 1
+#        
+#        # Step 4:  Convert back to Cartesian coordinates.    
+#        positions = []
+#        for position in oldDirPos:
+#            rnew = dot(transpose(self.origVecs), transpose(position)) # Transform to Cartesian coordinates
+#            positions.append(rnew)
+#            
+#        return positions """
     
     def getDistances(self, origPositions):
         if len(origPositions) != len(self.relaxedPositions):

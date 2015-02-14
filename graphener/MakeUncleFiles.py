@@ -88,10 +88,12 @@ class MakeUncleFiles:
                     if mod(istruct+1,100) == 0 or istruct+1 == len(vstructsToRun[iatom]): 
                         subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(vstructsToRun[iatom]),atom)])
                     vaspDir = atomDir + '/' + struct + self.finalDir
-#                            if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
                     if outcarWarn(vaspDir): 
                         subprocess.call(['echo','\tOUTCAR warning for struct{}: failed'.format(struct)])
                         failed.append(struct)
+                    elif not energyDropCheck(vaspDir): 
+                        subprocess.call(['echo','\tEnergy rose unphysically for struct {}: failed'.format(struct)])
+                        failed.append(struct)                                            
                     else:
                         if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)):                           
                            # Check for concentration

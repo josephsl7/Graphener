@@ -10,7 +10,10 @@ from copy import deepcopy
 
 from comMethods import *
 
-import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, Analyzer, DistanceInfo, PlotStructures     
+import Enumerator, Extractor, StructsToPoscar, JobManager, MakeUncleFiles, Fitter, GSS, \
+        Analyzer, MovementInfo, PlotStructures 
+
+from PlotStructures import plotStructsByPrior,collateStructsConc, collateStructsHFE     
 
 def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''
@@ -39,7 +42,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
             pureDirs.append(atomDir + '/' + str(struct))
             struct = struct + nextPureCase
 
-        if not False in [os.path.exists(pureDir) for pureDir in pureDirs]:
+        if not False in [os.path.exists(pureDir) and finishCheck(pureDir) for pureDir in pureDirs]:
             for item in os.listdir(atomDir):
                 itempath = atomDir + '/' + item
                 if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
@@ -147,9 +150,9 @@ def readInitialFolders(atoms,restartTimeout,):
             if (not os.path.exists(vaspDir + '/OUTCAR')) or outcarWarn(vaspDir): 
                 failedStructs.append(struct)
                 subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
-#                restartStructs.append(struct)
-#                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
-#            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+            elif not failed and not energyDropCheck(vaspDir):
+                subprocess.call(['echo','\tEnergy rose unphysically for struct {}: failed'.format(struct)])
+                failed = True               
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
                 ifinished += 1
@@ -277,9 +280,12 @@ def parseStructsIn(atoms,vstructsFinished):
                 subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
 #                restartStructs.append(struct)
 #                subprocess.call(['echo','\tOUTCAR warning for struct {}: restart'.format(struct)])
-            elif not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
+            elif not failed and not energyDropCheck(vaspDir):
+                subprocess.call(['echo','\tEnergy rose unphysically for struct {}: failed'.format(struct)])
+                failed = True                
+            elif not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):# Don't restart any that have finished but converged.
                 failed = True 
-            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)) and energyDropCheck(vaspDir): 
+            elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 subprocess.call(['echo','\tAtom {}: found finished structure {} not in structures.in. Appending to restart list.'.format(atom,struct)])                    
                 restartStructs.append(struct) 
             elif not failed and restartTimeout and not slurmProblem(vaspDir):
@@ -343,6 +349,25 @@ def createEnumPastDir(atoms):
         if os.path.isdir(epDir): subprocess.call(['rm','-r' ,epDir])                    
         subprocess.call(['mkdir', epDir])                
         file = open(epDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
+        
+def enumerationDone(dir):
+    '''Checks for the output files of enumeration'''
+    if os.path.exists(dir + '/clusters.out') and os.path.exists(dir + '/struct_enum.out') \
+            and os.path.exists(dir + '/enum_PI_matrix.out'):
+        return True
+    else:
+        return False
+
+def existAllJ1out(atoms):
+    '''Checks if all atoms have the file fits/J.1.out'''
+    existAll = True
+    for atom in atoms:
+        atomDir = os.getcwd() + '/' + atom
+        if not os.path.exists('{}/fits/J.1.out'.format(atomDir)):
+            existAll = False
+            break
+    return existAll    
+    
 
 def extractToVasp(iteration,runTypes,atoms,vstructsAll,vstructsToStart,vstructsRestart):
     ''' Convert the extracted pseudo-POSCARs to VASP POSCAR files, make directories for them
@@ -484,6 +509,7 @@ def readSettingsFile():
     maxE = 100.0 #eV, max from vasp to include in fit
     graphsOnly = False
     maxIter = 100
+    distribute = True 
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':  
@@ -562,12 +588,17 @@ def readSettingsFile():
         elif line.split()[0] == 'PURE_METAL:':
             pureMetal = line.split()[1] # structure number (string) of the pure metal case
 
-        elif line.split()[0] == 'MAX_ITER':
-            maxIter = int(line.split()[1])
-    
+        elif line.split()[0] == 'MAX_ITER:':
+            maxIter = line.split()[1] # maximum number of iterations
+
+        elif line.split()[0] == 'DISTRIBUTE:': # Whether to distribute over atom jobs the tasks such as iid choosing, fitting, and ground state search
+            if line.split()[1][0].lower() == 'y': 
+               distribute = True  
+            elif line.split()[1][0].lower() == 'n': 
+               distribute = False           
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -702,7 +733,7 @@ if __name__ == '__main__':
     
 # override default maindir   
 
-#    maindir = '/fslhome/bch/cluster_expansion/graphene/testtm3'  
+#    maindir = '/fslhome/bch/cluster_expansion/graphene/hollowTivac.v8'  
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/tm_row1'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v8'
 #    maindir = '/fslhome/bch/cluster_expansion/graphene/top.tm_row1.v15' 
@@ -724,7 +755,7 @@ if __name__ == '__main__':
     seed()
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute] = readSettingsFile()
     case = len(atoms[0].split(','))
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
@@ -749,8 +780,9 @@ if __name__ == '__main__':
        
     enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
 
-    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-#    enumerator.enumerate() #commented out for testing
+#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+    if not enumerationDone(maindir + '/enum'):
+        enumerator.enumerate()
     ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
     energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
 
@@ -777,7 +809,7 @@ if __name__ == '__main__':
             PriorOrIID = 'p'
         if iteration == 1: 
             if startMethod == 'empty folders': 
-                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)
+                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)
                 vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
@@ -785,7 +817,7 @@ if __name__ == '__main__':
             contcarToPoscar(vstructsRestart,atoms,iteration) 
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
-            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot)   
+            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)   
             contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         pastStructsUpdate(vstructsToStart,atoms)
@@ -809,8 +841,8 @@ if __name__ == '__main__':
         # should be sorted by formation energy during the work done by makeUncleFiles()
                 
         # Perform a fit to the VASP data in structures.in for each atom.
-        if not graphsOnly:
-            fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput)
+        if iteration > 1 or not existAllJ1out(atoms):
+            fitter = Fitter.Fitter(atoms, mfitStructs, nfitSubsets, vstructsFinished,uncleOutput,distribute)
             if iteration == 1: 
                 fitter.makeFitDirectories()
             fitter.writeHoldout(50,vstructsFinished,vdata)
@@ -818,11 +850,20 @@ if __name__ == '__main__':
             fitter.fitVASPData(iteration,maxE)
     
         # Perform a ground state search on the fit for each atom.    
-        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput,pureMetal,finalDir)
+        gss = GSS.GSS(atoms, volRange, plotTitle, xlabel, ylabel, vstructsFinished,uncleOutput,pureMetal,finalDir,distribute)
         gss.makeGSSDirectories()
 #        subprocess.call(['echo','Warning: BLOCKING GSS to save time' ])   
         gss.performGroundStateSearch(iteration)
         gss.makePlots(iteration)
+        #get the priority of each structure in each atom
+        priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
+        minPrior = 0.01
+        plotStructsByPrior(atoms,minPrior,iteration)
+        collateStructsConc(atoms,minPrior,iteration)
+        NInPlot = 400
+        collateStructsHFE(atoms,minPrior,NInPlot,iteration)              
+        move = MovementInfo.MovementInfo(atoms,pureMetal,iteration,False) #instance
+        move.getMovementInfo()        
         if graphsOnly: sys.exit('Done with graphs. Stopping')
 
                 #---------- prep for next iteration --------------
@@ -831,8 +872,6 @@ if __name__ == '__main__':
         if iteration == 1: #bring in restarts from initial folders
             vstructsRestart = joinLists([vstructsRestart0,vstructsRestart])
         nNew = getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,ntot,PriorOrIID) #how many new structures to get for each atom
-        #get the priority of each structure in each atom
-        priorities = gss.getGssInfo(iteration,vstructsFailed) #first structure listed is highest priority
         #choose new structures while still sorted by priority
         newStructsPrior = getFromPriorities(priorities,vstructsAll,atoms,nNew)       
         # First sort priorities by structure name so we have an unchanging order

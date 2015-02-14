@@ -39,7 +39,6 @@ class clustersjob:
             s.run()
             finished = self.reportFinished(self.currJobIds)
            
-          
     def makeRunClusters(self): #bch all
         """Creates cluster jobfile and starts the run """     
         jobFile = open('clustersjob','w')
@@ -70,4 +69,3 @@ class clustersjob:
                                                         # The error in this case is an "invalid
                                                         # job id" error because the job is no
         return True                                     # longer on the supercomputer.    
-       
