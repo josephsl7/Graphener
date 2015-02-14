@@ -54,20 +54,23 @@ class structsToPoscar:
                     line = inLines[0]
                     elements = ['C'] + self.atoms[i].split(',')
 
-                    poscar.write(line[:line.find(':') + 1] + ' ')
+                    poscar.write(line[:line.find('atoms:') + 6] + ' ')
 
                     vacancies = 0
+                    vacancyNum = 0
 
                     for num, element in enumerate(elements):
                         if self.atomCounts[num] != 0 and element.find('Vc') == -1 and num != 0:
                             poscar.write(str(num) + ' ')
                         elif element.find('Vc') != -1:
                             vacancies = self.atomCounts[num]
+                            vacancyNum = num
 
-                    if vacancies == 0:
-                        poscar.write(line[line.find('-'):])
-                    else:
-                        poscar.write(line[line.find('-'):-1].strip() + ' -- ' + 'Vacancies: ' + str(vacancies) + '\n')
+                    poscar.write(' Case: ' + str(len(self.atoms[i].split(','))) + '  ')
+
+                    if vacancies != 0:
+                        poscar.write('Vacancies: ' + str(vacancies) + '  Vacancy Num: ' + str(vacancyNum))
+                    poscar.write('\n')
 
                     poscar.write(inLines[1] + inLines[2] + inLines[3] + inLines[4])
 
@@ -140,20 +143,24 @@ class structsToPoscar:
         converter.convert()
 
         self.atomCounts = converter.getAtomCounts()
+
+        case = len(self.atomCounts) - 1
         
         poscar = open('POSCAR','w')
+
+        poscar.write(inLines[0].strip())
+
+        if converter.isPure():
+            poscar.write(" (PURE CASE) ")
+
+        poscar.write(' -- ')
         
         poscar.write("Contains atoms: ")
         for i, count in enumerate(self.atomCounts):
             if count != 0 and i != 0:
                 poscar.write(str(i) + " ")
-        
-        if converter.isPure():
-            poscar.write("- (PURE CASE) ")
-
-        poscar.write("- " + inLines[0])
-            
-        poscar.write('1.0\n')
+                
+        poscar.write('\n1.0\n')
 
         latticevecs = converter.getLatticeVectors()
         

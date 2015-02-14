@@ -97,7 +97,7 @@ class MakeUncleFiles:
                     else:
                         if finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)):                           
                            # Check for concentration
-                            self.setAtomCounts(struct, atom) 
+                            self.setAtomCounts(struct) 
                             nadatoms =  float(sum(self.atomCounts) - self.atomCounts[0])                       
 
                             concentration = [float(float(x) / nadatoms) for x in self.atomCounts[1:]]
@@ -205,7 +205,7 @@ class MakeUncleFiles:
             ncarbon = self.vdata[iatom,istruct]['nCarbon'] 
             #multiply stored energy by nadatoms so we have vasp run energy
             structEnergy = self.vdata[iatom,istruct]['energy'] 
-            self.setAtomCounts(str(struct), self.atoms[iatom])
+            self.setAtomCounts(str(struct))
 
             formationEnergy = structEnergy
             for i, count in enumerate(self.atomCounts[1:]):
@@ -265,7 +265,7 @@ class MakeUncleFiles:
         nfinished = count_nonzero(self.vdata[iatom,:]['struct'])
         istruct = nfinished #starting position for vdata array
         for struct in self.newlyFinished[iatom]:
-            self.setAtomCounts(struct, self.atoms[iatom]) #reads in atom numbers
+            self.setAtomCounts(struct) #reads in atom numbers
             self.setEnergy(struct)
             self.vdata[iatom,istruct]['struct'] = struct
             structEnergy = float(self.energy)

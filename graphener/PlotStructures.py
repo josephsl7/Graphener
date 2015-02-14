@@ -10,7 +10,7 @@ def collateStructsConc(atoms,minPrior,iteration):
     '''Creates an HTML page with structure plots for each concentration, with the highest priority
     structs at the top.  Labels include atom, conc, FE, priority. Store in /struct_plots within each atom folder.
      '''
-    lastDir = os.getcwd()         
+    lastDir = os.getcwd()       
     nRow = 4  # number of plots in row
     width = 500
     height  = 500
@@ -59,7 +59,7 @@ def collateStructsHFE(atoms,minPrior,NInPlot,iteration):
     Labels include atom, conc, vHFE, vFE, priority. Store in /struct_plots within each atom folder.
     also calculates an error between vasp and uncle HFEs for each plot, and then globally for these selected structures'''
     
-    lastDir = os.getcwd()         
+    lastDir = os.getcwd()     
     nRow = 4  # number of plots in row
     width = 500
     height  = 500
@@ -353,7 +353,7 @@ class PlotGraphene:
             nonCatomCounts = poscarLines[5].strip().split()
             nonCatomCounts = [int(count) for count in nonCatomCounts]
             
-            self.atomCounts = [sum(nonCatomCounts), nonCatomCounts[0], nonCatomCounts[1]]
+            self.atomCounts = [sum(nonCatomCounts)] + nonCatomCounts
         else:
             self.setAtomCounts('.') # this is from comMethods...handles the pure cases right 
 #            self.atomCounts = poscarLines[5].strip().split()

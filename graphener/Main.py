@@ -19,6 +19,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     ''' '''
     lastDir = os.getcwd()
     natoms = len(atoms)
+    case = len(atoms[0].split(','))
     subprocess.call(['echo','Checking structure folders for existing vasp data. . . \n'])
     nexistsStructsIn = 0
     nfoldersOK = 0
@@ -115,7 +116,7 @@ def readInitialFolders(atoms,restartTimeout,):
         struct = 1        
         for i, nextPureCase in enumerate(range(case, 0, -1)):
             pureDir = atomDir + '/' + str(struct)
-            pureAtomCounts = setAtomCounts(pureDir, atom)
+            pureAtomCounts = setAtomCounts(pureDir)
             pureEnergies.append(float(readfile(pureDir + '/OSZICAR')[-1].split()[2])/float(sum(pureAtomCounts[1:])))
             struct = struct + nextPureCase
 
@@ -142,7 +143,7 @@ def readInitialFolders(atoms,restartTimeout,):
             if mod(istruct+1,100) == 0 or istruct+1 ==len(structlist): subprocess.call(['echo','\tChecked {} of {} structures in {}'.format(istruct+1,len(structlist),atom)])
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
-                    atomCounts = setAtomCounts(vaspDir, atom) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
+                    atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
                 except:
                     failed = True
             if not failed and finishCheck(vaspDir) and not convergeCheck(vaspDir, getNSW(vaspDir)):
@@ -272,7 +273,7 @@ def parseStructsIn(atoms,vstructsFinished):
             
             if os.stat(vaspDir + '/POSCAR').st_size > 0: 
                 try:
-                    atomCounts = setAtomCounts(vaspDir, atom) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
+                    atomCounts = setAtomCounts(vaspDir) #also changes any "new"-format POSCAR/CONTCAR back to old (removes the 6th line if it's text
                 except:
                     failed = True
             if (not os.path.exists(vaspDir + '/OUTCAR')) or outcarWarn(vaspDir):  
@@ -645,7 +646,7 @@ def slurmProblem(dir):
                     return True        
     return False                         
 
-def setAtomCounts(poscarDir, atom):
+def setAtomCounts(poscarDir):
     """ Retrieves the number of C, H and M atoms from the POSCAR file and sets 
         the corresponding members. 
         Also fixes "new" POSCAR/CONTCAR format (comes from CONTCAR) back to old for UNCLE use (removes the 6th line if it's text """
@@ -653,9 +654,6 @@ def setAtomCounts(poscarDir, atom):
 
     vacancyNum = -1
     vacancies = 0
-
-    elements = atom.split(',')
-    case = len(elements)
 
     fixPOSCAR = False
     poscarLines = readfile(poscarDir + '/POSCAR')
@@ -665,7 +663,9 @@ def setAtomCounts(poscarDir, atom):
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
 
-    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
+    case = int(poscarLines[0][poscarLines[0].find('Case:') + 6])
+
+    present = poscarLines[0][poscarLines[0].find('atoms:') + 6:poscarLines[0].find('Case')].strip()
     countnum = 1
 
     atomCounts.append(int(counts[0]))
@@ -678,11 +678,9 @@ def setAtomCounts(poscarDir, atom):
             atomCounts.append(0)
 
     if poscarLines[0].find('Vacancies') != -1:
-        for i, element in enumerate(elements):
-            if element.find('Vc') != -1:
-                vacancyNum = i
-        vacancies = int(poscarLines[0].strip().split()[-1])
-        atomCounts[vacancyNum + 1] = vacancies
+        vacancyNum = int(poscarLines[0].strip().split()[-1])
+        vacancies = int(poscarLines[0].strip().split()[-4])
+        atomCounts[vacancyNum] = vacancies
 
     natoms = sum(atomCounts)
     if fixPOSCAR:

@@ -91,7 +91,7 @@ def getPureEs(self, iatom):
         pureDir = dir + '/' + iDir
     
         if os.path.exists(pureDir):
-            self.setAtomCounts(pureDir, self.atoms[iatom])
+            self.setAtomCounts(pureDir)
             self.setEnergy(pureDir)
             pureEnergies.append(float(self.energy))
             subprocess.call(['echo','Pure ' + self.atoms[iatom].split(',')[i] +' energy: {}'.format(self.energy) ]) 
@@ -174,17 +174,14 @@ def writefile(lines,filepath): #need to have \n's inserted already
     file1.close()
     return
             
-def setAtomCounts(self, poscarDir, atom):
+def setAtomCounts(self, poscarDir):
     """ Retrieves the number of C, H and M atoms from the POSCAR file and sets 
         the corresponding members. 
         Also fixes "new" POSCAR/CONTCAR format (comes from CONTCAR) back to old for UNCLE use (removes the 6th line if it's text """
     self.atomCounts = []
 
-    self.vacancyNum = -1
-    self.vacancies = 0
-
-    elements = atom.split(',')
-    case = len(elements)
+    vacancyNum = -1
+    vacancies = 0
 
     fixPOSCAR = False
     poscarLines = readfile(poscarDir + '/POSCAR')
@@ -194,7 +191,9 @@ def setAtomCounts(self, poscarDir, atom):
         fixPOSCAR = True
         counts = poscarLines[6].strip().split()  
 
-    present = poscarLines[0][poscarLines[0].find(':') + 1:poscarLines[0].find('-')].strip()
+    case = int(poscarLines[0][poscarLines[0].find('Case:') + 6])
+
+    present = poscarLines[0][poscarLines[0].find('atoms:') + 6:poscarLines[0].find('Case')].strip()
     countnum = 1
 
     self.atomCounts.append(int(counts[0]))
@@ -207,11 +206,9 @@ def setAtomCounts(self, poscarDir, atom):
             self.atomCounts.append(0)
 
     if poscarLines[0].find('Vacancies') != -1:
-        for i, element in enumerate(elements):
-            if element.find('Vc') != -1:
-                self.vacancyNum = i
-        self.vacancies = int(poscarLines[0].strip().split()[-1])
-        self.atomCounts[self.vacancyNum + 1] = self.vacancies
+        vacancyNum = int(poscarLines[0].strip().split()[-1])
+        vacancies = int(poscarLines[0].strip().split()[-4])
+        self.atomCounts[vacancyNum] = vacancies
 
     natoms = sum(self.atomCounts)
     if fixPOSCAR:

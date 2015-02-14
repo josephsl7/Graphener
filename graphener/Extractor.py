@@ -31,7 +31,7 @@ class Extractor:
 	    struct = 1
             for i, nextPureCase in enumerate(range(self.case,0,-1)):
                 if not self.contains(str(struct), vstructsToStart[iatom]+vstructsFinish[iatom]):
-                    vstructsToStart[iatom].append (str(struct))
+                    vstructsToStart[iatom].append(str(struct))
 		struct = struct + nextPureCase
         return vstructsToStart
 

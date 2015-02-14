@@ -56,7 +56,7 @@ class RunVasp:
                 poscar.close()
 
                 line = poscarLines[0]
-                present = line[line.find(':')+1:line.find('-')].strip().split()
+                present = line[line.find('atoms:') + 6:line.find('Case')].strip().split()
 
                 potcar = open(structDir + '/POTCAR', 'w')
 
@@ -201,7 +201,7 @@ class RunVasp:
         """ Creates a standard INCAR file and puts it in each different structure's top 
             directory. Ediffs increase with atom count, since it's a measure
             for total energy change, not per atom"""
-        self.setAtomCounts(dir, dir.strip().split('/')[-2])
+        self.setAtomCounts(dir)
         elements = dir.strip().split('/')[-2].split(',')
         electronList = [int(count * self.neAtom[element]) for count, element in zip(self.atomCounts[1:], elements)]
         nelectrons = self.atomCounts[0]*4 + sum(electronList)
