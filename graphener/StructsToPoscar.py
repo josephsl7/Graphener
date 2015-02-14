@@ -54,7 +54,7 @@ class structsToPoscar:
                     line = inLines[0]
                     elements = ['C'] + self.atoms[i].split(',')
 
-                    poscar.write(line[:line.find('atoms:') + 6] + ' ')
+                    poscar.write(line[:line.find('atoms:') + 7])
 
                     vacancies = 0
                     vacancyNum = 0
@@ -66,10 +66,10 @@ class structsToPoscar:
                             vacancies = self.atomCounts[num]
                             vacancyNum = num
 
-                    poscar.write(' Case: ' + str(len(self.atoms[i].split(','))) + '  ')
+                    poscar.write(line[line.find('Case:') - 1:line.find('Case:') + 7])
 
                     if vacancies != 0:
-                        poscar.write('Vacancies: ' + str(vacancies) + '  Vacancy Num: ' + str(vacancyNum))
+                        poscar.write('  Vacancies: ' + str(vacancies) + '  Vacancy Num: ' + str(vacancyNum))
                     poscar.write('\n')
 
                     poscar.write(inLines[1] + inLines[2] + inLines[3] + inLines[4])
@@ -159,6 +159,8 @@ class structsToPoscar:
         for i, count in enumerate(self.atomCounts):
             if count != 0 and i != 0:
                 poscar.write(str(i) + " ")
+
+        poscar.write(' Case: ' + str(len(self.atoms[0].split(','))) + '  ')
                 
         poscar.write('\n1.0\n')
 

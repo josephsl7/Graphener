@@ -80,15 +80,10 @@ def getPureEs(self, iatom):
     os.chdir(dir)
 
     pureEnergies = []
-    pureStructList = []
+    pureStructs = getPureStructs(lastDir + '/enum')
 
-    struct = 1
-    for i, nextPureCase in enumerate(range(self.case, 0, -1)):
-        pureStructList.append(str(struct))
-	struct = struct + nextPureCase
-
-    for i, iDir in enumerate(pureStructList):
-        pureDir = dir + '/' + iDir
+    for i, iDir in enumerate(pureStructs):
+        pureDir = dir + '/' + str(iDir)
     
         if os.path.exists(pureDir):
             self.setAtomCounts(pureDir)
@@ -280,6 +275,27 @@ def structuresWrite(howmany,atomDir,structlist, FElist,conclist,energylist,outTy
         outFile.write(str(energylist[istruct]) + "\n")         
     outFile.close() 
     os.chdir(lastDir)
+
+def getPureStructs(enumDir):
+    enumfile = open(enumDir + '/struct_enum.out', 'r')
+    lines = [line for line in enumfile]
+    enumfile.close()
+
+    pureStructs = []
+
+    for i, line in enumerate(lines):
+        if line.find('#tot') != -1:
+            start = i
+            break
+    end = 200
+    if len(lines) < end:
+        end = len(lines)
+
+    for line in lines[start:end]:
+        label = line.strip().split()[-1]
+        if len([num for num in range(10) if str(num) in label]) == 1:
+            pureStructs.append(int(line.strip().split()[0]))
+    return pureStructs
 
 def writeLatticeVectors(vecLines,outfile):
     """ Gets the lattice vectors and writes them"""  

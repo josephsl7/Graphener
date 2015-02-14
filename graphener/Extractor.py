@@ -5,6 +5,8 @@ Created on Aug 27, 2014
 '''
 import os, subprocess
 
+from comMethods import getPureStructs
+
 class Extractor:
     """ This class is responsible for creating "pseudo-POSCAR" files for each structure in the
         set of structures that we want to run through VASP calculations.  It does this by 
@@ -23,16 +25,16 @@ class Extractor:
 	self.case = len(atoms[0].split(','))
 
 
-    def checkPureInCurrent(self, iterNum, vstructsToStart, vstructsFinish):  #OK
+    def checkPureInCurrent(self, iterNum, vstructsToStart, vstructsFinish, maindir):  #OK
         """ This checks that the pure elements are in the list to calculate or in the finished structures
         Only called on the first iteration for the firs """
 #        self.exStructList = []
+
+        pureStructs = getPureStructs(maindir + '/enum')
         for iatom in xrange(len(self.atoms)):
-	    struct = 1
-            for i, nextPureCase in enumerate(range(self.case,0,-1)):
+            for struct in pureStructs:
                 if not self.contains(str(struct), vstructsToStart[iatom]+vstructsFinish[iatom]):
                     vstructsToStart[iatom].append(str(struct))
-		struct = struct + nextPureCase
         return vstructsToStart
 
     def contains(self, struct, alist):

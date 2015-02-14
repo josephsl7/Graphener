@@ -26,9 +26,7 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
     #find starting method
     for iatom, atom in enumerate(atoms):
         nstruct = 0
-        atomDir = lastDir + '/' + atom
-        pureHdir =  atomDir + '/1'
-        pureMdir =  atomDir + '/' + pureMetal       
+        atomDir = lastDir + '/' + atom    
         if rmStructIn and os.path.exists(atomDir + '/structures.in'): 
             os.chdir(atomDir)
             os.system('mv structures.in structures.in.old')
@@ -37,11 +35,8 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
 
-        pureDirs = []
-        struct = 1        
-        for i, nextPureCase in enumerate(range(case, 0, -1)):
-            pureDirs.append(atomDir + '/' + str(struct))
-            struct = struct + nextPureCase
+        pureStructs = getPureStructs(lastDir + '/enum')
+        pureDirs = [atomDir + '/' + str(struct) for struct in pureStructs]
 
         if not False in [os.path.exists(pureDir) and finishCheck(pureDir) for pureDir in pureDirs]:
             for item in os.listdir(atomDir):
@@ -112,13 +107,13 @@ def readInitialFolders(atoms,restartTimeout,):
         atomDir = lastDir + '/' + atom     
         #pure energies
 
+        pureStructs = getPureStructs(lastDir + '/enum')
+
         pureEnergies = []
-        struct = 1        
-        for i, nextPureCase in enumerate(range(case, 0, -1)):
+        for struct in pureStructs:
             pureDir = atomDir + '/' + str(struct)
             pureAtomCounts = setAtomCounts(pureDir)
             pureEnergies.append(float(readfile(pureDir + '/OSZICAR')[-1].split()[2])/float(sum(pureAtomCounts[1:])))
-            struct = struct + nextPureCase
 
         subprocess.call(['echo','\n\n{}'.format(atom)])
         for element, energy in zip(atom.split(','), pureEnergies):
@@ -808,7 +803,7 @@ if __name__ == '__main__':
         if iteration == 1: 
             if startMethod == 'empty folders': 
                 vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)
-                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
+                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished,maindir)
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
