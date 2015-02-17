@@ -250,11 +250,11 @@ class GSS:
         lastDir = os.getcwd()
         natoms = len(self.atoms)
         subdir = 'gss'
+        subprocess.call(['echo','\nPerforming ground state search . . .\n'])
         for iatom, atom in enumerate(self.atoms):
             if len(self.vstructsFinished[iatom]) > 1:
                 gssDir = os.getcwd() + '/' + atom + '/gss/'
-                if os.path.isdir(gssDir):
-                    subprocess.call(['echo','\nPerforming ground state search for ' + atom + '. . .\n'])
+                if os.path.isdir(gssDir): 
                     os.chdir(gssDir)
                     if os.path.exists('gss.out'): subprocess.call(['rm','gss.out'])
                     os.chdir(lastDir)
