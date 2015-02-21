@@ -4,7 +4,7 @@
 import os, subprocess,sys,re,time
 from random import seed
 from numpy import zeros,array,sqrt,std,amax,amin,int32,sort,count_nonzero,delete,mod
-from numpy import dot,rint
+from numpy import dot,rint,fromfile
 from numpy.linalg import inv,det
 from copy import deepcopy
 
@@ -347,11 +347,20 @@ def createEnumPastDir(atoms):
         subprocess.call(['mkdir', epDir])                
         file = open(epDir + '/past_structs.dat', 'w'); file.close()  #just create it. 
         
-def enumerationDone(dir):
+def enumerationDone(dir,nTotClusters,nTotStructs):
     '''Checks for the output files of enumeration'''
-    if os.path.exists(dir + '/clusters.out') and os.path.exists(dir + '/struct_enum.out') \
-            and os.path.exists(dir + '/enum_PI_matrix.out'):
-        return True
+    print nTotClusters,nTotStructs,nTotClusters*nTotStructs
+    if os.path.exists(dir + '/enum_PI_matrix.out'):
+        subprocess.call(['echo','\nChecking enum_PI_matrix.out for correct size. . .'])
+        lines = readfile(dir + '/enum_PI_matrix.out')
+        n = len(lines)
+        del lines #huge list!
+        if n == nTotStructs: # and == nTotClusters: #The number of columns (clusters) doesn't make sent to me yet.
+            subprocess.call(['echo','\tOK\n'])
+            if os.path.exists(dir + '/clusters.out') and os.path.exists(dir + '/struct_enum.out'): 
+                return True
+        else:
+            subprocess.call(['echo','\tNeeds to be calculated\n'])
     else:
         return False
 
@@ -441,7 +450,7 @@ def getDiffE(priorities, energiesLast, atoms):
 #        ediffL1[iatom] = sqrt(sum(abs(ediff) * priorities[iatom,:]['prior']/priorsum))
     return ediffL1
 
-def getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,ntot,PriorOrIID):
+def getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,nTotStructs,PriorOrIID):
     '''For each atom, chooses how many new structures to use for the next iteration'''
     natoms = len(atoms)
     nNew = [0]*natoms
@@ -449,9 +458,9 @@ def getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,ntot,PriorOrIID):
         nFinished = len(vstructsFinished[iatom])
         nRestart = len(vstructsRestart[iatom])
         if PriorOrIID == 'i':
-            nNew[iatom] = min(niid,ntot-(nFinished+nRestart)) 
+            nNew[iatom] = min(niid,nTotStructs-(nFinished+nRestart)) 
         else:
-            nNew[iatom] = min(nPrior,ntot-(nFinished+nRestart))
+            nNew[iatom] = min(nPrior,nTotStructs-(nFinished+nRestart))
     return nNew
 
 def getNSW(dir): 
@@ -507,6 +516,7 @@ def readSettingsFile():
     graphsOnly = False
     maxIter = 100
     distribute = True 
+    extendpath = '' # builds run off of previous (usually smaller) run with symbolic links
     
     for line in inlines:
         if line.split()[0] == 'ATOMS:':  
@@ -592,10 +602,12 @@ def readSettingsFile():
             if line.split()[1][0].lower() == 'y': 
                distribute = True  
             elif line.split()[1][0].lower() == 'n': 
-               distribute = False           
+               distribute = False 
+        elif line.split()[0] == 'EXTEND_PATH:':
+            extendpath = line.split()[1]      
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -603,26 +615,6 @@ def removeStructs(list1,list2):
         for item in list1[iatom]:
             if item in list2[iatom]: list2[iatom].remove(item)
     return list2
-#
-#def timeoutCheck(dir):
-#    '''Checks the latest slurm file for the words TIME LIMIT. 
-#       Or if it doesn't have a slurm, it means it neverstarted, so start those'''
-#    slurmlist = []
-#    structfiles = os.listdir(dir)
-#    failed = False
-#    for file in structfiles:
-#        filePath = dir + '/' + file
-#        if 'slurm' in file and os.stat(filePath).st_size > 0:
-#            slurmlist.append(file)
-#    if len(slurmlist)==0: 
-#        return True
-#    else: #only use the last slurm
-#        slurmlist.sort()
-#        lastslurm = slurmlist[-1]
-#        for line in readfile(dir + '/' + lastslurm):
-#            if 'TIME LIMIT' in line: 
-#                return True
-#        return False
 
 def slurmProblem(dir):
     '''Checks all slurm files for key strings that indicate we shouldn't restart. 
@@ -739,6 +731,11 @@ if __name__ == '__main__':
     #subprocess.call(['ln','-s','/fslhome/bch/bin/uncle',maindir+'/needed_files/uncle.x'])
     
     os.chdir(maindir)
+    [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath] = readSettingsFile()
+    #build new larger run from previous smaller run, if maindir is empty and a path is given
+#    if extendpath != '' and len(os.listdir(maindir))==0:
+    nTotClusters = sum(clusterNums)    
     pathMax = maindir + '/needed_files/diffMax'
     if os.path.exists(pathMax):
         diffMax = float(readfile(pathMax)[0].strip()) 
@@ -768,21 +765,23 @@ if __name__ == '__main__':
     if not os.path.isdir('hex_monolayer_refs'):
         manager1 = JobManager.JobManager(atoms,ediffg)
         manager1.runHexMono()
+    
+       
+    
     #assign all existing struct folders to either finished, restart, or failed
     [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal)    
     vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
        
-    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput)
-
+    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput, distribute)
+    nTotStructs = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
 #    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-    if not enumerationDone(maindir + '/enum'):
+    if not enumerationDone(maindir + '/enum',nTotClusters,nTotStructs):
         enumerator.enumerate()
-    ntot = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
-    energiesLast = zeros((natoms,ntot),dtype=float) #energies of last iteration, sorted by structure name
+    energiesLast = zeros((natoms,nTotStructs),dtype=float) #energies of last iteration, sorted by structure name
 
     createEnumPastDir(atoms)
     pastStructsUpdate(vstructsAll,atoms)  
-    nNew = getnNew(atoms,vstructsFinished,vstructsRestart,niid,niid,ntot,PriorOrIID) #how many new structures to get for each atom.  If have empty folders, niid is needed for both methods
+    nNew = getnNew(atoms,vstructsFinished,vstructsRestart,niid,niid,nTotStructs,PriorOrIID) #how many new structures to get for each atom.  If have empty folders, niid is needed for both methods
    
     converged = False
     iteration = 1
@@ -793,8 +792,8 @@ if __name__ == '__main__':
         subprocess.call(['echo','\n========================================================'])
         subprocess.call(['echo','\t\tIteration ' + str(iteration)])
         subprocess.call(['echo','========================================================\n'])
-        #since atoms may have changed, have to reinitialize this
-        enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput) 
+        #since atoms may have changed, have to reinitialize these
+        enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput, distribute) 
         # Extract the pseudo-POSCARs from struct_enum.out
         extractor = Extractor.Extractor(atoms, uncleOutput, startMethod,pureMetal)   
         # If enough iid structs have been submitted, go to priority method        
@@ -803,15 +802,16 @@ if __name__ == '__main__':
             PriorOrIID = 'p'
         if iteration == 1: 
             if startMethod == 'empty folders': 
-                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)
-                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished,maindir)
+                vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,nTotStructs)
+                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
             contcarToPoscar(vstructsRestart,atoms,iteration) 
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         elif iteration > 1 and PriorOrIID == 'i':
-            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,ntot,distribute)   
+#            subprocess.call(['echo','Warning: BLOCKING chooseTrainingStructures (iter>1) to save time' ])
+            vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,nTotStructs)   
             contcarToPoscar(vstructsRestart,atoms,iteration)
             vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
         pastStructsUpdate(vstructsToStart,atoms)
@@ -865,7 +865,7 @@ if __name__ == '__main__':
         #determine how many new structures to get for each atom, for any method
         if iteration == 1: #bring in restarts from initial folders
             vstructsRestart = joinLists([vstructsRestart0,vstructsRestart])
-        nNew = getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,ntot,PriorOrIID) #how many new structures to get for each atom
+        nNew = getnNew(atoms,vstructsFinished,vstructsRestart,niid,nPrior,nTotStructs,PriorOrIID) #how many new structures to get for each atom
         #choose new structures while still sorted by priority
         newStructsPrior = getFromPriorities(priorities,vstructsAll,atoms,nNew)       
         # First sort priorities by structure name so we have an unchanging order

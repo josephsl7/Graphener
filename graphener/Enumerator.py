@@ -12,7 +12,7 @@ class Enumerator:
         the struct_enum.out file that is produced. The methods in this class are only needed for 
         the first iteration of the main convergence loop. """
   
-    def __init__(self, atoms, volRange, clusterNums, uncleOutput):
+    def __init__(self, atoms, volRange, clusterNums, uncleOutput, distribute):
         """ CONSTRUCTOR """
         self.atoms = atoms
         self.volRange = volRange
@@ -26,6 +26,7 @@ class Enumerator:
         self.clusterNums = clusterNums
         self.makeAtomDirectories()
 	self.case = len(atoms[0].split(','))
+        self.distribute = distribute
 
     def buildClusters(self):
         """ Uses UNCLE to build the number of each n-body clusters specified in the settings.in
@@ -53,9 +54,9 @@ class Enumerator:
         if sum(self.clusterNums)<=1500: #the 1500 rule of thumb assumes you are running Main with 16G. 
             subprocess.call([self.uncleExec, '10'], stdout=self.uncleOut)
         else:
-#            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
-            clustersjob = ClustersBuild.clustersjob()
-            clustersjob.clustBuild()
+            subprocess.call(['echo','Warning: BLOCKING CLUSTER JOB to save time'])
+#            clustersjob = ClustersBuild.clustersjob()
+#            clustersjob.clustBuild()
         os.chdir(lastDir)
 
     def changeEnumFile(self):
@@ -77,7 +78,7 @@ class Enumerator:
         
         newfile.close()
         
-    def chooseTrainingStructures(self,iteration, startMethod,nNew,ntot,distribute):
+    def chooseTrainingStructures(self,iteration, startMethod,nNew,nTotClusters):
         """ If startMethod is not the same for each atomChooses a list of i.i.d. structures from struct_enum.out for each different metal atom,
          
             The UNCLE option that we run to choose the training structures should look for a file 
@@ -91,18 +92,18 @@ class Enumerator:
         
 #        subprocess.call(['echo','Warning: BLOCKING IID selection  to save time'])
 #            for iatom,atom in enumerate(self.atoms):
-#                if 2 <= nNew[iatom] < ntot:
+#                if 2 <= nNew[iatom] < nTotClusters:
 #                    lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
 #                    iidStructs[iatom] = [line.strip().split()[1] for line in lines]           
 
         if (iteration == 1 and startMethod == 'empty folders') or natoms == 1: #initialize training_set_structures in enumpast/.  Compute iid structures once, and copy to all atom folders that need them
             subprocess.call(['echo','\nChoosing i.i.d. structures for all\n'])                         
             os.chdir('enum')
-            if 2 <= nNew[0] < ntot:  #uncle requires at least 2 iid structures.
+            if 2 <= nNew[0] < nTotClusters:  #uncle requires at least 2 iid structures.
                 subprocess.call([self.uncleExec, '42', str(nNew[0])], stdout=self.uncleOut) 
                 lines = readfile('training_set_structures.dat')
-            elif nNew[0] == ntot: #asking for all the structures for small enumerations, so just list them
-                structlines = ['{}   {}\n'.format(str(i+1),str(i+1)) for i in range(ntot)]
+            elif nNew[0] == nTotClusters: #asking for all the structures for small enumerations, so just list them
+                structlines = ['{}   {}\n'.format(str(i+1),str(i+1)) for i in range(nTotClusters)]
                 writefile(structlines,'training_set_structures.dat')
                 lines = readfile('training_set_structures.dat')                 
             else: 
@@ -119,7 +120,7 @@ class Enumerator:
         else: # must get separate iid structures for each atom, so parallelize        
             #prep
             for iatom,atom in enumerate(self.atoms):
-                if 2 <= nNew[iatom] < ntot:
+                if 2 <= nNew[iatom] < nTotClusters:
                     atomDir = lastDir + '/' + atom
     #            try:
                     os.chdir(atomDir + '/enumpast')
@@ -130,13 +131,13 @@ class Enumerator:
                     subprocess.call(['ln','-s','../../enum/clusters.out'])                          
     #                subprocess.call([self.uncleExec, '42', str(nNew[iatom])], stdout=self.uncleOut)
                     os.chdir(lastDir)
-            if distribute and natoms > 1:
+            if self.distribute and natoms > 1:
                 #make job files
                 os.chdir(lastDir)
                 jobIds = []
                 if sum(nNew[1:])>0:
                     mem = '16' #Gb
-                    walltime = 8.0 #hrs
+                    walltime = 16.0 #hrs
                     subdir = 'enumpast'
                     execString = self.uncleExec + ' 42 '
                     atomStrings = [str(n) for n in nNew]
@@ -144,7 +145,7 @@ class Enumerator:
                     #submit jobs for atoms 2 an above
                     jobIds = parallelAtomsSubmit(self.atoms[1:],subdir)
                 #use this job to calculate the first atom:
-                if 2 <= nNew[0] < ntot:
+                if 2 <= nNew[0] < nTotClusters:
                     os.chdir(lastDir + '/' + self.atoms[0]  + '/' + subdir)
                     subprocess.call(['echo','\tThis job calculating the first atom: {}. Submitted jobs for the others.\n'.format(self.atoms[0])])
                     subprocess.call([self.uncleExec, '42',str(nNew[0])], stdout=self.uncleOut)             
@@ -153,14 +154,14 @@ class Enumerator:
                 if len(jobIds)>0: parallelAtomsWait(jobIds) 
             else: #run tasks sequentially
                 for iatom, atom in enumerate(atoms):
-                    if 2 <= nNew[iatom] < ntot:
+                    if 2 <= nNew[iatom] < nTotClusters:
                         os.chdir(lastDir + '/' + self.atoms[iatom]  + '/' + subdir)
                         subprocess.call(['echo','\tCalculating atom: {}.\n'.format(atom)])
                         subprocess.call([self.uncleExec, '42',str(nNew[iatom])], stdout=self.uncleOut)             
                         os.chdir(lastDir)                        
             #get the iidStructs from training_set_structures.dat for each atom
             for iatom,atom in enumerate(self.atoms):
-                if 2 <= nNew[iatom] < ntot:
+                if 2 <= nNew[iatom] < nTotClusters:
                     lines = readfile(atomDir + '/enumpast/training_set_structures.dat')
                     iidStructs[iatom] = [line.strip().split()[1] for line in lines]           
 #            except:
@@ -212,13 +213,24 @@ class Enumerator:
         os.chdir(lastDir)
         subprocess.call(['echo','\nGenerating clusters. . .\n'])
         self.buildClusters()
-        os.chdir(lastDir + '/enum')
+       
         #Run the smallest iid job possible to calculate enum_PI_matrix.out.  All the atoms need it.
         subprocess.call(['echo','\nCalculating enum_PI_matrix.out\n']) 
-        if os.path.exists('enum_PI_matrix.out'):
-            subprocess.call(['rm', 'enum_PI_matrix.out'])        
-        subprocess.call([self.uncleExec, '42', '2'], stdout=self.uncleOut) 
-        os.chdir(lastDir)
+        subprocess.call(['rm', 'enum_PI_matrix.out'])  
+        if self.distribute: #not really distribution over atoms, but using this method to submit a job. still may need larger memory for this  
+                mem = '64' #Gb
+                walltime = 16.0 #hrs
+                subdir = '../enum/'
+                execString = self.uncleExec + ' 42 '
+                atomStrings = ['2']
+                parallelJobFiles([self.atoms[0]],subdir,walltime,mem,execString,atomStrings)             
+                jobIds = parallelAtomsSubmit([self.atoms[0]],subdir)  
+                subprocess.call(['echo','\tSubmitted job {}\n'.format(jobIds[0])]) 
+                if len(jobIds)>0: parallelAtomsWait(jobIds)
+        else:
+            os.chdir(lastDir + '/enum')
+            subprocess.call([self.uncleExec, '42', '2'], stdout=self.uncleOut) 
+            os.chdir(lastDir)
 
     def getNtot(self,dir):
         """Gets total number of structures in enumeration"""
