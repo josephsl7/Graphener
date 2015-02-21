@@ -160,7 +160,7 @@ class structsToPoscar:
             if count != 0 and i != 0:
                 poscar.write(str(i) + " ")
 
-        poscar.write(' Case: ' + str(len(self.atoms[0].split(','))) + '  ')
+        poscar.write(' Case: ' + str(case) + '  ')
                 
         poscar.write('\n1.0\n')
 

@@ -35,16 +35,17 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
 
-        pureStructs = getPureStructs(lastDir + '/enum')
-        pureDirs = [atomDir + '/' + str(struct) for struct in pureStructs]
+        if os.path.exists(lastDir + '/enum/structs_enum.out'):
+            pureStructs = getPureStructs(lastDir + '/enum')
+            pureDirs = [atomDir + '/' + str(struct) for struct in pureStructs]
 
-        if not False in [os.path.exists(pureDir) and finishCheck(pureDir) for pureDir in pureDirs]:
-            for item in os.listdir(atomDir):
-                itempath = atomDir + '/' + item
-                if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
-                    nstruct += 1
-                    if nstruct == 3:
-                        break #need at least 3 structures to make a fit 
+            if not False in [os.path.exists(pureDir) and finishCheck(pureDir) for pureDir in pureDirs]:
+                for item in os.listdir(atomDir):
+                    itempath = atomDir + '/' + item
+                    if os.path.isdir(itempath) and item[0].isdigit(): #look only at dirs whose names are numbers
+                        nstruct += 1
+                        if nstruct == 3:
+                            break #need at least 3 structures to make a fit 
         if nstruct == 3: nfoldersOK += 1
 
     if nexistsStructsIn == natoms: 

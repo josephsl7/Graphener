@@ -1,9 +1,9 @@
-ATOMS: [Sc_sv,Vc] [Ti_sv,Vc]  # Metal atoms to combine with C and H V_sv Cr_pv Mn_pv
+ATOMS: [Ti_sv,Vc]  # Metal atoms to combine with C and H Sc_sv Ti_sv V_sv Cr_pv Mn_pv
 VOL_RANGE: 4  # Maximum cell size.
 CLUSTER_NUMS: 100 200 300 400 500 0 0 0 0 0 0  # Pairs, triplets, 4-bodies, etc.
-RUN_TYPES: Low  # 'low normal DOS' is the largest list possible.  
+RUN_TYPES: Low Normal DOS  # 'low normal DOS' is the largest list possible.  
 PRIORITY/IID: I  # Add structures to the model using Priority from gss (P) or training structures (IID).
-N_IID: 5  # Number of structures to extract from the enumeration
+N_IID: 600  # Number of structures to extract from the enumeration
 MAX_IID: 1000  #When this many total structures from any source have been submitted, change to Priority for new
 PRIOR_NUM: 0  # Number of structs to add to the pool from priority per iteration
 M_FITTING_STRUCTS: -100  # Number of structures going in the structures.in file
@@ -17,4 +17,4 @@ EDIFFG: 2.5e-4 # ionic relaxation energy max diff, for INCAR, *per atom*
 MAX_E: 2.5 # eV.  Above this, do not include in fit (but will be plotted from vaspFE, etc)
 GRAPHS_ONLY: N # Ignores iteration and restarts 
 PURE_METAL: 2  # structure number of the pure metal case
-MAX_ITER: 100  # Maximum number of iterations
+MAX_ITER: 10  # Maximum number of iterations
