@@ -6,7 +6,7 @@ class RunVasp:
         submitting VASP jobs to the supercomputer.  It keeps track of the SLURM job ids of all the
         jobs that are currently running from a particular instance of the class. """
     
-    from comMethods import setAtomCounts
+    from comMethods import setAtomCounts, finishCheck, convergeCheck, energyDropCheck
     def __init__(self, atoms, ediffg):
         """ CONSTRUCTOR """
         
@@ -106,7 +106,7 @@ class RunVasp:
                     structDir = elementDir + '/' + structure
                     if os.path.isdir(structDir):
                         normalDir = structDir + '/normal'
-                        if os.path.isdir(normalDir) and finishCheck(normalDir) and convergeCheck(normalDir, getNSW(normalDir)) and energyDropCheck(normalDir):
+                        if os.path.isdir(normalDir) and self.finishCheck(normalDir) and self.convergeCheck(normalDir, getNSW(normalDir)) and self.energyDropCheck(normalDir):
                             os.chdir(structDir)
                             subprocess.call(['mkdir', 'DOS'])
                             subprocess.call(['cp','normal/CONTCAR','normal/DOSCAR','normal/EIGENVAL',
@@ -232,7 +232,7 @@ class RunVasp:
                 os.chdir(elementDir)
                 for structure in vstructsToStart[iatom]:
                     structDir = elementDir + '/' + structure
-                    if os.path.isdir(structDir) and finishCheck(structDir) and convergeCheck(structDir, getNSW(structDir)) and energyDropCheck(normalDir):
+                    if os.path.isdir(structDir) and self.finishCheck(structDir) and self.convergeCheck(structDir, getNSW(structDir)) and self.energyDropCheck(normalDir):
                         subprocess.call(['mkdir', 'normal'])
                         subprocess.call(['cp','-P','CONTCAR','KPOINTS','vasp533',
                                          'POTCAR','job','normal'])

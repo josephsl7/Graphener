@@ -306,7 +306,7 @@ class GSS:
 #            nsites = 3-vol3 #number of sites in smallest structure, either 1 or 2
             for i,line in enumerate(lines[2:]): #first 2 lines are headers
                 struct = int(line.strip().split()[0])
-                x = float(line.strip().split()[2]) #metal concentration
+                x = float(line.strip().split()[1]) #metal concentration
                 vol  = int(line.strip().split()[self.case + 1])
                 counts  = [int(count) for count in line.strip().split()[self.case + 2 : 2*self.case + 2]]
                 nadatoms = sum(counts)
@@ -320,7 +320,7 @@ class GSS:
                     structEnergy += float(count) / float(nadatoms) * self.pureEnergies[i]
                 structEnergy = structEnergy * nadatoms #total
 
-                bindEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms) #2 atoms in graphene 
+                bindEnergy = structEnergy / float(nadatoms) - energyGraphene / 2.0 * ncarbon / float(nadatoms) #2 atoms in graphene 
                 for element, count in zip(atom.split(','), counts):
                     if element == 'Vc':
                         pass
@@ -336,7 +336,7 @@ class GSS:
                     uncleBEfile.write(' {:12.8f}'.format(float(count) / float(nadatoms)))
                 uncleBEfile.write(' {:12.8f}\n'.format(bindEnergy))
 
-                hexEnergy = structEnergy - energyGraphene / 2.0 * ncarbon / float(nadatoms)
+                hexEnergy = structEnergy / float(nadatoms) - energyGraphene / 2.0 * ncarbon / float(nadatoms)
                 for element, count in zip(atom.split(','), counts):
                     if element == 'Vc':
                         pass
@@ -358,3 +358,4 @@ class GSS:
 
 
         
+

@@ -177,8 +177,8 @@ class JobManager:
         """ Starts the normal-precision VASP calculations for all of the structures in 'vstructsToStart'
             and waits for all of the jobs to finish. It checks on the jobs every ten minutes. """
         subprocess.call(['echo','\nStarting normal-precision ionic relaxation. . .\n'])
-        self.vaspRunner.run(2, vstructsToStart,vstructsToRun)
         vstructsToRun = joinLists([vstructsRestart,vstructsToStart])
+        self.vaspRunner.run(2, vstructsToStart,vstructsToRun)
         
         s = scheduler(time.time, time.sleep)
     

@@ -35,10 +35,9 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
         if os.path.exists(atomDir + '/structures.in') and os.stat(atomDir + '/structures.in').st_size > 0: 
             nexistsStructsIn += 1
 
-        if os.path.exists(lastDir + '/enum/structs_enum.out'):
+        if os.path.exists(lastDir + '/enum/struct_enum.out'):
             pureStructs = getPureStructs(lastDir + '/enum')
             pureDirs = [atomDir + '/' + str(struct) for struct in pureStructs]
-
             if not False in [os.path.exists(pureDir) and finishCheck(pureDir) for pureDir in pureDirs]:
                 for item in os.listdir(atomDir):
                     itempath = atomDir + '/' + item
@@ -46,6 +45,8 @@ def initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal):
                         nstruct += 1
                         if nstruct == 3:
                             break #need at least 3 structures to make a fit 
+        else:
+            subprocess.call(['echo','Could not find struct_enum.out'])
         if nstruct == 3: nfoldersOK += 1
 
     if nexistsStructsIn == natoms: 
@@ -604,10 +605,15 @@ def readSettingsFile():
             elif line.split()[1][0].lower() == 'n': 
                distribute = False 
         elif line.split()[0] == 'EXTEND_PATH:':
-            extendpath = line.split()[1]      
+            extendpath = line.split()[1]   
+        elif line.split()[0] == 'ENUM_VC_NUM:': # Position in ATOMS to treat as vacancy in enumeration (1,2,... or N for none)
+            if line.split()[1][0].lower() == 'n':
+                enumVcNum = -1
+            else:
+                enumVcNum = int(line.split()[2]) - 1
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath, enumVcNum]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -732,7 +738,7 @@ if __name__ == '__main__':
     
     os.chdir(maindir)
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath, enumVcNum] = readSettingsFile()
     #build new larger run from previous smaller run, if maindir is empty and a path is given
 #    if extendpath != '' and len(os.listdir(maindir))==0:
     nTotClusters = sum(clusterNums)    
@@ -746,7 +752,7 @@ if __name__ == '__main__':
     seed()
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath, enumVcNum] = readSettingsFile()
     case = len(atoms[0].split(','))
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
@@ -772,11 +778,15 @@ if __name__ == '__main__':
     [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal)    
     vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
        
-    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput, distribute)
-    nTotStructs = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
+    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput, distribute, enumVcNum)
 #    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
-    if not enumerationDone(maindir + '/enum',nTotClusters,nTotStructs):
+    if not os.path.exists(maindir + '/enum/struct_enum.out'):
         enumerator.enumerate()
+        nTotStructs = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
+    else:
+        nTotStructs = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
+        if not enumerationDone(maindir + '/enum',nTotClusters,nTotStructs):
+            enumerator.enumerate()
     energiesLast = zeros((natoms,nTotStructs),dtype=float) #energies of last iteration, sorted by structure name
 
     createEnumPastDir(atoms)
@@ -803,7 +813,7 @@ if __name__ == '__main__':
         if iteration == 1: 
             if startMethod == 'empty folders': 
                 vstructsToStart = enumerator.chooseTrainingStructures(iteration,startMethod,nNew,nTotStructs)
-                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished)
+                vstructsToStart = extractor.checkPureInCurrent(iteration,vstructsToStart,vstructsFinished,maindir)
             vstructsToRun = vstructsToStart #no restarts in first iteration
         elif iteration > 1 and PriorOrIID == 'p':
             vstructsToStart = newStructsPrior  #from previous iteration 
@@ -856,8 +866,8 @@ if __name__ == '__main__':
         collateStructsConc(atoms,minPrior,iteration)
         NInPlot = 400
         collateStructsHFE(atoms,minPrior,NInPlot,iteration)              
-        move = MovementInfo.MovementInfo(atoms,pureMetal,iteration,False) #instance
-        move.getMovementInfo()        
+        #move = MovementInfo.MovementInfo(atoms,pureMetal,iteration,False) #instance
+        #move.getMovementInfo()        
         if graphsOnly: sys.exit('Done with graphs. Stopping')
 
                 #---------- prep for next iteration --------------
