@@ -150,7 +150,7 @@ def readInitialFolders(atoms,restartTimeout,):
                 subprocess.call(['echo','\tOUTCAR warning for struct {}: failed'.format(struct)])
             elif not failed and not energyDropCheck(vaspDir):
                 subprocess.call(['echo','\tEnergy rose unphysically for struct {}: failed'.format(struct)])
-                failed = True               
+                failed = True    
             elif not failed and finishCheck(vaspDir) and convergeCheck(vaspDir, getNSW(vaspDir)): 
                 finishedStructs.append(struct)
                 ifinished += 1
@@ -606,14 +606,9 @@ def readSettingsFile():
                distribute = False 
         elif line.split()[0] == 'EXTEND_PATH:':
             extendpath = line.split()[1]   
-        elif line.split()[0] == 'ENUM_VC_NUM:': # Position in ATOMS to treat as vacancy in enumeration (1,2,... or N for none)
-            if line.split()[1][0].lower() == 'n':
-                enumVcNum = -1
-            else:
-                enumVcNum = int(line.split()[2]) - 1
     
     return [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel, \
-            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath, enumVcNum]
+            ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath]
 
 def removeStructs(list1,list2):
     '''Remove items from list1 that might be in list2, and return list2'''
@@ -738,7 +733,7 @@ if __name__ == '__main__':
     
     os.chdir(maindir)
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath, enumVcNum] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath] = readSettingsFile()
     #build new larger run from previous smaller run, if maindir is empty and a path is given
 #    if extendpath != '' and len(os.listdir(maindir))==0:
     nTotClusters = sum(clusterNums)    
@@ -752,7 +747,7 @@ if __name__ == '__main__':
     seed()
 
     [atoms, volRange, clusterNums, runTypes, PriorOrIID, niid, maxiid, mfitStructs, nfitSubsets, nPrior, plotTitle, xlabel,\
-             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath, enumVcNum] = readSettingsFile()
+             ylabel,restartTimeout, rmStructIn, ediffg, maxE, graphsOnly, pureMetal, maxIter, distribute, extendpath] = readSettingsFile()
     case = len(atoms[0].split(','))
     uncleOutput = open('uncle_output.txt','w') # All output from UNCLE will be written to this file.  
     natoms = len(atoms)
@@ -778,8 +773,9 @@ if __name__ == '__main__':
     [vstructsFinished,vstructsRestart0,vstructsFailed,startMethod,vdata] = initializeStructs(atoms,restartTimeout,rmStructIn,pureMetal)    
     vstructsAll = joinLists([vstructsFinished,vstructsFailed,vstructsRestart0])
        
-    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput, distribute, enumVcNum)
-#    subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
+    enumerator = Enumerator.Enumerator(atoms, volRange, clusterNums, uncleOutput, distribute)
+    #nTotStructs = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures
+    #subprocess.call(['echo','Warning: BLOCKING ENUMERATOR to save time' ])
     if not os.path.exists(maindir + '/enum/struct_enum.out'):
         enumerator.enumerate()
         nTotStructs = enumerator.getNtot(os.getcwd()+'/enum') #number of all enumerated structures

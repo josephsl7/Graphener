@@ -201,6 +201,7 @@ def plotStructsByPrior(atoms,minPrior,iteration):
                     toPlot.append(struct)
                 elif prior > minPrior:
                     skipped.append(struct)
+    #toPlot = range(1,156)
     toPlot = set(toPlot) #remove duplicates
     skipped = set(skipped)
     print 'Number of structures in priority range (priority > {}):  {}'.format(minPrior,len(toPlot)+len(skipped))
@@ -465,8 +466,8 @@ class PlotGraphene:
                     self.Mcirclelist = self.Mcirclelist + [plt.Circle((Mxlist[i], Mylist[i]), .5, facecolor='r', edgecolor='black', lw = 3)]
                 else:
                     self.Mcirclelist = self.Mcirclelist + [plt.Circle((Mxlist[i], Mylist[i]), .5, color='r')]                   
-        for i in range(len(self.Mcirclelist)):
-            self.figure.gca().add_artist(self.Mcirclelist[i])
+#        for i in range(len(self.Mcirclelist)):
+#            self.figure.gca().add_artist(self.Mcirclelist[i])
         
     def fillByVecs(self, num):
         if num == 0:

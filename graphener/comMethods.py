@@ -49,6 +49,7 @@ def energyDropCheck(dir):
                 energies.append(float(line.split()[2]))
         except:
             'do nothing' # this allows to continue if file is corrupt
+    #print energies[-1] <= 0.99*energies[0] 
     if len(energies) > 2:
         return energies[-1] <= 0.99*energies[0] 
     return False
@@ -162,6 +163,9 @@ def readfile(filepath):
     lines = file1.readlines()
     file1.close()
     return lines
+
+def rms(array):
+    return sqrt(mean(square(array)))
     
 def writefile(lines,filepath): #need to have \n's inserted already
     file1 = open(filepath,'w')
@@ -361,6 +365,18 @@ def parallelAtomsSubmit(atoms,subdir):
             subprocess.call(['echo','\n~~~~~~~~~~ Failed while submitting atom job files for ' + atom + '! ~~~~~~~~~~\n'])
         os.chdir(lastDir)
     return jobIds
+
+def startJobs(self,toStart,atomDir,runDir):
+    """ Submits the runs in toStart to the supercomputer for one atom."""
+    lastDir = os.getcwd()
+    for structure in toStart:
+        os.chdir(atomDir + '/' + structure + '/' + runDir)
+        proc = subprocess.Popen(['sbatch','job'], stdout=subprocess.PIPE)
+        jobid = proc.communicate()[0].split()[3]
+        self.jobIds.append(jobid)
+        subprocess.call(['echo', 'Submitted job ' + jobid])
+    os.chdir(lastDir)
+    return
 
 def parallelAtomsWait(jobIds):
     """ Waits for the training structures to be generated for all of the atoms before moving on.

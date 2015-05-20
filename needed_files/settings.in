@@ -1,22 +1,21 @@
-ATOMS: [Ti_sv,Vc]  # Metal atoms to combine with C and H Sc_sv Ti_sv V_sv Cr_pv Mn_pv
-VOL_RANGE: 2  # Maximum cell size.
+ATOMS: [Ti_sv,Vc] [Sc_sv, Vc]  # Metal atoms to combine with C and H Sc_sv Ti_sv V_sv Cr_pv Mn_pv
+VOL_RANGE: 3  # Maximum cell size.
 CLUSTER_NUMS: 100 200 300 400 500 0 0 0 0 0 0  # Pairs, triplets, 4-bodies, etc.
 RUN_TYPES: Low  # 'low normal DOS' is the largest list possible.  
 PRIORITY/IID: I  # Add structures to the model using Priority from gss (P) or training structures (IID).
-N_IID: 1000  # Number of structures to extract from the enumeration
-MAX_IID: 1000  #When this many total structures from any source have been submitted, change to Priority for new
-PRIOR_NUM: 0  # Number of structs to add to the pool from priority per iteration
+N_IID: 10  # Number of structures to extract from the enumeration
+MAX_IID: 10  #When this many total structures from any source have been submitted, change to Priority for new
+PRIOR_NUM: 10  # Number of structs to add to the pool from priority per iteration
 M_FITTING_STRUCTS: -100  # Number of structures going in the structures.in file
 N_STRUCT_SUBSETS: 1  # Number of sets of size M_FITTING_STRUCTS to perform fits with.
 PLOT_TITLE: ''  # Title of gss plots
 XLAB:  'Metal concentration x' # x-label of gss plots
 YLAB:  'Energy (eV)'  # y-label of gss plots
 RESTART_TIMEOUT:  Y # (Y/N) Find those that timed out and resubmit them
-REMOVE_STR.IN: Y  # (Y/N Renames structures.in (compiled from past runs) to structures.in.old, so it will be built from run folders
+REMOVE_STR.IN: N  # (Y/N Renames structures.in (compiled from past runs) to structures.in.old, so it will be built from run folders
 EDIFFG: 2.5e-4 # ionic relaxation energy max diff, for INCAR, *per atom*
 MAX_E: 2.5 # eV.  Above this, do not include in fit (but will be plotted from vaspFE, etc)
 GRAPHS_ONLY: N # Ignores iteration and restarts 
 PURE_METAL: 2  # structure number of the pure metal case
-MAX_ITER: 10  # Maximum number of iterations
+MAX_ITER: 100  # Maximum number of iterations
 DISTRIBUTE: N # Whether to distribute over atom jobs the tasks such as iid choosing, fitting, and ground state search
-ENUM_VC_NUM: 2 # Position in ATOMS to treat as vacancy in enumeration (1,2,... or N for none)
